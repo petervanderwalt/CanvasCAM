@@ -1,4 +1,4 @@
-import { CLIPPER_SCALE } from "./constants.js";
+import { CLIPPER_SCALE } from "./constants.js?v=20260730-vcarve8";
 import {
   closePoints,
   polygonArea,
@@ -7,7 +7,14 @@ import {
   polylineLength,
   boundsOfPoints,
   dist,
-} from "./paths.js";
+} from "./paths.js?v=20260730-vcarve8";
+import {
+  ensureVCarveReady,
+  getVCarveLoadError,
+  generateVCarveToolpaths,
+  isVCarveReady,
+  mmPointsToClipperPath,
+} from "./vcarve.js?v=20260730-vcarve8";
 
 export function clipperPathFromPoints(points) {
   const path = points.slice(0, -1).map((point) => ({
@@ -136,6 +143,39 @@ export function offsetCompositePolygons(paths, delta) {
 }
 
 export function createToolpathFromLoops(selectedLoops, config, options = {}) {
+  if (config.operation === "vcarve") {
+    throw new Error("V-Carve toolpaths must be built asynchronously.");
+  }
+  return createToolpathSkeleton(selectedLoops, config, options);
+}
+
+export async function createToolpathFromLoopsAsync(selectedLoops, config, options = {}) {
+  const toolpath = createToolpathSkeleton(selectedLoops, config, options);
+
+  if (config.operation !== "vcarve") {
+    return toolpath;
+  }
+
+  const compositeSelection = compositePocketSeedPaths(selectedLoops);
+  const vCarvePassDepth = Math.max(0.01, config.cutDepth);
+  const motionPaths = await generateVCarveToolpaths(
+    compositeSelection.map(mmPointsToClipperPath),
+    {
+      cutterAngle: config.cutterAngle,
+      passDepth: vCarvePassDepth,
+      maxDepth: config.cutDepth,
+    }
+  );
+
+  toolpath.motionPaths = motionPaths;
+  toolpath.previewContours = motionPaths
+    .map((path) => path.points.map(({ x, y }) => ({ x, y })))
+    .filter((points) => points.length >= 2);
+
+  return toolpath;
+}
+
+function createToolpathSkeleton(selectedLoops, config, options = {}) {
   const previewContours = [];
   const sourceLoops = [];
   const compositeSelection = compositePocketSeedPaths(selectedLoops);
@@ -183,17 +223,23 @@ export function createToolpathFromLoops(selectedLoops, config, options = {}) {
     "profile-inside": "Profile Inside",
     engrave: "Engrave",
     pocket: "Pocket",
+    vcarve: "V-Carve",
   }[config.operation];
 
   const label = options.label || `${operationLabel} (${selectedLoops.length} vector${selectedLoops.length === 1 ? "" : "s"})`;
+  const cardMeta = config.operation === "vcarve"
+    ? `${operationLabel} - ${formatNumber(config.cutterAngle)}deg - ${formatNumber(cutDepth)}mm max depth - single pass`
+    : `${operationLabel} - ${config.toolDiameter.toFixed(1)}mm - ${cutDepth.toFixed(2)}mm deep - ${passDepth.toFixed(2)}mm/pass - ${passDepths.length} passes`;
 
   return {
     id: options.id || crypto.randomUUID(),
     label,
     operation: config.operation,
     operationLabel,
+    cardMeta,
     toolDiameter: config.toolDiameter,
     toolRadius: config.toolRadius,
+    cutterAngle: config.cutterAngle,
     overlapPercent: config.overlapPercent,
     cutDepth,
     passDepth,
@@ -205,6 +251,7 @@ export function createToolpathFromLoops(selectedLoops, config, options = {}) {
     plungeRate: config.plungeRate,
     spindle: config.spindle,
     previewContours,
+    motionPaths: [],
     sourceLoops,
     tabs: [],
   };
@@ -271,6 +318,22 @@ export function operationUsesTabs(toolpath) {
   return toolpath.operation === "profile-outside" || toolpath.operation === "profile-inside";
 }
 
+export function usesVCarve(operation) {
+  return operation === "vcarve";
+}
+
+export function isVCarveEngineReady() {
+  return isVCarveReady();
+}
+
+export function ensureVCarveEngineReady() {
+  return ensureVCarveReady();
+}
+
+export function getVCarveEngineLoadError() {
+  return getVCarveLoadError();
+}
+
 export function tabTopDepth(toolpath) {
   return -Math.max(0, toolpath.cutDepth - toolpath.tabHeight);
 }
@@ -292,6 +355,14 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs }) {
     lines.push(`(${toolpath.operationLabel} - ${toolpath.label})`);
     lines.push(`G0 Z${formatNumber(safeZ)}`);
     lines.push(`M3 S${Math.round(spindle)}`);
+
+    if (toolpath.operation === "vcarve") {
+      emitVCarveMoves(lines, toolpath, feed, plunge, safeZ);
+      lines.push(`G0 Z${formatNumber(safeZ)}`);
+      lines.push("M5");
+      continue;
+    }
+
     for (const depth of toolpath.passDepths) {
       for (let contourIndex = 0; contourIndex < toolpath.previewContours.length; contourIndex += 1) {
         const contour = toolpath.previewContours[contourIndex];
@@ -327,11 +398,7 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs }) {
           if (tabStart > cursor) {
             segments.push({ from: cursor, to: tabStart, depth });
           }
-          segments.push({
-            from: tabStart,
-            to: tabEnd,
-            depth: fixedTabDepth,
-          });
+          segments.push({ from: tabStart, to: tabEnd, depth: fixedTabDepth });
           cursor = tabEnd;
         }
         if (cursor < total) {
@@ -356,8 +423,33 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs }) {
     lines.push(`G0 Z${formatNumber(safeZ)}`);
     lines.push("M5");
   }
+
   lines.push("M30");
   return lines.join("\n");
+}
+
+function emitVCarveMoves(lines, toolpath, feed, plunge, safeZ) {
+  for (const path of toolpath.motionPaths || []) {
+    if (!path.points?.length) {
+      continue;
+    }
+    const [start, ...rest] = path.points;
+    lines.push(`G0 Z${formatNumber(safeZ)}`);
+    lines.push(`G0 X${formatNumber(start.x)} Y${formatNumber(start.y)}`);
+    lines.push(`G1 Z${formatNumber(start.z)} F${formatNumber(plunge)}`);
+
+    let previous = start;
+    for (const point of rest) {
+      const sameXY = Math.abs(point.x - previous.x) < 0.0001 && Math.abs(point.y - previous.y) < 0.0001;
+      if (sameXY) {
+        const rate = point.z < previous.z ? plunge : feed;
+        lines.push(`G1 Z${formatNumber(point.z)} F${formatNumber(rate)}`);
+      } else {
+        lines.push(`G1 X${formatNumber(point.x)} Y${formatNumber(point.y)} Z${formatNumber(point.z)} F${formatNumber(feed)}`);
+      }
+      previous = point;
+    }
+  }
 }
 
 function emitContourMoves(lines, contour, depth, feed, plunge, forcePolylineArcs) {

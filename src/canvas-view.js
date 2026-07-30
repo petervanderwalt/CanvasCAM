@@ -37,9 +37,10 @@ export function drawScene({
     const isSelected = state.selectedLoopIds.has(loop.id);
     const isPreviewed = state.marqueePreviewLoopIds.has(loop.id) && !isSelected;
     const isHovered = state.hoveredLoopId === loop.id && !isSelected && !isPreviewed;
+    const selectionAlpha = state.draftToolpath ? 0.06 : 0.18;
     ctx.save();
     ctx.fillStyle = isSelected
-      ? "rgba(13, 110, 253, 0.18)"
+      ? `rgba(13, 110, 253, ${selectionAlpha})`
       : isHovered
         ? "rgba(13, 110, 253, 0.14)"
         : isPreviewed

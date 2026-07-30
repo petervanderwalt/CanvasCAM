@@ -2,13 +2,13 @@ import {
   MARQUEE_DRAG_THRESHOLD,
   TAB_DELETE_HOLD_MS,
   TAB_DELETE_MOVE_THRESHOLD,
-} from "./src/constants.js";
-import { parseDxf as parseDxfFile } from "./src/dxf.js";
-import { parseSvg as parseSvgFile } from "./src/svg.js";
-import * as Paths from "./src/paths.js";
-import * as CamOps from "./src/cam-ops.js";
-import * as UiState from "./src/ui-state.js";
-import * as CanvasView from "./src/canvas-view.js";
+} from "./src/constants.js?v=20260730-vcarve11";
+import { parseDxf as parseDxfFile } from "./src/dxf.js?v=20260730-vcarve11";
+import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260730-vcarve11";
+import * as Paths from "./src/paths.js?v=20260730-vcarve11";
+import * as CamOps from "./src/cam-ops.js?v=20260730-vcarve11";
+import * as UiState from "./src/ui-state.js?v=20260730-vcarve11";
+import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
 
 (function () {
 
@@ -29,12 +29,18 @@ import * as CanvasView from "./src/canvas-view.js";
     globalSettingsSection: document.getElementById("globalSettingsSection"),
     toolpathTypeInput: document.getElementById("toolpathTypeInput"),
     operationOptions: Array.from(document.querySelectorAll(".operation-option")),
+    toolDiameterField: document.getElementById("toolDiameterField"),
     toolDiameterInput: document.getElementById("toolDiameterInput"),
+    cutterAngleField: document.getElementById("cutterAngleField"),
+    cutterAngleInput: document.getElementById("cutterAngleInput"),
     overlapInput: document.getElementById("overlapInput"),
     overlapField: document.getElementById("overlapField"),
+    cutDepthField: document.getElementById("cutDepthField"),
     cutDepthInput: document.getElementById("cutDepthInput"),
     passDepthInput: document.getElementById("passDepthInput"),
+    tabWidthField: document.getElementById("tabWidthField"),
     tabWidthInput: document.getElementById("tabWidthInput"),
+    tabHeightField: document.getElementById("tabHeightField"),
     tabHeightInput: document.getElementById("tabHeightInput"),
     toolpathSubmitBtn: document.getElementById("toolpathSubmitBtn"),
     cancelEditBtn: document.getElementById("cancelEditBtn"),
@@ -77,6 +83,7 @@ import * as CanvasView from "./src/canvas-view.js";
     editingToolpathId: null,
     draftToolpath: null,
     autoTabHeight: true,
+    draftBuildToken: 0,
   };
 
   function setStatus(message) {
@@ -308,24 +315,51 @@ import * as CanvasView from "./src/canvas-view.js";
     return normalized;
   }
 
-  function rebuildDraftToolpath() {
+  async function rebuildDraftToolpath() {
+    const buildToken = ++state.draftBuildToken;
     const sourceLoops = getDraftSourceLoops();
     if (!sourceLoops.length || ui.toolpathForm.classList.contains("d-none")) {
-      state.draftToolpath = null;
-      if (state.addTabsMode) {
-        state.hoveredTabCandidate = null;
+      if (buildToken === state.draftBuildToken) {
+        state.draftToolpath = null;
+        if (state.addTabsMode) {
+          state.hoveredTabCandidate = null;
+        }
       }
       return;
     }
     const editing = getEditingToolpath();
     const config = readToolpathConfigFromForm();
-    const draft = createToolpathFromLoops(sourceLoops, config, {
-      id: editing?.id || "draft-toolpath",
-      label: editing?.label,
-    });
-    const existingTabs = state.draftToolpath?.tabs || editing?.tabs || [];
-    draft.tabs = normalizeTabsForToolpath(draft, existingTabs);
-    state.draftToolpath = draft;
+
+    try {
+      if (config.operation === "vcarve" && !isVCarveEngineReady()) {
+        setStatus("V-Carve engine is loading...");
+      }
+      const draft = await createToolpathFromLoopsAsync(sourceLoops, config, {
+        id: editing?.id || "draft-toolpath",
+        label: editing?.label,
+      });
+      if (buildToken !== state.draftBuildToken) {
+        return;
+      }
+      const existingTabs = state.draftToolpath?.tabs || editing?.tabs || [];
+      draft.tabs = normalizeTabsForToolpath(draft, existingTabs);
+      state.draftToolpath = draft;
+      if (config.operation === "vcarve") {
+        setStatus("V-Carve engine ready.");
+      }
+      refreshToolpathUi();
+      draw();
+    } catch (error) {
+      if (buildToken !== state.draftBuildToken) {
+        return;
+      }
+      state.draftToolpath = null;
+      if (error instanceof Error) {
+        setStatus(error.message);
+      }
+      refreshToolpathUi();
+      draw();
+    }
   }
 
   function clearDraftToolpath() {
@@ -354,6 +388,7 @@ import * as CanvasView from "./src/canvas-view.js";
       operation: ui.toolpathTypeInput.value,
       toolDiameter,
       toolRadius: toolDiameter / 2,
+      cutterAngle: Number.parseFloat(ui.cutterAngleInput.value) || 90,
       overlapPercent: Number.parseFloat(ui.overlapInput.value) || 40,
       cutDepth: Number.parseFloat(ui.cutDepthInput.value) || 18,
       passDepth: Number.parseFloat(ui.passDepthInput.value) || 3,
@@ -370,6 +405,7 @@ import * as CanvasView from "./src/canvas-view.js";
     state.autoTabHeight = false;
     ui.toolpathTypeInput.value = toolpath.operation;
     ui.toolDiameterInput.value = toolpath.toolDiameter;
+    ui.cutterAngleInput.value = toolpath.cutterAngle || 90;
     ui.overlapInput.value = toolpath.overlapPercent;
     ui.cutDepthInput.value = toolpath.cutDepth;
     ui.passDepthInput.value = toolpath.passDepth;
@@ -516,6 +552,13 @@ import * as CanvasView from "./src/canvas-view.js";
 
   function createToolpathFromLoops(selectedLoops, config, options = {}) {
     return CamOps.createToolpathFromLoops(selectedLoops, config, {
+      ...options,
+      loopIndexResolver: (loop) => state.loops.findIndex((candidate) => candidate.id === loop.id),
+    });
+  }
+
+  function createToolpathFromLoopsAsync(selectedLoops, config, options = {}) {
+    return CamOps.createToolpathFromLoopsAsync(selectedLoops, config, {
       ...options,
       loopIndexResolver: (loop) => state.loops.findIndex((candidate) => candidate.id === loop.id),
     });
@@ -880,6 +923,10 @@ import * as CanvasView from "./src/canvas-view.js";
     return CamOps.operationUsesTabs(...args);
   }
 
+  function isVCarveEngineReady(...args) {
+    return CamOps.isVCarveEngineReady(...args);
+  }
+
   function tabTopDepth(...args) {
     return CamOps.tabTopDepth(...args);
   }
@@ -922,6 +969,7 @@ import * as CanvasView from "./src/canvas-view.js";
   }
   [
     ui.toolDiameterInput,
+    ui.cutterAngleInput,
     ui.overlapInput,
     ui.passDepthInput,
     ui.tabWidthInput,
@@ -967,9 +1015,9 @@ import * as CanvasView from "./src/canvas-view.js";
     }
     loadDxfText(text, file.name);
   });
-  ui.toolpathForm.addEventListener("submit", (event) => {
+  ui.toolpathForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    rebuildDraftToolpath();
+    await rebuildDraftToolpath();
     commitDraftToolpath();
     refreshSelectionUi();
     refreshToolpathUi();
@@ -1181,6 +1229,105 @@ import * as CanvasView from "./src/canvas-view.js";
     }
     event.preventDefault();
   });
+
+  window.__camCanvasDebug = {
+    state,
+    ui,
+    loadDxfText,
+    loadSvgText,
+    rebuildDraftToolpath,
+    buildGcode,
+    commitDraftToolpath,
+    refreshSelectionUi,
+    refreshToolpathUi,
+    draw,
+    getRenderableToolpaths,
+    getActiveToolpath,
+    getEditingToolpath,
+    getInteractiveToolpath,
+    isVCarveEngineReady,
+    async loadBundledSample() {
+      await loadBundledSample();
+      return this.snapshot();
+    },
+    selectLoopsByIndex(indexes) {
+      state.selectedLoopIds.clear();
+      for (const index of indexes) {
+        const loop = state.loops[index];
+        if (loop) {
+          state.selectedLoopIds.add(loop.id);
+        }
+      }
+      refreshSelectionUi();
+      refreshToolpathUi();
+      draw();
+      return this.snapshot();
+    },
+    setOperation(operation) {
+      ui.toolpathTypeInput.value = operation;
+      refreshOperationUi();
+      refreshToolpathFieldVisibility();
+      return operation;
+    },
+    setFormValues(values) {
+      const mapping = {
+        toolDiameter: ui.toolDiameterInput,
+        cutterAngle: ui.cutterAngleInput,
+        overlapPercent: ui.overlapInput,
+        cutDepth: ui.cutDepthInput,
+        passDepth: ui.passDepthInput,
+        tabWidth: ui.tabWidthInput,
+        tabHeight: ui.tabHeightInput,
+        safeZ: ui.safeZInput,
+        feedRate: ui.feedRateInput,
+        plungeRate: ui.plungeRateInput,
+        spindle: ui.spindleInput,
+      };
+      for (const [key, value] of Object.entries(values || {})) {
+        const input = mapping[key];
+        if (input) {
+          input.value = value;
+        }
+      }
+      return this.snapshot();
+    },
+    async buildDraft() {
+      await rebuildDraftToolpath();
+      refreshToolpathUi();
+      draw();
+      return this.snapshot();
+    },
+    applyDraft() {
+      commitDraftToolpath();
+      refreshSelectionUi();
+      refreshToolpathUi();
+      draw();
+      return this.snapshot();
+    },
+    snapshot() {
+      return {
+        status: ui.statusText.textContent,
+        loops: state.loops.length,
+        selected: Array.from(state.selectedLoopIds),
+        draft: state.draftToolpath
+          ? {
+            operation: state.draftToolpath.operation,
+            previewContours: state.draftToolpath.previewContours.length,
+            motionPaths: state.draftToolpath.motionPaths.length,
+            firstMotionPathPoints: state.draftToolpath.motionPaths[0]?.points?.length || 0,
+            cardMeta: state.draftToolpath.cardMeta,
+          }
+          : null,
+        toolpaths: state.toolpaths.map((toolpath) => ({
+          id: toolpath.id,
+          label: toolpath.label,
+          operation: toolpath.operation,
+          previewContours: toolpath.previewContours.length,
+          motionPaths: toolpath.motionPaths.length,
+        })),
+      };
+    },
+  };
 
   window.addEventListener("resize", resizeCanvas);
   resizeCanvas();

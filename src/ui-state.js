@@ -5,10 +5,29 @@ export function refreshOperationUi(ui) {
 }
 
 export function refreshToolpathFieldVisibility(ui) {
-  ui.overlapField.classList.toggle("d-none", ui.toolpathTypeInput.value !== "pocket");
+  const operation = ui.toolpathTypeInput.value;
+  const isPocket = operation === "pocket";
+  const isVCarve = operation === "vcarve";
+  const usesTabs = operation === "profile-outside" || operation === "profile-inside";
+  const passDepthGroup = ui.passDepthInput?.closest(".col-6");
+
+  ui.overlapField.classList.toggle("d-none", !isPocket);
+  ui.cutterAngleField.classList.toggle("d-none", !isVCarve);
+  ui.toolDiameterField.classList.toggle("d-none", isVCarve);
+  ui.cutDepthField?.classList.toggle("d-none", isVCarve);
+  ui.tabWidthField.classList.toggle("d-none", !usesTabs);
+  ui.tabHeightField.classList.toggle("d-none", !usesTabs);
+  passDepthGroup?.classList.toggle("d-none", isVCarve);
 }
 
-export function refreshSelectionUi({ state, ui, editing, refreshOperationUiFn, refreshToolpathFieldVisibilityFn, rebuildDraftToolpath }) {
+export function refreshSelectionUi({
+  state,
+  ui,
+  editing,
+  refreshOperationUiFn,
+  refreshToolpathFieldVisibilityFn,
+  rebuildDraftToolpath,
+}) {
   const count = state.selectedLoopIds.size;
   ui.selectionCount.textContent = String(count);
   ui.selectionHeading.textContent = editing ? "Edit Toolpath" : "Selection";
@@ -46,7 +65,7 @@ export function refreshToolpathUi({
       <div class="row-head">
         <div>
           <h3>${toolpath.label}</h3>
-          <div class="meta">${toolpath.operationLabel} • ${toolpath.toolDiameter.toFixed(1)}mm • ${toolpath.cutDepth.toFixed(2)}mm deep • ${toolpath.passDepth.toFixed(2)}mm/pass • ${toolpath.passDepths.length} passes</div>
+          <div class="meta">${toolpath.cardMeta}</div>
         </div>
         <div class="actions">
           <button type="button" class="action-btn edit" data-action="edit" title="Edit toolpath" aria-label="Edit toolpath">
@@ -57,7 +76,7 @@ export function refreshToolpathUi({
           </button>
         </div>
       </div>
-      <div class="meta mt-2">Feed ${Math.round(toolpath.feedRate)} • Plunge ${Math.round(toolpath.plungeRate)} • RPM ${Math.round(toolpath.spindle)}</div>
+      <div class="meta mt-2">Feed ${Math.round(toolpath.feedRate)} - Plunge ${Math.round(toolpath.plungeRate)} - RPM ${Math.round(toolpath.spindle)}</div>
     `;
     card.addEventListener("click", (event) => {
       if (window.getSelection()?.toString()) {
@@ -98,4 +117,3 @@ export function refreshToolpathUi({
     ui.tabModeHint.textContent = "";
   }
 }
-

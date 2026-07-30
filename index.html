@@ -84,13 +84,17 @@
                   <img class="operation-preview-image" src="assets/operations/engrave.png" alt="Engrave toolpath preview">
                   <span class="operation-label">Engrave</span>
                 </button>
+                <button type="button" class="operation-option" data-operation="vcarve">
+                  <img class="operation-preview-image" src="assets/operations/vcarve.png" alt="V-Carve toolpath preview">
+                  <span class="operation-label">V-Carve</span>
+                </button>
               </div>
             </div>
 
             <div class="panel-group mb-3">
               <div class="panel-group-title">Endmill</div>
               <div class="row g-2">
-                <div class="col-6">
+                <div id="toolDiameterField" class="col-6">
                   <label class="form-label small mb-1" for="toolDiameterInput">Diameter</label>
                   <div class="input-group input-group-sm">
                     <input id="toolDiameterInput" class="form-control form-control-sm" type="number" step="0.1" value="6">
@@ -102,6 +106,13 @@
                   <div class="input-group input-group-sm">
                     <input id="spindleInput" class="form-control form-control-sm" type="number" step="100" value="18000">
                     <span class="input-group-text">rpm</span>
+                  </div>
+                </div>
+                <div id="cutterAngleField" class="col-6 d-none">
+                  <label class="form-label small mb-1" for="cutterAngleInput">V Angle</label>
+                  <div class="input-group input-group-sm">
+                    <input id="cutterAngleInput" class="form-control form-control-sm" type="number" step="1" value="90">
+                    <span class="input-group-text">deg</span>
                   </div>
                 </div>
                 <div class="col-6">
@@ -131,7 +142,7 @@
             <div class="panel-group mb-3">
               <div class="panel-group-title">Cut Depth</div>
               <div class="row g-2">
-                <div class="col-6">
+                <div id="cutDepthField" class="col-6">
                   <label class="form-label small mb-1" for="cutDepthInput">Final Depth</label>
                   <div class="input-group input-group-sm">
                     <input id="cutDepthInput" class="form-control form-control-sm" type="number" step="0.1" value="18">
@@ -158,14 +169,14 @@
                     <span class="input-group-text">mm</span>
                   </div>
                 </div>
-                <div class="col-4">
+                <div id="tabWidthField" class="col-4">
                   <label class="form-label small mb-1" for="tabWidthInput">Tab Width</label>
                   <div class="input-group input-group-sm">
                     <input id="tabWidthInput" class="form-control form-control-sm" type="number" step="0.1" value="9">
                     <span class="input-group-text">mm</span>
                   </div>
                 </div>
-                <div class="col-4">
+                <div id="tabHeightField" class="col-4">
                   <label class="form-label small mb-1" for="tabHeightInput">Tab Height</label>
                   <div class="input-group input-group-sm">
                     <input id="tabHeightInput" class="form-control form-control-sm" type="number" step="0.1" value="9">
@@ -202,6 +213,6 @@
   </div>
 
   <script src="clipperjs/clipper_unminified.js"></script>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=20260730-vcarve11"></script>
 </body>
 </html>
