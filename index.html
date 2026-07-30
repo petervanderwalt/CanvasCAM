@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAM Canvas</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+    crossorigin="anonymous"
+  >
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  >
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-body-tertiary">
+  <div class="app-shell">
+    <main class="canvas-panel">
+      <div class="topbar border-bottom bg-white">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <button id="loadSampleBtn" class="btn btn-primary btn-sm">Load Bundled Sample DXF</button>
+          <label class="btn btn-outline-primary btn-sm mb-0">
+            Load Vector File
+            <input id="fileInput" type="file" accept=".dxf,.svg,image/svg+xml" hidden>
+          </label>
+          <button id="zoomFitBtn" class="btn btn-outline-secondary btn-sm">Reset View</button>
+        </div>
+        <div class="small text-secondary" id="statusText">Load a DXF or SVG to begin.</div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="drawingCanvas"></canvas>
+      </div>
+    </main>
+
+    <aside class="sidebar border-start bg-white">
+      <div class="sidebar-scroll">
+        <section class="p-2 border-bottom d-flex justify-content-end">
+          <button id="toggleSettingsBtn" type="button" class="btn btn-outline-secondary btn-sm icon-btn" title="Settings" aria-label="Settings">
+            <i class="fa-solid fa-gear"></i>
+          </button>
+        </section>
+
+        <section id="globalSettingsSection" class="p-3 border-bottom d-none">
+          <div class="panel-group">
+            <div class="panel-group-title">Global Settings</div>
+            <div class="form-check">
+              <input id="forcePolylineArcsInput" class="form-check-input" type="checkbox">
+              <label class="form-check-label small" for="forcePolylineArcsInput">Force arcs/circles as polylines on export</label>
+            </div>
+          </div>
+        </section>
+
+        <section class="p-3 border-bottom" id="selectionSection">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="h6 mb-0" id="selectionHeading">Selection</h2>
+            <span id="selectionCount" class="badge text-bg-primary">0</span>
+          </div>
+          <div id="selectionEmpty" class="small text-secondary">Select one or more closed vectors on the canvas.</div>
+          <form id="toolpathForm" class="d-none compact-form">
+            <div id="toolpathFormMode" class="small text-secondary mb-3"></div>
+
+            <div class="panel-group mb-3">
+              <div class="panel-group-title">Operation</div>
+              <input id="toolpathTypeInput" type="hidden" value="profile-outside">
+              <div class="operation-grid">
+                <button type="button" class="operation-option active" data-operation="profile-outside">
+                  <img class="operation-preview-image" src="assets/operations/outside.png" alt="Outside profile toolpath preview">
+                  <span class="operation-label">Outside</span>
+                </button>
+                <button type="button" class="operation-option" data-operation="profile-inside">
+                  <img class="operation-preview-image" src="assets/operations/inside.png" alt="Inside profile toolpath preview">
+                  <span class="operation-label">Inside</span>
+                </button>
+                <button type="button" class="operation-option" data-operation="pocket">
+                  <img class="operation-preview-image" src="assets/operations/pocket.png" alt="Pocket toolpath preview">
+                  <span class="operation-label">Pocket</span>
+                </button>
+                <button type="button" class="operation-option" data-operation="engrave">
+                  <img class="operation-preview-image" src="assets/operations/engrave.png" alt="Engrave toolpath preview">
+                  <span class="operation-label">Engrave</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="panel-group mb-3">
+              <div class="panel-group-title">Endmill</div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label small mb-1" for="toolDiameterInput">Diameter</label>
+                  <div class="input-group input-group-sm">
+                    <input id="toolDiameterInput" class="form-control form-control-sm" type="number" step="0.1" value="6">
+                    <span class="input-group-text">mm</span>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label small mb-1" for="spindleInput">RPM</label>
+                  <div class="input-group input-group-sm">
+                    <input id="spindleInput" class="form-control form-control-sm" type="number" step="100" value="18000">
+                    <span class="input-group-text">rpm</span>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label small mb-1" for="feedRateInput">Feed</label>
+                  <div class="input-group input-group-sm">
+                    <input id="feedRateInput" class="form-control form-control-sm" type="number" step="1" value="1800">
+                    <span class="input-group-text">mm/min</span>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label small mb-1" for="plungeRateInput">Plunge</label>
+                  <div class="input-group input-group-sm">
+                    <input id="plungeRateInput" class="form-control form-control-sm" type="number" step="1" value="600">
+                    <span class="input-group-text">mm/min</span>
+                  </div>
+                </div>
+                <div id="overlapField" class="col-4 d-none">
+                  <label class="form-label small mb-1" for="overlapInput">Overlap %</label>
+                  <div class="input-group input-group-sm">
+                    <input id="overlapInput" class="form-control form-control-sm" type="number" step="1" min="0" max="95" value="40">
+                    <span class="input-group-text">%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-group mb-3">
+              <div class="panel-group-title">Cut Depth</div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label small mb-1" for="cutDepthInput">Final Depth</label>
+                  <div class="input-group input-group-sm">
+                    <input id="cutDepthInput" class="form-control form-control-sm" type="number" step="0.1" value="18">
+                    <span class="input-group-text">mm</span>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label small mb-1" for="passDepthInput">Pass Depth</label>
+                  <div class="input-group input-group-sm">
+                    <input id="passDepthInput" class="form-control form-control-sm" type="number" step="0.1" value="3">
+                    <span class="input-group-text">mm</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-group mb-3">
+              <div class="panel-group-title">Job Settings</div>
+              <div class="row g-2 mb-2">
+                <div class="col-4">
+                  <label class="form-label small mb-1" for="safeZInput">Z Safe</label>
+                  <div class="input-group input-group-sm">
+                    <input id="safeZInput" class="form-control form-control-sm" type="number" step="0.1" value="6">
+                    <span class="input-group-text">mm</span>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <label class="form-label small mb-1" for="tabWidthInput">Tab Width</label>
+                  <div class="input-group input-group-sm">
+                    <input id="tabWidthInput" class="form-control form-control-sm" type="number" step="0.1" value="9">
+                    <span class="input-group-text">mm</span>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <label class="form-label small mb-1" for="tabHeightInput">Tab Height</label>
+                  <div class="input-group input-group-sm">
+                    <input id="tabHeightInput" class="form-control form-control-sm" type="number" step="0.1" value="9">
+                    <span class="input-group-text">mm</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-grid gap-2 form-actions-sticky">
+              <button id="toolpathSubmitBtn" type="submit" class="btn btn-success btn-sm">Apply Toolpath</button>
+              <button id="cancelEditBtn" type="button" class="btn btn-outline-secondary btn-sm d-none">Cancel Edit</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="p-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="h6 mb-0">Toolpaths</h2>
+            <span id="toolpathCount" class="badge text-bg-secondary">0</span>
+          </div>
+          <div id="toolpathList" class="d-grid gap-2"></div>
+          <div class="toolbar-mini mt-3">
+            <button id="addTabsBtn" type="button" class="btn btn-outline-primary btn-xs" disabled>Add Tab</button>
+            <button id="removeTabsBtn" type="button" class="btn btn-outline-secondary btn-xs" disabled>Clear Tabs</button>
+          </div>
+          <div class="d-grid gap-2 mt-3">
+            <button id="generateGcodeBtn" class="btn btn-primary btn-sm" disabled>Generate G-code</button>
+          </div>
+          <div class="small text-secondary mt-2" id="tabModeHint"></div>
+        </section>
+      </div>
+    </aside>
+  </div>
+
+  <script src="clipperjs/clipper_unminified.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
