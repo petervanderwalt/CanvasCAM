@@ -2,24 +2,40 @@ import {
   MARQUEE_DRAG_THRESHOLD,
   TAB_DELETE_HOLD_MS,
   TAB_DELETE_MOVE_THRESHOLD,
-} from "./src/constants.js?v=20260730-vcarve11";
-import { parseDxf as parseDxfFile } from "./src/dxf.js?v=20260730-vcarve11";
-import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260730-vcarve11";
-import * as Paths from "./src/paths.js?v=20260730-vcarve11";
-import * as CamOps from "./src/cam-ops.js?v=20260730-vcarve11";
-import * as UiState from "./src/ui-state.js?v=20260730-vcarve11";
-import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
+} from "./src/constants.js?v=20260730-vcarve12";
+import { parseDxf as parseDxfFile } from "./src/dxf.js?v=20260730-vcarve12";
+import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260730-vcarve12";
+import * as Paths from "./src/paths.js?v=20260730-vcarve12";
+import * as CamOps from "./src/cam-ops.js?v=20260730-vcarve12";
+import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
+import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve12";
+import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 
 (function () {
 
   const canvas = document.getElementById("drawingCanvas");
   const ctx = canvas.getContext("2d");
+  let canvasResizeObserver = null;
+  let drawFramePending = false;
+  let loopPathsDirty = true;
+  let navigationDetailTimerId = null;
+  let workerProgressAnimationFrame = null;
 
   const ui = {
+    projectTitle: document.getElementById("projectTitle"),
     loadSampleBtn: document.getElementById("loadSampleBtn"),
+    browseVectorBtn: document.getElementById("browseVectorBtn"),
     fileInput: document.getElementById("fileInput"),
     zoomFitBtn: document.getElementById("zoomFitBtn"),
+    zoomInBtn: document.getElementById("zoomInBtn"),
+    zoomOutBtn: document.getElementById("zoomOutBtn"),
+    workerBadge: document.getElementById("workerBadge"),
+    workerPercent: document.getElementById("workerPercent"),
     statusText: document.getElementById("statusText"),
+    canvasWrap: document.getElementById("canvasWrap"),
+    canvasEmptyState: document.getElementById("canvasEmptyState"),
+    originToggleButtons: Array.from(document.querySelectorAll(".origin-toggle-btn")),
+    workflowSteps: Array.from(document.querySelectorAll(".workflow-step")),
     selectionCount: document.getElementById("selectionCount"),
     selectionHeading: document.getElementById("selectionHeading"),
     selectionEmpty: document.getElementById("selectionEmpty"),
@@ -77,6 +93,10 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
       panX: 0,
       panY: 0,
     },
+    pointer: {
+      x: 24,
+      y: 24,
+    },
     dragPan: null,
     bounds: null,
     importTranslation: { x: 0, y: 0 },
@@ -84,19 +104,194 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
     draftToolpath: null,
     autoTabHeight: true,
     draftBuildToken: 0,
+    showOrigin: true,
+    dragImportActive: false,
+    isNavigatingView: false,
+    workerJobs: new Map(),
   };
 
   function setStatus(message) {
     ui.statusText.textContent = message;
   }
 
+  function setWorkflowStep(stepName, status) {
+    const step = ui.workflowSteps.find((candidate) => candidate.dataset.step === stepName);
+    if (!step) {
+      return;
+    }
+    step.classList.toggle("is-active", status === "active");
+    step.classList.toggle("is-complete", status === "complete");
+  }
+
+  function refreshWorkspaceUi() {
+    const hasGeometry = state.loops.length > 0;
+    const hasToolpaths = state.toolpaths.length > 0;
+    const hasDraft = Boolean(state.draftToolpath);
+    const hasSelection = state.selectedLoopIds.size > 0;
+    const isEditing = Boolean(state.editingToolpathId);
+
+    ui.projectTitle.textContent = state.fileName || "Untitled Project";
+    ui.canvasEmptyState.classList.toggle("d-none", hasGeometry);
+    ui.canvasWrap.classList.toggle("is-drop-target", state.dragImportActive);
+
+    for (const button of ui.originToggleButtons) {
+      button.classList.toggle("is-active", state.showOrigin);
+      if (button.classList.contains("canvas-tool-btn")) {
+        button.classList.toggle("btn-primary", state.showOrigin);
+        button.classList.toggle("btn-light", !state.showOrigin);
+      }
+    }
+
+    setWorkflowStep("import", hasGeometry ? "complete" : "active");
+    if (!hasGeometry) {
+      setWorkflowStep("toolpath", "");
+      setWorkflowStep("export", "");
+      return;
+    }
+    setWorkflowStep("toolpath", hasToolpaths ? "complete" : "active");
+    setWorkflowStep("export", hasToolpaths ? "active" : "");
+    if (hasDraft || hasSelection || isEditing) {
+      setWorkflowStep("toolpath", "active");
+    }
+  }
+
   function resizeCanvas() {
     const ratio = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      return;
+    }
     canvas.width = Math.round(rect.width * ratio);
     canvas.height = Math.round(rect.height * ratio);
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    loopPathsDirty = true;
     draw();
+  }
+
+  function requestDraw() {
+    if (drawFramePending) {
+      return;
+    }
+    drawFramePending = true;
+    window.requestAnimationFrame(() => {
+      drawFramePending = false;
+      draw();
+    });
+  }
+
+  function renderWorkerBadge() {
+    const jobs = Array.from(state.workerJobs.values());
+    const job = jobs.sort((a, b) => b.priority - a.priority)[0] || null;
+    ui.workerBadge.classList.toggle("d-none", !job);
+    if (!job) {
+      ui.workerBadge.title = "";
+      return;
+    }
+    ui.workerBadge.style.left = `${Math.max(8, state.pointer.x + 12)}px`;
+    ui.workerBadge.style.top = `${Math.max(8, state.pointer.y + 12)}px`;
+    const percent = Math.max(0, Math.min(100, Math.round(job.percent || 0)));
+    ui.workerPercent.textContent = `${percent}%`;
+    ui.workerBadge.title = job.label || "Worker busy";
+  }
+
+  function isSyntheticProgressJob(job) {
+    return Boolean(job?.syntheticProgress && job.percent < job.syntheticProgress.targetPercent);
+  }
+
+  function ensureWorkerProgressAnimation() {
+    if (workerProgressAnimationFrame) {
+      return;
+    }
+    const tick = () => {
+      let hasAnimatedJobs = false;
+      for (const job of state.workerJobs.values()) {
+        if (!isSyntheticProgressJob(job)) {
+          continue;
+        }
+        const next = Math.min(
+          job.syntheticProgress.targetPercent,
+          (job.percent || 0) + job.syntheticProgress.step
+        );
+        if (next !== job.percent) {
+          job.percent = next;
+        }
+        if (job.percent < job.syntheticProgress.targetPercent) {
+          hasAnimatedJobs = true;
+        }
+      }
+      renderWorkerBadge();
+      if (hasAnimatedJobs) {
+        workerProgressAnimationFrame = window.setTimeout(tick, 180);
+      } else {
+        workerProgressAnimationFrame = null;
+      }
+    };
+    workerProgressAnimationFrame = window.setTimeout(tick, 180);
+  }
+
+  function maybeEnableSyntheticProgress(job) {
+    if (!job || job.syntheticProgress || job.percent == null) {
+      return;
+    }
+    if (job.label === "Calculating V-Carve" && job.percent >= 72 && job.percent < 100) {
+      job.syntheticProgress = {
+        targetPercent: 96,
+        step: 1,
+      };
+      ensureWorkerProgressAnimation();
+    }
+  }
+
+  function startWorkerJob(key, { label, percent = 0, priority = 1 }) {
+    const job = { label, percent, priority };
+    maybeEnableSyntheticProgress(job);
+    state.workerJobs.set(key, job);
+    renderWorkerBadge();
+  }
+
+  function updateWorkerJob(key, { label, percent, priority }) {
+    const existing = state.workerJobs.get(key) || { priority: 1 };
+    const job = {
+      label: label ?? existing.label,
+      percent: percent ?? existing.percent ?? 0,
+      priority: priority ?? existing.priority,
+      syntheticProgress: existing.syntheticProgress,
+    };
+    if (job.label !== existing.label || percent != null) {
+      job.syntheticProgress = undefined;
+    }
+    maybeEnableSyntheticProgress(job);
+    state.workerJobs.set(key, job);
+    renderWorkerBadge();
+  }
+
+  function finishWorkerJob(key) {
+    state.workerJobs.delete(key);
+    renderWorkerBadge();
+  }
+
+  function beginViewNavigation() {
+    state.isNavigatingView = true;
+    if (navigationDetailTimerId) {
+      window.clearTimeout(navigationDetailTimerId);
+    }
+    navigationDetailTimerId = window.setTimeout(() => {
+      navigationDetailTimerId = null;
+      state.isNavigatingView = false;
+      requestDraw();
+    }, 120);
+  }
+
+  function endViewNavigation() {
+    if (navigationDetailTimerId) {
+      window.clearTimeout(navigationDetailTimerId);
+      navigationDetailTimerId = null;
+    }
+    if (!state.isNavigatingView) {
+      return;
+    }
+    state.isNavigatingView = false;
+    requestDraw();
   }
 
   function worldToScreen(point) {
@@ -127,6 +322,23 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
     state.camera.zoom = Math.max(0.05, zoom);
     state.camera.panX = -((bounds.minX + bounds.maxX) / 2);
     state.camera.panY = -((bounds.minY + bounds.maxY) / 2);
+  }
+
+  function adjustZoom(zoomFactor) {
+    const rect = canvas.getBoundingClientRect();
+    const center = { x: rect.width / 2, y: rect.height / 2 };
+    const before = screenToWorld(center);
+    state.camera.zoom = Math.max(0.01, Math.min(500, state.camera.zoom * zoomFactor));
+    const after = screenToWorld(center);
+    state.camera.panX += after.x - before.x;
+    state.camera.panY += after.y - before.y;
+    loopPathsDirty = true;
+    beginViewNavigation();
+    requestDraw();
+  }
+
+  function openFilePicker() {
+    ui.fileInput.click();
   }
 
   function translatePoint(point, dx, dy) {
@@ -227,6 +439,7 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
       refreshToolpathFieldVisibilityFn: UiState.refreshToolpathFieldVisibility,
       rebuildDraftToolpath,
     });
+    refreshWorkspaceUi();
   }
 
   function refreshToolpathUi() {
@@ -256,6 +469,7 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
         draw();
       },
     });
+    refreshWorkspaceUi();
   }
 
   function getActiveToolpath() {
@@ -325,22 +539,43 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
           state.hoveredTabCandidate = null;
         }
       }
+      finishWorkerJob("draft");
       return;
     }
     const editing = getEditingToolpath();
     const config = readToolpathConfigFromForm();
+    startWorkerJob("draft", {
+      label: config.operation === "vcarve" ? "Calculating V-Carve" : "Calculating toolpath",
+      percent: 4,
+      priority: 1,
+    });
 
     try {
       if (config.operation === "vcarve" && !isVCarveEngineReady()) {
         setStatus("V-Carve engine is loading...");
       }
+      const draftOptions = editing
+        ? { id: editing.id, label: editing.label }
+        : {};
       const draft = await createToolpathFromLoopsAsync(sourceLoops, config, {
-        id: editing?.id || "draft-toolpath",
-        label: editing?.label,
+        ...draftOptions,
+        onProgress(progress) {
+          if (buildToken !== state.draftBuildToken) {
+            return;
+          }
+          updateWorkerJob("draft", {
+            label: progress.label || "Calculating toolpath",
+            percent: progress.percent ?? 0,
+            priority: 1,
+          });
+        },
       });
       if (buildToken !== state.draftBuildToken) {
         return;
       }
+      draft.sourceLoops = draft.sourceLoops.map((loop) => (
+        state.loops.find((candidate) => candidate.id === loop.id) || loop
+      ));
       const existingTabs = state.draftToolpath?.tabs || editing?.tabs || [];
       draft.tabs = normalizeTabsForToolpath(draft, existingTabs);
       state.draftToolpath = draft;
@@ -348,7 +583,8 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
         setStatus("V-Carve engine ready.");
       }
       refreshToolpathUi();
-      draw();
+      refreshWorkspaceUi();
+      requestDraw();
     } catch (error) {
       if (buildToken !== state.draftBuildToken) {
         return;
@@ -358,7 +594,12 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
         setStatus(error.message);
       }
       refreshToolpathUi();
-      draw();
+      refreshWorkspaceUi();
+      requestDraw();
+    } finally {
+      if (buildToken === state.draftBuildToken) {
+        finishWorkerJob("draft");
+      }
     }
   }
 
@@ -451,10 +692,15 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
     clearDraftToolpath();
     refreshSelectionUi();
     refreshToolpathUi();
+    refreshWorkspaceUi();
     draw();
   }
 
   function draw() {
+    if (loopPathsDirty) {
+      rebuildLoopPaths();
+      loopPathsDirty = false;
+    }
     CanvasView.drawScene({
       ctx,
       canvas,
@@ -471,6 +717,7 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
         state.camera.zoom,
         options
       ),
+      navigationMode: state.isNavigatingView,
     });
   }
 
@@ -558,6 +805,9 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
   }
 
   function createToolpathFromLoopsAsync(selectedLoops, config, options = {}) {
+    if (config.operation !== "vcarve") {
+      return CamWorkerClient.createToolpathInWorker(selectedLoops, config, options);
+    }
     return CamOps.createToolpathFromLoopsAsync(selectedLoops, config, {
       ...options,
       loopIndexResolver: (loop) => state.loops.findIndex((candidate) => candidate.id === loop.id),
@@ -590,6 +840,7 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
     }
     state.addTabsMode = false;
     clearDraftToolpath();
+    refreshWorkspaceUi();
   }
 
   function loadImportedEntities(entities, name, sourceLabel) {
@@ -611,13 +862,15 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
     state.toolpaths = [];
     state.activeToolpathId = null;
     state.addTabsMode = false;
+    state.dragImportActive = false;
     clearToolpathEditing();
     clearDraftToolpath();
     state.bounds = mergeBounds(state.loops.map((loop) => loop.bounds));
     fitCameraToBounds(state.bounds);
-    rebuildLoopPaths();
+    loopPathsDirty = true;
     refreshSelectionUi();
     refreshToolpathUi();
+    refreshWorkspaceUi();
     setStatus(
       `Loaded ${name}: ${state.entities.length} entities from ${sourceLabel}, ${state.loops.length} closed vectors.`
     );
@@ -634,6 +887,18 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
 
   function loadSvgText(text, name) {
     loadImportedEntities(parseSvg(text), name, "SVG");
+  }
+
+  async function loadVectorFile(file) {
+    if (!file) {
+      return;
+    }
+    const text = await file.text();
+    if (/\.svg$/i.test(file.name) || /^\s*<svg[\s>]/i.test(text)) {
+      loadSvgText(text, file.name);
+      return;
+    }
+    loadDxfText(text, file.name);
   }
 
   async function loadBundledSample() {
@@ -831,6 +1096,32 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
     return !state.editingToolpathId && !state.draftToolpath;
   }
 
+  function distanceToScreenPolyline(point, points) {
+    if (!points?.length) {
+      return Number.POSITIVE_INFINITY;
+    }
+    if (points.length === 1) {
+      return Math.hypot(points[0].x - point.x, points[0].y - point.y);
+    }
+    let best = Number.POSITIVE_INFINITY;
+    for (let i = 1; i < points.length; i += 1) {
+      const a = points[i - 1];
+      const b = points[i];
+      const abx = b.x - a.x;
+      const aby = b.y - a.y;
+      const lengthSq = abx * abx + aby * aby;
+      if (lengthSq === 0) {
+        best = Math.min(best, Math.hypot(a.x - point.x, a.y - point.y));
+        continue;
+      }
+      const t = Math.max(0, Math.min(1, ((point.x - a.x) * abx + (point.y - a.y) * aby) / lengthSq));
+      const closestX = a.x + abx * t;
+      const closestY = a.y + aby * t;
+      best = Math.min(best, Math.hypot(closestX - point.x, closestY - point.y));
+    }
+    return best;
+  }
+
   function findTabHit(screenPoint) {
     if (!canMoveTabs()) {
       return null;
@@ -838,8 +1129,16 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
     for (const toolpath of getTabEligibleToolpaths()) {
       for (let index = 0; index < toolpath.tabs.length; index += 1) {
         const tab = toolpath.tabs[index];
-        const p = worldToScreen(tab.point);
-        if (Math.hypot(p.x - screenPoint.x, p.y - screenPoint.y) <= 8) {
+        const contour = toolpath.previewContours[tab.contourIndex];
+        if (!contour) {
+          continue;
+        }
+        const tabWidth = Math.max(toolpath.tabWidth, getMinimumTabWidth(toolpath.toolDiameter));
+        const tabSpan = getTabCenterlineSpan(tabWidth, toolpath.toolDiameter);
+        const marker = buildTabMarker(contour, tab.along, tabSpan);
+        const visibleRadius = (toolpath.toolDiameter * state.camera.zoom) / 2;
+        const hitPadding = Math.max(4, state.camera.zoom * 0.15);
+        if (distanceToScreenPolyline(screenPoint, marker.spine) <= visibleRadius + hitPadding) {
           return { toolpath, index };
         }
       }
@@ -932,7 +1231,7 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
   }
 
   function buildGcode() {
-    return CamOps.buildGcode({
+    return CamWorkerClient.buildGcodeInWorker({
       toolpaths: getRenderableToolpaths(),
       fileName: state.fileName,
       forcePolylineArcs: ui.forcePolylineArcsInput.checked,
@@ -954,8 +1253,22 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
   }
 
   ui.loadSampleBtn.addEventListener("click", loadBundledSample);
+  ui.browseVectorBtn.addEventListener("click", openFilePicker);
   ui.toggleSettingsBtn.addEventListener("click", () => {
     ui.globalSettingsSection.classList.toggle("d-none");
+  });
+  ui.zoomInBtn.addEventListener("click", () => {
+    adjustZoom(1.2);
+  });
+  ui.zoomOutBtn.addEventListener("click", () => {
+    adjustZoom(1 / 1.2);
+  });
+  ui.originToggleButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      state.showOrigin = !state.showOrigin;
+      refreshWorkspaceUi();
+      draw();
+    });
   });
   for (const option of ui.operationOptions) {
     option.addEventListener("click", () => {
@@ -1000,20 +1313,13 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
   });
   ui.zoomFitBtn.addEventListener("click", () => {
     fitCameraToBounds(state.bounds);
-    rebuildLoopPaths();
-    draw();
+    loopPathsDirty = true;
+    requestDraw();
   });
   ui.fileInput.addEventListener("change", async (event) => {
     const file = event.target.files[0];
-    if (!file) {
-      return;
-    }
-    const text = await file.text();
-    if (/\.svg$/i.test(file.name) || /^\s*<svg[\s>]/i.test(text)) {
-      loadSvgText(text, file.name);
-      return;
-    }
-    loadDxfText(text, file.name);
+    await loadVectorFile(file);
+    ui.fileInput.value = "";
   });
   ui.toolpathForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1021,6 +1327,7 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
     commitDraftToolpath();
     refreshSelectionUi();
     refreshToolpathUi();
+    refreshWorkspaceUi();
     draw();
   });
   ui.cancelEditBtn.addEventListener("click", () => {
@@ -1029,17 +1336,20 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
     state.addTabsMode = false;
     refreshSelectionUi();
     refreshToolpathUi();
+    refreshWorkspaceUi();
     draw();
   });
   ui.addTabsBtn.addEventListener("click", () => {
     if (state.editingToolpathId || state.draftToolpath || !getTabEligibleToolpaths().length) {
       state.addTabsMode = false;
       refreshToolpathUi();
+      refreshWorkspaceUi();
       draw();
       return;
     }
     state.addTabsMode = !state.addTabsMode;
     refreshToolpathUi();
+    refreshWorkspaceUi();
     draw();
   });
   ui.removeTabsBtn.addEventListener("click", () => {
@@ -1054,23 +1364,75 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
     refreshToolpathUi();
     draw();
   });
-  ui.generateGcodeBtn.addEventListener("click", () => {
-    const gcode = buildGcode();
-    const fileName = (state.fileName || "job").replace(/\.dxf$/i, "");
-    downloadTextFile(`${fileName}.nc`, gcode);
+  ui.generateGcodeBtn.addEventListener("click", async () => {
+    startWorkerJob("gcode", {
+      label: "Preparing G-code",
+      percent: 2,
+      priority: 2,
+    });
+    try {
+      const gcode = await CamWorkerClient.buildGcodeInWorker({
+        toolpaths: getRenderableToolpaths(),
+        fileName: state.fileName,
+        forcePolylineArcs: ui.forcePolylineArcsInput.checked,
+        onProgress(progress) {
+          updateWorkerJob("gcode", {
+            label: progress.label || "Preparing G-code",
+            percent: progress.percent ?? 0,
+            priority: 2,
+          });
+        },
+      });
+      const fileName = (state.fileName || "job").replace(/\.dxf$/i, "");
+      downloadTextFile(`${fileName}.nc`, gcode);
+    } catch (error) {
+      if (error instanceof Error) {
+        setStatus(error.message);
+      }
+    } finally {
+      finishWorkerJob("gcode");
+    }
   });
 
   canvas.addEventListener("wheel", (event) => {
     event.preventDefault();
     const before = screenToWorld({ x: event.offsetX, y: event.offsetY });
-    const zoomFactor = event.deltaY < 0 ? 1.1 : 0.9;
+    const zoomFactor = Math.max(0.7, Math.min(1.4, Math.exp(-event.deltaY * 0.0025)));
     state.camera.zoom = Math.max(0.01, Math.min(500, state.camera.zoom * zoomFactor));
     const after = screenToWorld({ x: event.offsetX, y: event.offsetY });
     state.camera.panX += after.x - before.x;
     state.camera.panY += after.y - before.y;
-    rebuildLoopPaths();
-    draw();
+    loopPathsDirty = true;
+    beginViewNavigation();
+    requestDraw();
   }, { passive: false });
+
+  ["dragenter", "dragover"].forEach((eventName) => {
+    ui.canvasWrap.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      state.dragImportActive = true;
+      refreshWorkspaceUi();
+    });
+  });
+
+  ["dragleave", "dragend"].forEach((eventName) => {
+    ui.canvasWrap.addEventListener(eventName, (event) => {
+      if (event.relatedTarget && ui.canvasWrap.contains(event.relatedTarget)) {
+        return;
+      }
+      event.preventDefault();
+      state.dragImportActive = false;
+      refreshWorkspaceUi();
+    });
+  });
+
+  ui.canvasWrap.addEventListener("drop", async (event) => {
+    event.preventDefault();
+    state.dragImportActive = false;
+    refreshWorkspaceUi();
+    const file = event.dataTransfer?.files?.[0];
+    await loadVectorFile(file);
+  });
 
   canvas.addEventListener("mousedown", (event) => {
     const point = { x: event.offsetX, y: event.offsetY };
@@ -1124,6 +1486,14 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
     }
   });
 
+  window.addEventListener("mousemove", (event) => {
+    state.pointer.x = event.clientX;
+    state.pointer.y = event.clientY;
+    if (state.workerJobs.size) {
+      renderWorkerBadge();
+    }
+  });
+
   canvas.addEventListener("mousemove", (event) => {
     const point = { x: event.offsetX, y: event.offsetY };
     if (state.tabPress) {
@@ -1150,7 +1520,7 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
         active.tabs[state.draggingTab.index].along = nearest.along;
         active.tabs[state.draggingTab.index].point = nearest.point;
         updateCanvasCursor(point);
-        draw();
+        requestDraw();
       }
       return;
     }
@@ -1160,9 +1530,10 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
       const dy = (event.clientY - state.dragPan.y) / state.camera.zoom;
       state.camera.panX = state.dragPan.panX + dx;
       state.camera.panY = state.dragPan.panY - dy;
-      rebuildLoopPaths();
+      loopPathsDirty = true;
+      beginViewNavigation();
       updateCanvasCursor(point);
-      draw();
+      requestDraw();
       return;
     }
     if (state.marquee) {
@@ -1175,17 +1546,20 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
         state.marqueePreviewLoopIds.clear();
       }
       updateCanvasCursor(point);
-      draw();
+      requestDraw();
       return;
     }
     state.hoveredTab = findTabHit(point);
     state.hoveredLoopId = state.addTabsMode ? null : findLoopHit(point)?.id || null;
     updateHoveredTabCandidate(point);
     updateCanvasCursor(point);
-    draw();
+    requestDraw();
   });
 
   canvas.addEventListener("mouseup", () => {
+    if (state.dragPan) {
+      endViewNavigation();
+    }
     if (state.marquee) {
       const { start, current, active, append } = state.marquee;
       state.marquee = null;
@@ -1206,6 +1580,9 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
   });
 
   canvas.addEventListener("mouseleave", () => {
+    if (state.dragPan) {
+      endViewNavigation();
+    }
     clearTabPressState();
     state.hoveredTab = null;
     state.hoveredTabCandidate = null;
@@ -1329,7 +1706,20 @@ import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve11";
     },
   };
 
+  refreshWorkspaceUi();
+  refreshSelectionUi();
+  refreshToolpathUi();
+  syncAutoTabHeight();
   window.addEventListener("resize", resizeCanvas);
+  if ("ResizeObserver" in window) {
+    canvasResizeObserver = new ResizeObserver(() => {
+      resizeCanvas();
+    });
+    canvasResizeObserver.observe(canvas);
+    if (ui.canvasWrap) {
+      canvasResizeObserver.observe(ui.canvasWrap);
+    }
+  }
   resizeCanvas();
 })();
 

@@ -30,15 +30,15 @@ export function refreshSelectionUi({
 }) {
   const count = state.selectedLoopIds.size;
   ui.selectionCount.textContent = String(count);
-  ui.selectionHeading.textContent = editing ? "Edit Toolpath" : "Selection";
+  ui.selectionHeading.textContent = editing ? "Edit Toolpath" : "Assign Toolpaths";
   ui.selectionEmpty.classList.toggle("d-none", count > 0 || Boolean(editing));
   ui.toolpathForm.classList.toggle("d-none", count === 0 && !editing);
   ui.cancelEditBtn.classList.toggle("d-none", !editing);
-  ui.toolpathSubmitBtn.textContent = editing ? "Update Toolpath" : "Create Toolpath";
+  ui.toolpathSubmitBtn.textContent = editing ? "Update Toolpath" : "Add Toolpath";
   ui.toolpathFormMode.textContent = editing
-    ? `Editing ${editing.label}. Preview updates live, including tabs, before you apply.`
+    ? `Editing ${editing.label}.`
     : count > 0
-      ? `Create a new toolpath from ${count} selected vector${count === 1 ? "" : "s"}.`
+      ? `${count} vector${count === 1 ? "" : "s"} selected`
       : "";
   refreshOperationUiFn(ui);
   refreshToolpathFieldVisibilityFn(ui);
@@ -58,7 +58,7 @@ export function refreshToolpathUi({
   ui.toolpathCount.textContent = String(state.toolpaths.length);
   ui.toolpathList.innerHTML = "";
 
-  for (const toolpath of renderableToolpaths) {
+  for (const toolpath of state.toolpaths) {
     const card = document.createElement("div");
     card.className = `toolpath-card text-start ${toolpath.id === state.activeToolpathId ? "active" : ""}`;
     card.innerHTML = `
@@ -102,17 +102,18 @@ export function refreshToolpathUi({
   const activeUsesTabs = activeToolpath
     && (activeToolpath.operation === "profile-outside" || activeToolpath.operation === "profile-inside");
   ui.generateGcodeBtn.disabled = !hasToolpaths;
+  ui.generateGcodeBtn.title = hasToolpaths ? "Generate GRBL-compatible G-code" : "Add at least 1 toolpath to export";
   ui.addTabsBtn.disabled = !canEnterAddTabsMode;
   ui.removeTabsBtn.disabled = !activeUsesTabs;
   ui.addTabsBtn.classList.toggle("btn-primary", state.addTabsMode);
   ui.addTabsBtn.classList.toggle("btn-outline-primary", !state.addTabsMode);
 
   if (state.addTabsMode) {
-    ui.tabModeHint.textContent = "Add Tabs mode active. Hover any profile toolpath and click to place a tab. Drag existing tabs to move them.";
+    ui.tabModeHint.textContent = "Add Tabs mode active. Hover any profile toolpath and click to place a tab.";
   } else if (!activeToolpath) {
     ui.tabModeHint.textContent = "";
   } else if (state.draftToolpath) {
-    ui.tabModeHint.textContent = "Draft toolpath preview is live. You can place tabs before applying.";
+    ui.tabModeHint.textContent = "Draft preview is live on the canvas.";
   } else {
     ui.tabModeHint.textContent = "";
   }

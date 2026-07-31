@@ -4,6 +4,16 @@ const VCARVE_MM_TO_CPP_SCALE = VCARVE_CLIPPER_SCALE * VCARVE_CLIPPER_TO_CPP_SCAL
 
 let readyPromise = null;
 
+function postProgress(id, percent, label) {
+  self.postMessage({
+    id,
+    progress: {
+      percent,
+      label,
+    },
+  });
+}
+
 function assetUrl(path) {
   const url = new URL(path, import.meta.url);
   const version = new URL(import.meta.url).searchParams.get("v");
@@ -52,7 +62,7 @@ function getHeapU32() {
   throw new Error("HEAPU32 not available");
 }
 
-async function ensureCamCpp() {
+async function ensureCamCpp(progressId) {
   if (camCppReady()) {
     return;
   }
@@ -64,6 +74,7 @@ async function ensureCamCpp() {
   }
 
   readyPromise = (async () => {
+    postProgress(progressId, 12, "Loading V-Carve engine");
     const scriptName = useDebugCamCpp() ? "web-cam-cpp.debug.js" : "web-cam-cpp.js";
     const wasmName = useDebugCamCpp() ? "web-cam-cpp.debug.wasm" : "web-cam-cpp.wasm";
     const wasmBase = assetUrl("../vendor/cam-cpp/");
@@ -79,6 +90,7 @@ async function ensureCamCpp() {
     };
 
     await evalGlobalScript(assetUrl(`../vendor/cam-cpp/${scriptName}`));
+    postProgress(progressId, 55, "Initializing V-Carve engine");
 
     await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("cam-cpp WASM worker init timed out")), 15000);
@@ -121,18 +133,22 @@ self.onmessage = async (event) => {
   const { id, type, paths, cutterAngle, passDepth, maxDepth } = event.data || {};
   try {
     if (type === "ensure-ready") {
-      await ensureCamCpp();
+      await ensureCamCpp(id);
+      postProgress(id, 100, "V-Carve engine ready");
       self.postMessage({ id, result: true });
       return;
     }
 
     if (type === "vcarve") {
-      await ensureCamCpp();
+      postProgress(id, 10, "Preparing V-Carve");
+      await ensureCamCpp(id);
+      postProgress(id, 72, "Calculating V-Carve");
       const result = generateVCarveToolpaths(paths || [], {
         cutterAngle,
         passDepth,
         maxDepth,
       });
+      postProgress(id, 100, "V-Carve ready");
       self.postMessage({ id, result });
       return;
     }

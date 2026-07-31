@@ -24,10 +24,14 @@ function getWorker() {
 }
 
 function handleWorkerMessage(event) {
-  const { id, result, error } = event.data || {};
+  const { id, result, error, progress } = event.data || {};
 
   const pending = pendingRequests.get(id);
   if (!pending) {
+    return;
+  }
+  if (progress) {
+    pending.onProgress?.(progress);
     return;
   }
   pendingRequests.delete(id);
@@ -56,11 +60,11 @@ function rejectAllPending(error) {
   pendingRequests.clear();
 }
 
-function postWorkerRequest(kind, payload = {}) {
+function postWorkerRequest(kind, payload = {}, options = {}) {
   const worker = getWorker();
   const id = ++requestId;
   return new Promise((resolve, reject) => {
-    pendingRequests.set(id, { resolve, reject, kind });
+    pendingRequests.set(id, { resolve, reject, kind, onProgress: options.onProgress });
     worker.postMessage({ id, type: kind, ...payload });
   });
 }
@@ -95,14 +99,18 @@ export function mmPointsToClipperPath(points) {
   }));
 }
 
-export async function generateVCarveToolpaths(paths, { cutterAngle, passDepth, maxDepth }) {
+export async function generateVCarveToolpaths(paths, { cutterAngle, passDepth, maxDepth, onProgress }) {
   try {
-    return await postWorkerRequest("vcarve", {
-      paths,
-      cutterAngle,
-      passDepth,
-      maxDepth,
-    });
+    return await postWorkerRequest(
+      "vcarve",
+      {
+        paths,
+        cutterAngle,
+        passDepth,
+        maxDepth,
+      },
+      { onProgress }
+    );
   } catch (error) {
     loadError = error instanceof Error ? error : new Error(String(error));
     throw loadError;

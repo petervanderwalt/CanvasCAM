@@ -18,36 +18,82 @@
   >
   <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-body-tertiary">
-  <div class="app-shell">
-    <main class="canvas-panel">
-      <div class="topbar border-bottom bg-white">
-        <div class="d-flex flex-wrap gap-2 align-items-center">
-          <button id="loadSampleBtn" class="btn btn-primary btn-sm">Load Bundled Sample DXF</button>
-          <label class="btn btn-outline-primary btn-sm mb-0">
-            Load Vector File
-            <input id="fileInput" type="file" accept=".dxf,.svg,image/svg+xml" hidden>
-          </label>
-          <button id="zoomFitBtn" class="btn btn-outline-secondary btn-sm">Reset View</button>
+<body>
+  <div class="workspace-shell">
+    <div class="workspace-main">
+      <header class="workspace-header">
+        <div class="brand-block">
+          <div class="brand-mark">CC</div>
+          <div class="brand-copy">
+            <div class="brand-name">CAM Canvas</div>
+            <div class="project-title" id="projectTitle">Untitled Project</div>
+          </div>
         </div>
-        <div class="small text-secondary" id="statusText">Load a DXF or SVG to begin.</div>
-      </div>
-      <div class="canvas-wrap">
-        <canvas id="drawingCanvas"></canvas>
-      </div>
-    </main>
 
-    <aside class="sidebar border-start bg-white">
-      <div class="sidebar-scroll">
-        <section class="p-2 border-bottom d-flex justify-content-end">
-          <button id="toggleSettingsBtn" type="button" class="btn btn-outline-secondary btn-sm icon-btn" title="Settings" aria-label="Settings">
+        <nav class="workflow-stepper" aria-label="Workflow">
+          <div class="workflow-step" data-step="import">
+            <span class="step-index">1</span>
+            <span class="step-label">Import Vector</span>
+          </div>
+          <div class="workflow-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+          <div class="workflow-step" data-step="toolpath">
+            <span class="step-index">2</span>
+            <span class="step-label">Assign Toolpaths</span>
+          </div>
+          <div class="workflow-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+          <div class="workflow-step" data-step="export">
+            <span class="step-index">3</span>
+            <span class="step-label">Export G-code</span>
+          </div>
+        </nav>
+
+        <div class="header-actions">
+          <button id="toggleSettingsBtn" type="button" class="btn btn-outline-secondary btn-sm icon-btn" title="Workspace settings" aria-label="Workspace settings">
             <i class="fa-solid fa-gear"></i>
           </button>
-        </section>
+        </div>
+      </header>
 
-        <section id="globalSettingsSection" class="p-3 border-bottom d-none">
+      <main class="canvas-panel">
+        <div class="canvas-stage">
+          <div class="canvas-toolbar">
+            <button type="button" id="zoomFitBtn" class="btn btn-light btn-sm canvas-tool-btn" title="Reset view" aria-label="Reset view">
+              <i class="fa-solid fa-arrows-to-dot"></i>
+            </button>
+            <button type="button" id="zoomInBtn" class="btn btn-light btn-sm canvas-tool-btn" title="Zoom in" aria-label="Zoom in">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+            <button type="button" id="zoomOutBtn" class="btn btn-light btn-sm canvas-tool-btn" title="Zoom out" aria-label="Zoom out">
+              <i class="fa-solid fa-minus"></i>
+            </button>
+            <button type="button" class="btn btn-light btn-sm canvas-tool-btn origin-toggle-btn" title="Toggle origin guides" aria-label="Toggle origin guides">
+              <i class="fa-solid fa-crosshairs"></i>
+            </button>
+          </div>
+
+          <div class="canvas-wrap" id="canvasWrap">
+            <div class="canvas-empty-state" id="canvasEmptyState">
+              <div class="empty-state-card">
+                <div class="empty-state-icon"><i class="fa-regular fa-file-lines"></i></div>
+                <h1>Drag &amp; Drop DXF / SVG Here</h1>
+                <p>Import your vector geometry to start assigning CAM operations.</p>
+                <div class="empty-state-actions">
+                  <button id="browseVectorBtn" type="button" class="btn btn-success btn-lg">Browse Vector Files</button>
+                </div>
+                <button id="loadSampleBtn" type="button" class="btn btn-link btn-sm sample-link">Try Sample Vector</button>
+              </div>
+            </div>
+            <canvas id="drawingCanvas"></canvas>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <aside class="sidebar">
+      <div class="sidebar-scroll">
+        <section id="globalSettingsSection" class="sidebar-panel global-settings d-none">
           <div class="panel-group">
-            <div class="panel-group-title">Global Settings</div>
+            <div class="panel-group-title">Workspace Settings</div>
             <div class="form-check">
               <input id="forcePolylineArcsInput" class="form-check-input" type="checkbox">
               <label class="form-check-label small" for="forcePolylineArcsInput">Force arcs/circles as polylines on export</label>
@@ -55,17 +101,24 @@
           </div>
         </section>
 
-        <section class="p-3 border-bottom" id="selectionSection">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h2 class="h6 mb-0" id="selectionHeading">Selection</h2>
-            <span id="selectionCount" class="badge text-bg-primary">0</span>
+        <section class="sidebar-panel selection-panel" id="selectionSection">
+          <div class="sidebar-section-head">
+            <div>
+              <div class="sidebar-kicker">Step 2</div>
+              <h2 class="sidebar-title" id="selectionHeading">Assign Toolpaths</h2>
+            </div>
+            <span id="selectionCount" class="selection-badge">0</span>
           </div>
-          <div id="selectionEmpty" class="small text-secondary">Select one or more closed vectors on the canvas.</div>
+          <div id="selectionEmpty" class="selection-empty">
+            <div class="selection-empty-icon"><i class="fa-regular fa-object-group"></i></div>
+            <div class="selection-empty-title">No vectors selected</div>
+            <div class="selection-empty-copy">Click or box-select vectors on the canvas to create a toolpath.</div>
+          </div>
           <form id="toolpathForm" class="d-none compact-form">
-            <div id="toolpathFormMode" class="small text-secondary mb-3"></div>
+            <div id="toolpathFormMode" class="selection-mode-copy"></div>
 
-            <div class="panel-group mb-3">
-              <div class="panel-group-title">Operation</div>
+              <div class="panel-group mb-3">
+                <div class="panel-group-title">Operation</div>
               <input id="toolpathTypeInput" type="hidden" value="profile-outside">
               <div class="operation-grid">
                 <button type="button" class="operation-option active" data-operation="profile-outside">
@@ -91,128 +144,138 @@
               </div>
             </div>
 
-            <div class="panel-group mb-3">
-              <div class="panel-group-title">Endmill</div>
-              <div class="row g-2">
-                <div id="toolDiameterField" class="col-6">
+              <div class="panel-group mb-3">
+                <div class="panel-group-title">Endmill</div>
+                <div class="row g-2">
+                  <div id="toolDiameterField" class="col-6">
                   <label class="form-label small mb-1" for="toolDiameterInput">Diameter</label>
                   <div class="input-group input-group-sm">
                     <input id="toolDiameterInput" class="form-control form-control-sm" type="number" step="0.1" value="6">
                     <span class="input-group-text">mm</span>
                   </div>
                 </div>
-                <div class="col-6">
+                  <div class="col-6">
                   <label class="form-label small mb-1" for="spindleInput">RPM</label>
                   <div class="input-group input-group-sm">
                     <input id="spindleInput" class="form-control form-control-sm" type="number" step="100" value="18000">
                     <span class="input-group-text">rpm</span>
                   </div>
-                </div>
-                <div id="cutterAngleField" class="col-6 d-none">
+                  </div>
+                  <div id="cutterAngleField" class="col-6 d-none">
                   <label class="form-label small mb-1" for="cutterAngleInput">V Angle</label>
                   <div class="input-group input-group-sm">
                     <input id="cutterAngleInput" class="form-control form-control-sm" type="number" step="1" value="90">
                     <span class="input-group-text">deg</span>
                   </div>
-                </div>
-                <div class="col-6">
+                  </div>
+                  <div class="col-6">
                   <label class="form-label small mb-1" for="feedRateInput">Feed</label>
                   <div class="input-group input-group-sm">
                     <input id="feedRateInput" class="form-control form-control-sm" type="number" step="1" value="1800">
                     <span class="input-group-text">mm/min</span>
                   </div>
-                </div>
-                <div class="col-6">
+                  </div>
+                  <div class="col-6">
                   <label class="form-label small mb-1" for="plungeRateInput">Plunge</label>
                   <div class="input-group input-group-sm">
                     <input id="plungeRateInput" class="form-control form-control-sm" type="number" step="1" value="600">
                     <span class="input-group-text">mm/min</span>
                   </div>
-                </div>
-                <div id="overlapField" class="col-4 d-none">
+                  </div>
+                  <div id="overlapField" class="col-6 d-none">
                   <label class="form-label small mb-1" for="overlapInput">Overlap %</label>
                   <div class="input-group input-group-sm">
                     <input id="overlapInput" class="form-control form-control-sm" type="number" step="1" min="0" max="95" value="40">
                     <span class="input-group-text">%</span>
                   </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div class="panel-group mb-3">
-              <div class="panel-group-title">Cut Depth</div>
-              <div class="row g-2">
-                <div id="cutDepthField" class="col-6">
+              <div class="panel-group mb-3">
+                <div class="panel-group-title">Cut Depth</div>
+                <div class="row g-2">
+                  <div id="cutDepthField" class="col-6">
                   <label class="form-label small mb-1" for="cutDepthInput">Final Depth</label>
                   <div class="input-group input-group-sm">
                     <input id="cutDepthInput" class="form-control form-control-sm" type="number" step="0.1" value="18">
                     <span class="input-group-text">mm</span>
                   </div>
-                </div>
-                <div class="col-6">
+                  </div>
+                  <div class="col-6">
                   <label class="form-label small mb-1" for="passDepthInput">Pass Depth</label>
                   <div class="input-group input-group-sm">
                     <input id="passDepthInput" class="form-control form-control-sm" type="number" step="0.1" value="3">
                     <span class="input-group-text">mm</span>
                   </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div class="panel-group mb-3">
-              <div class="panel-group-title">Job Settings</div>
-              <div class="row g-2 mb-2">
-                <div class="col-4">
+              <div class="panel-group mb-3">
+                <div class="panel-group-title">Job Settings</div>
+                <div class="row g-2 mb-2">
+                  <div class="col-4">
                   <label class="form-label small mb-1" for="safeZInput">Z Safe</label>
                   <div class="input-group input-group-sm">
                     <input id="safeZInput" class="form-control form-control-sm" type="number" step="0.1" value="6">
                     <span class="input-group-text">mm</span>
                   </div>
-                </div>
-                <div id="tabWidthField" class="col-4">
+                  </div>
+                  <div id="tabWidthField" class="col-4">
                   <label class="form-label small mb-1" for="tabWidthInput">Tab Width</label>
                   <div class="input-group input-group-sm">
                     <input id="tabWidthInput" class="form-control form-control-sm" type="number" step="0.1" value="9">
                     <span class="input-group-text">mm</span>
                   </div>
-                </div>
-                <div id="tabHeightField" class="col-4">
+                  </div>
+                  <div id="tabHeightField" class="col-4">
                   <label class="form-label small mb-1" for="tabHeightInput">Tab Height</label>
                   <div class="input-group input-group-sm">
                     <input id="tabHeightInput" class="form-control form-control-sm" type="number" step="0.1" value="9">
                     <span class="input-group-text">mm</span>
                   </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div class="d-grid gap-2 form-actions-sticky">
-              <button id="toolpathSubmitBtn" type="submit" class="btn btn-success btn-sm">Apply Toolpath</button>
-              <button id="cancelEditBtn" type="button" class="btn btn-outline-secondary btn-sm d-none">Cancel Edit</button>
-            </div>
+              <div class="d-grid gap-2 form-actions-sticky">
+                <button id="toolpathSubmitBtn" type="submit" class="btn btn-success btn-sm">Add Toolpath</button>
+                <button id="cancelEditBtn" type="button" class="btn btn-outline-secondary btn-sm d-none">Cancel Edit</button>
+              </div>
           </form>
         </section>
 
-        <section class="p-3">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h2 class="h6 mb-0">Toolpaths</h2>
-            <span id="toolpathCount" class="badge text-bg-secondary">0</span>
+        <section class="sidebar-panel toolpaths-panel">
+          <div class="sidebar-section-head">
+            <div>
+              <div class="sidebar-kicker">Step 3</div>
+              <h2 class="sidebar-title">Created Toolpaths</h2>
+            </div>
+            <span id="toolpathCount" class="selection-badge muted">0</span>
           </div>
-          <div id="toolpathList" class="d-grid gap-2"></div>
-          <div class="toolbar-mini mt-3">
-            <button id="addTabsBtn" type="button" class="btn btn-outline-primary btn-xs" disabled>Add Tab</button>
+          <div id="toolpathList" class="toolpath-stack"></div>
+          <div class="toolbar-mini">
+            <button id="addTabsBtn" type="button" class="btn btn-outline-primary btn-xs" disabled>Add Tabs</button>
             <button id="removeTabsBtn" type="button" class="btn btn-outline-secondary btn-xs" disabled>Clear Tabs</button>
           </div>
-          <div class="d-grid gap-2 mt-3">
-            <button id="generateGcodeBtn" class="btn btn-primary btn-sm" disabled>Generate G-code</button>
-          </div>
-          <div class="small text-secondary mt-2" id="tabModeHint"></div>
+          <div class="toolpath-hint" id="tabModeHint"></div>
         </section>
+      </div>
+
+      <div class="sidebar-dock">
+        <div class="dock-status" id="statusText">Import a DXF or SVG to begin.</div>
+        <button id="generateGcodeBtn" class="btn btn-success btn-lg dock-export-btn" disabled title="Add at least 1 toolpath to export">Generate G-code</button>
       </div>
     </aside>
   </div>
+  <div id="workerBadge" class="worker-badge d-none" aria-live="polite">
+    <div class="worker-spinner spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+    <span id="workerPercent" class="worker-percent">0%</span>
+  </div>
+  <input id="fileInput" type="file" accept=".dxf,.svg,image/svg+xml" hidden>
 
   <script src="clipperjs/clipper_unminified.js"></script>
-  <script type="module" src="app.js?v=20260730-vcarve11"></script>
+  <script type="module" src="app.js?v=20260730-vcarve12"></script>
 </body>
 </html>

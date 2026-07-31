@@ -164,6 +164,7 @@ export async function createToolpathFromLoopsAsync(selectedLoops, config, option
       cutterAngle: config.cutterAngle,
       passDepth: vCarvePassDepth,
       maxDepth: config.cutDepth,
+      onProgress: options.onProgress,
     }
   );
 
@@ -176,9 +177,12 @@ export async function createToolpathFromLoopsAsync(selectedLoops, config, option
 }
 
 function createToolpathSkeleton(selectedLoops, config, options = {}) {
+  const reportProgress = options.onProgress || (() => {});
   const previewContours = [];
   const sourceLoops = [];
+  reportProgress(10, "Preparing geometry");
   const compositeSelection = compositePocketSeedPaths(selectedLoops);
+  reportProgress(32, "Unioning vectors");
 
   for (const loop of selectedLoops) {
     if (config.operation === "engrave") {
@@ -189,8 +193,10 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
 
   if (config.operation === "profile-outside") {
     previewContours.push(...offsetCompositePolygons(compositeSelection, config.toolRadius));
+    reportProgress(78, "Offsetting outside profile");
   } else if (config.operation === "profile-inside") {
     previewContours.push(...offsetCompositePolygons(compositeSelection, -config.toolRadius));
+    reportProgress(78, "Offsetting inside profile");
   }
 
   if (config.operation === "pocket") {
@@ -198,7 +204,10 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
     const first = offsetCompositePolygons(compositeSelection, -config.toolRadius);
     previewContours.push(...first);
     let current = first;
+    let iteration = 0;
     while (current.length) {
+      iteration += 1;
+      reportProgress(Math.min(84, 40 + iteration * 8), "Calculating pocket passes");
       const next = offsetCompositePolygons(current, -stepOver);
       if (!next.length) {
         break;
@@ -230,6 +239,8 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
   const cardMeta = config.operation === "vcarve"
     ? `${operationLabel} - ${formatNumber(config.cutterAngle)}deg - ${formatNumber(cutDepth)}mm max depth - single pass`
     : `${operationLabel} - ${config.toolDiameter.toFixed(1)}mm - ${cutDepth.toFixed(2)}mm deep - ${passDepth.toFixed(2)}mm/pass - ${passDepths.length} passes`;
+
+  reportProgress(96, "Finalizing toolpath");
 
   return {
     id: options.id || crypto.randomUUID(),
@@ -338,7 +349,7 @@ export function tabTopDepth(toolpath) {
   return -Math.max(0, toolpath.cutDepth - toolpath.tabHeight);
 }
 
-export function buildGcode({ toolpaths, fileName, forcePolylineArcs }) {
+export function buildGcode({ toolpaths, fileName, forcePolylineArcs, onProgress = () => {} }) {
   const lines = [
     "(CAM Canvas GRBL output)",
     `(${fileName || "untitled.dxf"})`,
@@ -346,6 +357,18 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs }) {
     "G90",
     "G17",
   ];
+
+  const totalSteps = Math.max(1, toolpaths.reduce((count, toolpath) => {
+    if (toolpath.operation === "vcarve") {
+      return count + Math.max(1, (toolpath.motionPaths || []).length);
+    }
+    return count + Math.max(1, toolpath.passDepths.length * Math.max(1, toolpath.previewContours.length));
+  }, 0));
+  let completedSteps = 0;
+  const reportProgress = (label) => {
+    completedSteps += 1;
+    onProgress(Math.min(99, Math.round((completedSteps / totalSteps) * 100)), label);
+  };
 
   for (const toolpath of toolpaths) {
     const safeZ = toolpath.safeZ;
@@ -358,6 +381,7 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs }) {
 
     if (toolpath.operation === "vcarve") {
       emitVCarveMoves(lines, toolpath, feed, plunge, safeZ);
+      reportProgress(`Writing ${toolpath.operationLabel}`);
       lines.push(`G0 Z${formatNumber(safeZ)}`);
       lines.push("M5");
       continue;
@@ -384,6 +408,7 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs }) {
         if (!passUsesTabs) {
           lines.push(`G1 Z${formatNumber(depth)} F${formatNumber(plunge)}`);
           emitContourMoves(lines, contour, depth, feed, plunge, forcePolylineArcs);
+          reportProgress(`Writing ${toolpath.operationLabel}`);
           continue;
         }
 
@@ -418,6 +443,7 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs }) {
           const segmentPoints = slicePolyline(contour, segment.from, segment.to);
           emitContourMoves(lines, segmentPoints, segment.depth, feed, plunge, forcePolylineArcs);
         }
+        reportProgress(`Writing ${toolpath.operationLabel}`);
       }
     }
     lines.push(`G0 Z${formatNumber(safeZ)}`);
