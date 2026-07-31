@@ -1,0 +1,169 @@
+Starting Sienci tool scrape
+Fetching category page: https://sienci.com/product-category/end-mills-bits/
+  discovered 30 raw product links
+Fetching category page: https://sienci.com/product-category/end-mills-bits/page/2/
+  discovered 30 raw product links
+Fetching category page: https://sienci.com/product-category/end-mills-bits/page/3/
+  discovered 30 raw product links
+Fetching category page: https://sienci.com/product-category/end-mills-bits/page/4/
+  discovered 30 raw product links
+Fetching category page: https://sienci.com/product-category/end-mills-bits/page/5/
+  discovered 16 raw product links
+Unique product links: 73
+[1/73] Product: https://sienci.com/product/gcontrol
+  skip: no measurement table / image / title
+[2/73] Product: https://sienci.com/product/vortex-rotary-axis
+  skip: no measurement table / image / title
+[3/73] Product: https://sienci.com/product/vectric-vcarve-pro-v11
+  skip: no measurement table / image / title
+[4/73] Product: https://sienci.com/product/vectric-aspire
+  skip: no measurement table / image / title
+[5/73] Product: https://sienci.com/product/vectric-vcarve-desktop
+  skip: no measurement table / image / title
+[6/73] Product: https://sienci.com/product/carveco-maker-subscription
+  skip: no measurement table / image / title
+[7/73] Product: https://sienci.com/product/1-8-precision-collet
+  skip: no measurement table / image / title
+[8/73] Product: https://sienci.com/product/22mm-surfacing-bit
+  saved tool: 22mm Surfacing Bit – 1/4″ Shank-2F
+[9/73] Product: https://sienci.com/product/15mm_60-degree-v-bit
+  saved tool: 15mm 60 Degree V-Bit – 1/4″ Shank-2F
+[10/73] Product: https://sienci.com/product/30-degree_engraving_vbit_4-10pc_pack
+  saved tool: 30 Degree Engraving V-Bit Pack – 1/8″ Shank-1F (4 or 10pcs)
+[11/73] Product: https://sienci.com/product/15mm_90-degree-1_4-v-bit
+  saved tool: 15mm 90 Degree V-Bit – 1/4″ Shank-2F
+[12/73] Product: https://sienci.com/product/1-4-1-1-4_flat-downcut-end-mill
+  saved tool: 1/4″x1-1/4″ Flat Downcut End Mill – 1/4″ Shank-2F
+[13/73] Product: https://sienci.com/product/14-to-18-collet-adapter
+  skip: no measurement table / image / title
+[14/73] Product: https://sienci.com/product/sems
+  skip: no measurement table / image / title
+[15/73] Product: https://sienci.com/product/1-4_1-1-2_r1-32-tapered-ballnose-endmill
+  saved tool: 1/4″x1-1/2″xR1/32″ Tapered Ball Nose End Mill – 1/4″ Shank-2F
+[16/73] Product: https://sienci.com/product/1-8-flat-downcut_end-mill_3-10pc_pack
+  saved tool: 1/8″ Flat Downcut End Mill Pack – 1/8″ Shank-2F (3 or 10pcs)
+[17/73] Product: https://sienci.com/product/1-2_1-1-4_round_groove_bit
+  saved tool: 1/2″x1-1/4″ Round Groove Bit – 1/4″ Shank-2F
+[18/73] Product: https://sienci.com/product/1-4-flat-compression-end-mill
+  saved tool: 1/4″ Flat Compression End Mill – 1/4″ Shank-2F
+[19/73] Product: https://sienci.com/product/1-8_r0-25_tapered_ballnose_endmill_2pcs
+  saved tool: 1/8″xR0.25mm Tapered Ball Nose End Mill – 1/8″ Shank-2F (2pcs)
+[20/73] Product: https://sienci.com/product/1-8_flat_compression_end-mill_2pcs
+  saved tool: 1/8″ Flat Compression End Mill – 1/8″ Shank-2F (2pcs)
+[21/73] Product: https://sienci.com/product/1-4-ballnose-upcut-end-mill
+  saved tool: 1/4″ Ball Nose Upcut End Mill – 1/4″ Shank-2F
+[22/73] Product: https://sienci.com/product/1-4-flat-upcut-endmill
+  saved tool: 1/4″ Flat Upcut End Mill-1/4″ Shank-2F
+[23/73] Product: https://sienci.com/product/longmill-mk2
+  skip product fetch error: HTTP Error 404: Not Found
+[24/73] Product: https://sienci.com/product/1-8-ballnose-upcut_endmill_3pc_or_10pc
+  saved tool: 1/8″ Ball Nose Upcut End Mill Pack – 1/8″ Shank-2F (3 or 10pcs)
+[25/73] Product: https://sienci.com/product/sign-making-bit-set
+  skip: no measurement table / image / title
+[26/73] Product: https://sienci.com/product/1-8-singleflute_upcut_endmill_2pcs
+  saved tool: 1/8″ Single Flute Upcut End Mill-1/8″ Shank-1F (2pcs)
+[27/73] Product: https://sienci.com/product/1-16-flat-downcut-end-mill
+  saved tool: 1/16″ Flat Downcut End Mill – 1/8″ Shank-2F (10pcs)
+[28/73] Product: https://sienci.com/product/3d-carver-bit-set
+  skip: no measurement table / image / title
+[29/73] Product: https://sienci.com/product/er20-precision-collets
+  skip: no measurement table / image / title
+[30/73] Product: https://sienci.com/product/3-4_1-1-4_round-groove-bit
+  saved tool: 3/4″x1-1/4″ Round Groove Bit – 1/4″ Shank-2F
+[31/73] Product: https://sienci.com/product/1-4-extra-long-flat-roughing-endmill
+  saved tool: 1/4″ Extra Long Flat Roughing End Mill – 1/4″ Shank-3F
+[32/73] Product: https://sienci.com/product/1_1-1-4_round-groove-bit
+  saved tool: 1″x1-1/4″ Round Groove Bit – 1/4″ Shank-2F
+[33/73] Product: https://sienci.com/product/1-16-flat-upcut-end-mill
+  saved tool: 1/16″ Flat Upcut End Mill – 1/8″ Shank-2F (10pcs)
+[34/73] Product: https://sienci.com/product/1-8-flat-upcut-end-mill_3pcs_or10pcs
+  saved tool: 1/8″ Flat Upcut End Mill Pack – 1/8″ Shank-2F (3pcs or 10pcs)
+[35/73] Product: https://sienci.com/product/1-4-single-flute-end-mill
+  saved tool: 1/4″ Single Flute Upcut End Mill – 1/4″ Shank-1F
+[36/73] Product: https://sienci.com/product/machinists-end-mill-set
+  skip: no measurement table / image / title
+[37/73] Product: https://sienci.com/product/1-4-precision-collet-for-makita-rt0701
+  skip: no measurement table / image / title
+[38/73] Product: https://sienci.com/product/1-16_1-6mm_corncob_endmill_10pcs
+  saved tool: 1/16″ (1.6mm) Corncob End Mill – 1/8″ Shank (10pcs)
+[39/73] Product: https://sienci.com/product/altmill_starter_set
+  skip: no measurement table / image / title
+[40/73] Product: https://sienci.com/product/r1-4_roundover_bit
+  saved tool: R1/4″ Roundover Bit – 1/4″ Shank-2F
+[41/73] Product: https://sienci.com/product/r3-8_roundover_bit
+  saved tool: R3/8″ Roundover Bit – 1/4″ Shank-2F
+[42/73] Product: https://sienci.com/product/1-1-2_surfacing_bit
+  saved tool: 1-1/2″ Surfacing Bit – 1/4″ Shank-4F
+[43/73] Product: https://sienci.com/product/r1-8_roundover_bit
+  saved tool: R1/8″ Roundover Bit – 1/4″ Shank-2F
+[44/73] Product: https://sienci.com/product/1-8_carbide_drill_bit
+  saved tool: 1/8″ Carbide Drill Bit
+[45/73] Product: https://sienci.com/product/altmill_pro_set
+  skip: no measurement table / image / title
+[46/73] Product: https://sienci.com/product/1_3-4_r3-8_flat_bottom_bowl_bit
+  saved tool: 1″x3/4″xR3/8″ Flat Bottom Bowl Bit – 1/4″ Shank-2F
+[47/73] Product: https://sienci.com/product/1-4_2_r1-32_tapered_ballnose
+  saved tool: 1/4″x2″xR1/32″ Tapered Ball Nose End Mill – 1/4″ Shank-2F-DLC
+[48/73] Product: https://sienci.com/product/1-4_1-3-4_downcut_ballnose
+  saved tool: 1/4″x1-3/4″ Downcut Ball Nose End Mill – 1/4″ Shank-2F-DLC
+[49/73] Product: https://sienci.com/product/1-4_30_degree_downcut_vbit
+  saved tool: 1/4″ 30 Degree Downcut V-Bit – 1/4″ Shank-3F-DLC
+[50/73] Product: https://sienci.com/product/altmill_sign_maker
+  skip: no measurement table / image / title
+[51/73] Product: https://sienci.com/product/1-4_60_degree_downcut_vbit
+  saved tool: 1/4″ 60 Degree Downcut V-Bit – 1/4″ Shank-3F-DLC
+[52/73] Product: https://sienci.com/product/3-8_1-2_r1-8_flat_bottom_bowl_bit
+  saved tool: 3/8″x1/2″xR1/8″ Flat Bottom Bowl Bit – 1/4″ Shank-2F
+[53/73] Product: https://sienci.com/product/1-1-2_inserted_heavy_duty_spoilboard_surfacing
+  saved tool: 1-1/2″ Inserted Heavy Duty Spoilboard Surfacing Bit – 3/8″ Shank-3F
+[54/73] Product: https://sienci.com/product/er16-precision-collet-set-3pcs
+  skip: no measurement table / image / title
+[55/73] Product: https://sienci.com/product/5-8_5-8_r1-4_flat_bottom_bowl_bit
+  saved tool: 5/8″x5/8″xR1/4″ Flat Bottom Bowl Bit – 3/8″ Shank-2F
+[56/73] Product: https://sienci.com/product/1-4_extra-hard-compression-upcut-with-chip-breaker
+  saved tool: 1/4″x1″ Extra Hard Compression Upcut End Mill w/ Chip Breaker – 1/4″ Shank-3F-DLC
+[57/73] Product: https://sienci.com/product/1-4_2_high_helix_upcut_end_mill
+  saved tool: 1/4″x2″ High Helix Upcut End Mill – 1/4″ Shank-2F-DLC
+[58/73] Product: https://sienci.com/product/1-8_3-3_downcut_end_mill
+  saved tool: 1/8″x3/4″ Downcut End Mill – 1/4″ Shank-1F-DLC
+[59/73] Product: https://sienci.com/product/altmill_chamfer_set
+  skip: no measurement table / image / title
+[60/73] Product: https://sienci.com/product/3-8_2_roughing-upcut-end-mill
+  saved tool: 3/8″x2″ Roughing Upcut End Mill – 3/8″ Shank-3F-DLC
+[61/73] Product: https://sienci.com/product/1-4_carbide_drill_bit
+  saved tool: 1/4″ Carbide Drill Bit
+[62/73] Product: https://sienci.com/product/1-4_1_downcut_ballnose
+  saved tool: 1/4″x1″ Downcut Ball Nose End Mill – 1/4″ Shank-2F-DLC
+[63/73] Product: https://sienci.com/product/1-4_1_upcut_end_mill
+  saved tool: 1/4″x1″ Upcut End Mill – 1/4″ Shank-1F-DLC
+[64/73] Product: https://sienci.com/product/1-4_90_degree_vbit
+  saved tool: 1/4″ 90 Degree Downcut V-Bit – 1/4″ Shank-3F-DLC
+[65/73] Product: https://sienci.com/product/3-8_1-1-2_compression_endmill_chip_breaker
+  downloading image: https://sienci.com/wp-content/uploads/2025/09/38x1-12-Compression-End-Mill-w-Chip-Breaker-38-Shank-3F-DLC.png
+  saved tool: 3/8″x1-1/2″ Compression End Mill w/ Chip Breaker – 3/8″ Shank-3F-DLC
+[66/73] Product: https://sienci.com/product/3-8_60_degree_downcut_vbit
+  downloading image: https://sienci.com/wp-content/uploads/2025/08/3_8_-60-Degree-Downcut-V-Bit-1_4_-Shank-3F-DLC.png
+  saved tool: 3/8″ 60 Degree Downcut V-Bit – 1/4″ Shank-3F-DLC
+[67/73] Product: https://sienci.com/product/3-8_2-1-4_upcut_ballnose
+  downloading image: https://sienci.com/wp-content/uploads/2025/08/38x2-14-Upcut-Ball-Nose-38-Shank-2F-DLC.png
+  saved tool: 3/8″x2-1/4″ Upcut Ball Nose – 3/8″ Shank-2F-DLC
+[68/73] Product: https://sienci.com/product/3-8_90_degree_vbit
+  downloading image: https://sienci.com/wp-content/uploads/2025/08/3_8_-90-Degree-Downcut-V-Bit-1_4_-Shank-3F-DLC.png
+  saved tool: 3/8″ 90 Degree Downcut V-Bit – 1/4″ Shank-3F-DLC
+[69/73] Product: https://sienci.com/product/3-8_3_r1-16_tapered_ballnose
+  downloading image: https://sienci.com/wp-content/uploads/2025/08/38x3xR116-Tapered-Ball-Nose-End-Mill-38-Shank-3F-DLC.png
+  saved tool: 3/8″x3″xR1/16″ Tapered Ball Nose End Mill – 3/8″ Shank-3F-DLC
+[70/73] Product: https://sienci.com/product/1-8_1-2_upcut_end_mill
+  downloading image: https://sienci.com/wp-content/uploads/2025/08/1_8_x1_2_-Upcut-End-Mill-1_4_-Shank-1F-DLC.png
+  saved tool: 1/8″x1/2″ Upcut End Mill – 1/4″ Shank-1F-DLC
+[71/73] Product: https://sienci.com/product/3-8_1-1-4_roughing-upcut-endmill
+  downloading image: https://sienci.com/wp-content/uploads/2025/08/38x1-14-Roughing-Upcut-End-Mill-38-Shank-3F-DLC.png
+  saved tool: 3/8″x1-1/4″ Roughing Upcut End Mill – 3/8″ Shank-3F-DLC
+[72/73] Product: https://sienci.com/product/52mm_120_degree_inserted_vbit
+  downloading image: https://sienci.com/wp-content/uploads/2025/08/52mm-120-Degree-Inserted-V-Bit-w-Insert-12-Shank-2F.png
+  saved tool: 52mm 120 Degree Inserted V-Bit w/ Insert – 1/2″ Shank-2F
+[73/73] Product: https://sienci.com/product/3-8_1-1-2_compression_chip_breaker
+  downloading image: https://sienci.com/wp-content/uploads/2025/08/3_8_x1-1_2_-Compression-w_-Chip-Breaker-3_8_-Shank-3F-DLC.png
+  saved tool: 3/8″x1-1/2″ Flat Upcut w/ Chip Breaker – 3/8″ Shank-3F-DLC
+Wrote 53 tools to C:\Users\User\Desktop\Openclaw\CAMCANVAS\library\tools\sienci
+Skipped 20 products

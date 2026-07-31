@@ -1,0 +1,76 @@
+Starting Ooznest tool scrape
+Unique product links: 26
+[1/26] Product: https://ooznest.co.uk/product/original-workbee-z1plus-cnc-machine/#size-colour
+  skip: no tool specs table
+[2/26] Product: https://ooznest.co.uk/product/c-beam-linear-actuator/#length
+  skip: no tool specs table
+[3/26] Product: https://ooznest.co.uk/product/nema17-acme-lead-screw-linear-actuator/#profile-length
+  skip: no tool specs table
+[4/26] Product: https://ooznest.co.uk/product/belt-driven-linear-actuator-kit/#length
+  skip: no tool specs table
+[5/26] Product: https://ooznest.co.uk/product/mini-v-linear-actuator-kit/#length
+  skip: no tool specs table
+[6/26] Product: https://ooznest.co.uk/product/original-workbee-enclosure
+  skip: no tool specs table
+[7/26] Product: https://ooznest.co.uk/product/1-4-ball-end-amana-tool-46490-general-purpose-extra-long-router-bit-1-4-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-4-Ball-End-Amana-Tool-46490-General-Purpose-Extra-Long-Router-Bit-1-4-Shank_thumbnail.jpg
+  saved tool: 1/4″ Ball End CNC Router Bit - 46490 Amana Tool
+[8/26] Product: https://ooznest.co.uk/product/1-4-square-end-amana-tool-46590-general-purpose-extra-long-router-bit-1-4-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-4-Square-End-Amana-Tool-46590-General-Purpose-Extra-Long-Router-Bit-1-4-Shank_thumbnail.jpg
+  saved tool: 1/4″ Square End CNC Router Bit - 46590 Amana Tool
+[9/26] Product: https://ooznest.co.uk/product/down-cut-amana-tool-51731-general-purpose-finisher-router-bit-1-4-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/Down-Cut-Amana-Tool-51731-General-Purpose-Finisher-Router-Bit-1-4-Shank_thumbnail.jpg
+  saved tool: 1/4″ Finisher CNC Router Bit - 51731 Amana Tool
+[10/26] Product: https://ooznest.co.uk/product/up-cut-amana-tool-51631-general-purpose-finisher-router-bit-1-4-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/Up-Cut-Amana-Tool-51631-General-Purpose-Finisher-Router-Bit-1-4-Shank_thumbnail.jpg
+  saved tool: 1/4″ Finisher CNC Router Bit - 51631 Amana Tool
+[11/26] Product: https://ooznest.co.uk/product/1-16-extended-reach-general-purpose-ball-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-16-Extended-Reach-General-Purpose-Ball-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/16″ Ball End CNC Router Bit - Extended Reach
+[12/26] Product: https://ooznest.co.uk/product/1-16-standard-general-purpose-ball-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-16-Standard-General-Purpose-Ball-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/16″ Ball End CNC Router Bit - Standard
+[13/26] Product: https://ooznest.co.uk/product/1-16-stub-general-purpose-ball-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-16-Stub-General-Purpose-Ball-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/16″ Ball End CNC Router Bit - Stub
+[14/26] Product: https://ooznest.co.uk/product/1-32-stub-general-purpose-ball-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-32-Stub-General-Purpose-Ball-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/32″ Ball End CNC Router Bit - Stub
+[15/26] Product: https://ooznest.co.uk/product/1-32-extended-reach-general-purpose-ball-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-32-Extended-Reach-General-Purpose-Ball-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/32″ Ball End CNC Router Bit - Extended Reach
+[16/26] Product: https://ooznest.co.uk/product/1-32-standard-general-purpose-ball-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-32-Standard-General-Purpose-Ball-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/32″ Ball End CNC Router Bit - Standard
+[17/26] Product: https://ooznest.co.uk/product/1-4-stub-general-purpose-ball-end-router-bit-1-4-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-4-Stub-General-Purpose-Ball-End-Router-Bit-1-4-Shank_thumbnail.jpg
+  saved tool: 1/4″ Ball End CNC Router Bit - Stub
+[18/26] Product: https://ooznest.co.uk/product/1-4-standard-general-purpose-ball-end-router-bit-1-4-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-4-Standard-General-Purpose-Ball-End-Router-Bit-1-4-Shank_thumbnail.jpg
+  saved tool: 1/4″ Ball End CNC Router Bit - Standard
+[19/26] Product: https://ooznest.co.uk/product/1-64-stub-general-purpose-ball-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-64-Stub-General-Purpose-Ball-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/64″ Ball End CNC Router Bit - Stub
+[20/26] Product: https://ooznest.co.uk/product/1-64-extended-reach-general-purpose-ball-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-64-Extended-Reach-General-Purpose-Ball-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/64″ Ball End CNC Router Bit - Extended Reach
+[21/26] Product: https://ooznest.co.uk/product/1-64-standard-general-purpose-ball-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-64-Standard-General-Purpose-Ball-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/64″ Ball End CNC Router Bit - Standard
+[22/26] Product: https://ooznest.co.uk/product/1-8-extended-reach-general-purpose-ball-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-8-Extended-Reach-General-Purpose-Ball-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/8″ Ball End CNC Router Bit - Extended Reach
+[23/26] Product: https://ooznest.co.uk/product/1-8-standard-general-purpose-ball-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-8-Standard-General-Purpose-Ball-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/8″ Ball End CNC Router Bit - Standard
+[24/26] Product: https://ooznest.co.uk/product/1-8-stub-general-purpose-ball-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-8-Stub-General-Purpose-Ball-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/8″ Ball End CNC Router Bit - Stub
+[25/26] Product: https://ooznest.co.uk/product/1-16-down-cut-extended-reach-general-purpose-square-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-16-Down-Cut-Extended-Reach-General-Purpose-Square-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/16″ Square Router Bit Down-Cut Extended Reach
+[26/26] Product: https://ooznest.co.uk/product/1-16-down-cut-standard-general-purpose-square-end-router-bit-1-8-shank
+  downloading image: https://ooznest.co.uk/wp-content/uploads/2026/01/1-16-Down-Cut-Standard-General-Purpose-Square-End-Router-Bit-1-8-Shank_thumbnail.jpg
+  saved tool: 1/16″ Square End CNC Router Bit Down-Cut Standard
+Wrote 20 tools to C:\Users\User\Desktop\Openclaw\CAMCANVAS\library\tools\ooznest
+Skipped 6 products

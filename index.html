@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260731-rulers2">
 </head>
 <body>
   <div class="workspace-shell">
@@ -48,6 +48,10 @@
         </nav>
 
         <div class="header-actions">
+          <button id="openFileBtn" type="button" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-folder-open"></i>
+            <span>Open File</span>
+          </button>
           <button id="toggleSettingsBtn" type="button" class="btn btn-outline-secondary btn-sm icon-btn" title="Workspace settings" aria-label="Workspace settings">
             <i class="fa-solid fa-gear"></i>
           </button>
@@ -57,19 +61,46 @@
       <main class="canvas-panel">
         <div class="canvas-stage">
           <div class="canvas-toolbar">
-            <button type="button" id="zoomFitBtn" class="btn btn-light btn-sm canvas-tool-btn" title="Reset view" aria-label="Reset view">
-              <i class="fa-solid fa-arrows-to-dot"></i>
-            </button>
-            <button type="button" id="zoomInBtn" class="btn btn-light btn-sm canvas-tool-btn" title="Zoom in" aria-label="Zoom in">
-              <i class="fa-solid fa-plus"></i>
-            </button>
-            <button type="button" id="zoomOutBtn" class="btn btn-light btn-sm canvas-tool-btn" title="Zoom out" aria-label="Zoom out">
-              <i class="fa-solid fa-minus"></i>
-            </button>
-            <button type="button" class="btn btn-light btn-sm canvas-tool-btn origin-toggle-btn" title="Toggle origin guides" aria-label="Toggle origin guides">
-              <i class="fa-solid fa-crosshairs"></i>
-            </button>
+            <div class="toolbar-row" aria-label="Canvas view controls">
+              <button type="button" id="zoomFitBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-label" title="Reset view" aria-label="Reset view">
+                <i class="fa-solid fa-arrows-to-dot"></i>
+                <span>Reset View</span>
+              </button>
+              <button type="button" id="zoomInBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-label" title="Zoom in" aria-label="Zoom in">
+                <i class="fa-solid fa-plus"></i>
+                <span>Zoom In</span>
+              </button>
+              <button type="button" id="zoomOutBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-label" title="Zoom out" aria-label="Zoom out">
+                <i class="fa-solid fa-minus"></i>
+                <span>Zoom Out</span>
+              </button>
+              <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label origin-toggle-btn" title="Toggle origin guides" aria-label="Toggle origin guides">
+                <i class="fa-solid fa-crosshairs"></i>
+                <span>Origin</span>
+              </button>
+            </div>
+            <div id="vectorActionGroup" class="toolbar-row d-none" aria-label="Vector actions">
+              <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label transform-tool-btn" data-transform-tool="move" title="Move vectors" aria-label="Move vectors">
+                <i class="fa-solid fa-up-down-left-right"></i>
+                <span>Move</span>
+              </button>
+              <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label transform-tool-btn" data-transform-tool="scale" title="Resize vectors" aria-label="Resize vectors">
+                <i class="fa-solid fa-expand"></i>
+                <span>Resize</span>
+              </button>
+              <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label transform-tool-btn" data-transform-tool="rotate" title="Rotate vectors" aria-label="Rotate vectors">
+                <i class="fa-solid fa-rotate"></i>
+                <span>Rotate</span>
+              </button>
+              <button type="button" id="deleteVectorsBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-label" title="Delete selected vectors" aria-label="Delete selected vectors">
+                <i class="fa-solid fa-trash"></i>
+                <span>Delete</span>
+              </button>
+            </div>
           </div>
+          <div class="canvas-ruler-corner" aria-hidden="true"></div>
+          <canvas id="topRulerCanvas" class="canvas-ruler canvas-ruler-top" aria-hidden="true"></canvas>
+          <canvas id="leftRulerCanvas" class="canvas-ruler canvas-ruler-left" aria-hidden="true"></canvas>
 
           <div class="canvas-wrap" id="canvasWrap">
             <div class="canvas-empty-state" id="canvasEmptyState">
@@ -114,6 +145,62 @@
             <div class="selection-empty-title">No vectors selected</div>
             <div class="selection-empty-copy">Click or box-select vectors on the canvas to create a toolpath.</div>
           </div>
+          <div id="transformSidebarPanel" class="d-none compact-form">
+            <div id="transformMoveGroup" class="panel-group mb-3 d-none">
+              <div class="panel-group-title">Move</div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label small mb-1" for="transformPositionXInput">Position X</label>
+                  <div class="input-group input-group-sm">
+                    <input id="transformPositionXInput" class="form-control form-control-sm" type="number" step="0.01" value="0">
+                    <span class="input-group-text">mm</span>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label small mb-1" for="transformPositionYInput">Position Y</label>
+                  <div class="input-group input-group-sm">
+                    <input id="transformPositionYInput" class="form-control form-control-sm" type="number" step="0.01" value="0">
+                    <span class="input-group-text">mm</span>
+                  </div>
+                </div>
+              </div>
+              <button id="applyTransformMoveBtn" class="btn btn-primary btn-sm w-100 mt-2" type="button">Apply Position</button>
+            </div>
+            <div id="transformAngleGroup" class="panel-group mb-3 d-none">
+              <div class="panel-group-title">Rotate</div>
+              <label class="form-label small mb-1" for="transformAngleInput">Angle</label>
+              <div class="input-group input-group-sm">
+                <input id="transformAngleInput" class="form-control form-control-sm" type="number" step="0.1" value="0">
+                <span class="input-group-text">deg</span>
+                <button id="applyTransformAngleBtn" class="btn btn-primary" type="button">Apply</button>
+              </div>
+            </div>
+            <div id="transformSizeGroup" class="panel-group mb-3 d-none">
+              <div class="panel-group-title">Resize</div>
+              <div class="row g-2 align-items-end">
+                <div class="col-5">
+                  <label class="form-label small mb-1" for="transformWidthInput">Width</label>
+                  <div class="input-group input-group-sm">
+                    <input id="transformWidthInput" class="form-control form-control-sm" type="number" step="0.01" value="0">
+                    <span class="input-group-text">mm</span>
+                  </div>
+                </div>
+                <div class="col-2 d-flex justify-content-center">
+                  <button id="transformAspectLockBtn" class="btn btn-outline-secondary btn-sm canvas-tool-btn mt-3" type="button" aria-label="Lock aspect ratio" title="Lock aspect ratio">
+                    <i id="transformAspectLockIcon" class="fa-solid fa-link"></i>
+                  </button>
+                </div>
+                <div class="col-5">
+                  <label class="form-label small mb-1" for="transformHeightInput">Height</label>
+                  <div class="input-group input-group-sm">
+                    <input id="transformHeightInput" class="form-control form-control-sm" type="number" step="0.01" value="0">
+                    <span class="input-group-text">mm</span>
+                  </div>
+                </div>
+              </div>
+              <button id="applyTransformSizeBtn" class="btn btn-primary btn-sm w-100 mt-2" type="button">Apply Size</button>
+            </div>
+          </div>
           <form id="toolpathForm" class="d-none compact-form">
             <div id="toolpathFormMode" class="selection-mode-copy"></div>
 
@@ -146,11 +233,40 @@
 
               <div class="panel-group mb-3">
                 <div class="panel-group-title">Endmill</div>
+                <div class="tool-library-picker mb-2">
+                  <div class="tool-library-label-row">
+                    <label class="form-label small mb-1" for="toolLibraryToggle">Tool Library</label>
+                    <button id="toolLibraryClearBtn" class="btn btn-link btn-sm p-0 text-decoration-none d-none" type="button">Clear</button>
+                  </div>
+                  <button id="toolLibraryToggle" class="tool-library-toggle" type="button" aria-expanded="false">
+                    <div id="toolLibraryPreview" class="tool-library-preview empty">
+                      <div class="tool-library-preview-thumb">
+                        <i class="fa-solid fa-toolbox"></i>
+                      </div>
+                      <div class="tool-library-preview-copy">
+                        <div id="toolLibraryPreviewName" class="tool-library-preview-name">Choose tool from library</div>
+                        <div id="toolLibraryPreviewMeta" class="tool-library-preview-meta"></div>
+                      </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-down tool-library-toggle-icon"></i>
+                  </button>
+                  <div id="toolLibraryMenu" class="tool-library-menu d-none">
+                    <div id="toolLibrarySummary" class="tool-library-summary d-none">
+                      <img id="toolLibrarySummaryImage" class="tool-library-summary-image" alt="">
+                      <div class="tool-library-summary-copy">
+                        <div id="toolLibrarySummaryName" class="tool-library-summary-name"></div>
+                        <div id="toolLibrarySummaryMeta" class="tool-library-summary-meta"></div>
+                        <a id="toolLibrarySummaryLink" class="tool-library-summary-link" href="#" target="_blank" rel="noreferrer">Store page</a>
+                      </div>
+                    </div>
+                    <div id="toolLibraryList" class="tool-library-list"></div>
+                  </div>
+                </div>
                 <div class="row g-2">
                   <div id="toolDiameterField" class="col-6">
                   <label class="form-label small mb-1" for="toolDiameterInput">Diameter</label>
                   <div class="input-group input-group-sm">
-                    <input id="toolDiameterInput" class="form-control form-control-sm" type="number" step="0.1" value="6">
+                    <input id="toolDiameterInput" class="form-control form-control-sm" type="number" step="0.001" value="6">
                     <span class="input-group-text">mm</span>
                   </div>
                 </div>
@@ -198,14 +314,14 @@
                   <div id="cutDepthField" class="col-6">
                   <label class="form-label small mb-1" for="cutDepthInput">Final Depth</label>
                   <div class="input-group input-group-sm">
-                    <input id="cutDepthInput" class="form-control form-control-sm" type="number" step="0.1" value="18">
+                    <input id="cutDepthInput" class="form-control form-control-sm" type="number" step="0.01" value="18">
                     <span class="input-group-text">mm</span>
                   </div>
                   </div>
                   <div class="col-6">
                   <label class="form-label small mb-1" for="passDepthInput">Pass Depth</label>
                   <div class="input-group input-group-sm">
-                    <input id="passDepthInput" class="form-control form-control-sm" type="number" step="0.1" value="3">
+                    <input id="passDepthInput" class="form-control form-control-sm" type="number" step="0.01" value="3">
                     <span class="input-group-text">mm</span>
                   </div>
                   </div>
@@ -215,24 +331,26 @@
               <div class="panel-group mb-3">
                 <div class="panel-group-title">Job Settings</div>
                 <div class="row g-2 mb-2">
-                  <div class="col-4">
+                  <div class="col-12">
                   <label class="form-label small mb-1" for="safeZInput">Z Safe</label>
                   <div class="input-group input-group-sm">
-                    <input id="safeZInput" class="form-control form-control-sm" type="number" step="0.1" value="6">
+                    <input id="safeZInput" class="form-control form-control-sm" type="number" step="0.01" value="6">
                     <span class="input-group-text">mm</span>
                   </div>
                   </div>
-                  <div id="tabWidthField" class="col-4">
+                </div>
+                <div class="row g-2 mb-2 align-items-end">
+                  <div id="tabWidthField" class="col-6">
                   <label class="form-label small mb-1" for="tabWidthInput">Tab Width</label>
                   <div class="input-group input-group-sm">
-                    <input id="tabWidthInput" class="form-control form-control-sm" type="number" step="0.1" value="9">
+                    <input id="tabWidthInput" class="form-control form-control-sm" type="number" step="0.001" min="3" max="50" value="9">
                     <span class="input-group-text">mm</span>
                   </div>
                   </div>
-                  <div id="tabHeightField" class="col-4">
+                  <div id="tabHeightField" class="col-6">
                   <label class="form-label small mb-1" for="tabHeightInput">Tab Height</label>
                   <div class="input-group input-group-sm">
-                    <input id="tabHeightInput" class="form-control form-control-sm" type="number" step="0.1" value="9">
+                    <input id="tabHeightInput" class="form-control form-control-sm" type="number" step="0.01" value="9">
                     <span class="input-group-text">mm</span>
                   </div>
                   </div>
@@ -269,6 +387,7 @@
       </div>
     </aside>
   </div>
+  <div id="toastContainer" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
   <div id="workerBadge" class="worker-badge d-none" aria-live="polite">
     <div class="worker-spinner spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
     <span id="workerPercent" class="worker-percent">0%</span>

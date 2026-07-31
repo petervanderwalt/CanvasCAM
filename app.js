@@ -15,6 +15,10 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
   const canvas = document.getElementById("drawingCanvas");
   const ctx = canvas.getContext("2d");
+  const topRulerCanvas = document.getElementById("topRulerCanvas");
+  const topRulerCtx = topRulerCanvas?.getContext("2d");
+  const leftRulerCanvas = document.getElementById("leftRulerCanvas");
+  const leftRulerCtx = leftRulerCanvas?.getContext("2d");
   let canvasResizeObserver = null;
   let drawFramePending = false;
   let loopPathsDirty = true;
@@ -25,6 +29,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     projectTitle: document.getElementById("projectTitle"),
     loadSampleBtn: document.getElementById("loadSampleBtn"),
     browseVectorBtn: document.getElementById("browseVectorBtn"),
+    openFileBtn: document.getElementById("openFileBtn"),
     fileInput: document.getElementById("fileInput"),
     zoomFitBtn: document.getElementById("zoomFitBtn"),
     zoomInBtn: document.getElementById("zoomInBtn"),
@@ -32,9 +37,30 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     workerBadge: document.getElementById("workerBadge"),
     workerPercent: document.getElementById("workerPercent"),
     statusText: document.getElementById("statusText"),
+    toastContainer: document.getElementById("toastContainer"),
     canvasWrap: document.getElementById("canvasWrap"),
+    vectorActionGroup: document.getElementById("vectorActionGroup"),
+    topRulerCanvas,
+    leftRulerCanvas,
     canvasEmptyState: document.getElementById("canvasEmptyState"),
     originToggleButtons: Array.from(document.querySelectorAll(".origin-toggle-btn")),
+    transformToolButtons: Array.from(document.querySelectorAll(".transform-tool-btn")),
+    deleteVectorsBtn: document.getElementById("deleteVectorsBtn"),
+    transformSidebarPanel: document.getElementById("transformSidebarPanel"),
+    transformInspector: document.getElementById("transformInspector"),
+    transformMoveGroup: document.getElementById("transformMoveGroup"),
+    transformPositionXInput: document.getElementById("transformPositionXInput"),
+    transformPositionYInput: document.getElementById("transformPositionYInput"),
+    applyTransformMoveBtn: document.getElementById("applyTransformMoveBtn"),
+    transformAngleGroup: document.getElementById("transformAngleGroup"),
+    transformAngleInput: document.getElementById("transformAngleInput"),
+    applyTransformAngleBtn: document.getElementById("applyTransformAngleBtn"),
+    transformSizeGroup: document.getElementById("transformSizeGroup"),
+    transformWidthInput: document.getElementById("transformWidthInput"),
+    transformHeightInput: document.getElementById("transformHeightInput"),
+    applyTransformSizeBtn: document.getElementById("applyTransformSizeBtn"),
+    transformAspectLockBtn: document.getElementById("transformAspectLockBtn"),
+    transformAspectLockIcon: document.getElementById("transformAspectLockIcon"),
     workflowSteps: Array.from(document.querySelectorAll(".workflow-step")),
     selectionCount: document.getElementById("selectionCount"),
     selectionHeading: document.getElementById("selectionHeading"),
@@ -45,6 +71,18 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     globalSettingsSection: document.getElementById("globalSettingsSection"),
     toolpathTypeInput: document.getElementById("toolpathTypeInput"),
     operationOptions: Array.from(document.querySelectorAll(".operation-option")),
+    toolLibraryToggle: document.getElementById("toolLibraryToggle"),
+    toolLibraryMenu: document.getElementById("toolLibraryMenu"),
+    toolLibraryList: document.getElementById("toolLibraryList"),
+    toolLibraryPreview: document.getElementById("toolLibraryPreview"),
+    toolLibraryPreviewName: document.getElementById("toolLibraryPreviewName"),
+    toolLibraryPreviewMeta: document.getElementById("toolLibraryPreviewMeta"),
+    toolLibrarySummary: document.getElementById("toolLibrarySummary"),
+    toolLibrarySummaryImage: document.getElementById("toolLibrarySummaryImage"),
+    toolLibrarySummaryName: document.getElementById("toolLibrarySummaryName"),
+    toolLibrarySummaryMeta: document.getElementById("toolLibrarySummaryMeta"),
+    toolLibrarySummaryLink: document.getElementById("toolLibrarySummaryLink"),
+    toolLibraryClearBtn: document.getElementById("toolLibraryClearBtn"),
     toolDiameterField: document.getElementById("toolDiameterField"),
     toolDiameterInput: document.getElementById("toolDiameterInput"),
     cutterAngleField: document.getElementById("cutterAngleField"),
@@ -107,11 +145,75 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     showOrigin: true,
     dragImportActive: false,
     isNavigatingView: false,
+    transformTool: null,
+    geometryTransform: null,
+    transformingGeometry: false,
+    transformSizeLastEdited: "width",
+    transformAspectLocked: true,
+    selectionFrameAngles: new Map(),
     workerJobs: new Map(),
+    toolLibrary: {
+      tools: [],
+      byId: new Map(),
+      loaded: false,
+    },
+    selectedLibraryToolId: null,
+    selectedLibraryToolMeta: null,
+    history: {
+      undo: [],
+      redo: [],
+      limit: 60,
+    },
   };
 
-  function setStatus(message) {
-    ui.statusText.textContent = message;
+  function deepClone(value) {
+    if (typeof structuredClone === "function") {
+      return structuredClone(value);
+    }
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function updateDockStatus() {
+    if (!state.loops.length) {
+      ui.statusText.textContent = "Import a DXF or SVG to begin.";
+      return;
+    }
+    if (!state.toolpaths.length) {
+      ui.statusText.textContent = "Add a toolpath to enable export.";
+      return;
+    }
+    const count = state.toolpaths.length;
+    ui.statusText.textContent = `${count} toolpath${count === 1 ? "" : "s"} ready to export.`;
+  }
+
+  function showToast(message, variant = "danger", options = {}) {
+    if (!message) {
+      return;
+    }
+    const toast = document.createElement("div");
+    const title = options.title || (variant === "warning" ? "Warning" : variant === "success" ? "Done" : "Error");
+    toast.className = `toast align-items-center text-bg-${variant} border-0 show`;
+    toast.setAttribute("role", "alert");
+    toast.setAttribute("aria-live", "assertive");
+    toast.setAttribute("aria-atomic", "true");
+    toast.innerHTML = `
+      <div class="d-flex">
+        <div class="toast-body">
+          <strong class="me-2">${title}</strong>${message}
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Close"></button>
+      </div>
+    `;
+    const removeToast = () => {
+      toast.classList.remove("show");
+      window.setTimeout(() => {
+        toast.remove();
+      }, 180);
+    };
+    toast.querySelector(".btn-close")?.addEventListener("click", removeToast);
+    ui.toastContainer.appendChild(toast);
+    const duration = options.duration ?? 4200;
+    window.setTimeout(removeToast, duration);
   }
 
   function setWorkflowStep(stepName, status) {
@@ -123,16 +225,951 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     step.classList.toggle("is-complete", status === "complete");
   }
 
+  function loopSignature(loop) {
+    return (loop?.sourceEntityIndexes || [])
+      .slice()
+      .sort((a, b) => a - b)
+      .join(",");
+  }
+
+  function selectedLoopSignatures() {
+    return new Set(
+      state.loops
+        .filter((loop) => state.selectedLoopIds.has(loop.id))
+        .map(loopSignature)
+        .filter(Boolean)
+    );
+  }
+
+  function selectedEntityKeyFromIndexes(indexes) {
+    return indexes.slice().sort((a, b) => a - b).join(",");
+  }
+
+  function getSelectedEntityKey() {
+    return selectedEntityKeyFromIndexes(getSelectedEntityIndexes());
+  }
+
+  function getSelectedEntityIndexes() {
+    const indexes = new Set();
+    for (const loop of state.loops) {
+      if (!state.selectedLoopIds.has(loop.id)) {
+        continue;
+      }
+      for (const index of loop.sourceEntityIndexes || []) {
+        indexes.add(index);
+      }
+    }
+    return Array.from(indexes).sort((a, b) => a - b);
+  }
+
+  function rebuildLoopsFromEntities(selectionSignatures = new Set()) {
+    state.loops = buildLoops(state.entities);
+    loopPathsDirty = true;
+    state.bounds = mergeBounds(state.loops.map((loop) => loop.bounds));
+    state.selectedLoopIds.clear();
+    if (selectionSignatures.size) {
+      for (const loop of state.loops) {
+        if (selectionSignatures.has(loopSignature(loop))) {
+          state.selectedLoopIds.add(loop.id);
+        }
+      }
+    }
+  }
+
+  function extractToolpathConfig(toolpath) {
+    return {
+      operation: toolpath.operation,
+      toolDiameter: toolpath.toolDiameter,
+      toolRadius: toolpath.toolRadius,
+      cutterAngle: toolpath.cutterAngle,
+      overlapPercent: toolpath.overlapPercent,
+      cutDepth: toolpath.cutDepth,
+      passDepth: toolpath.passDepth,
+      tabWidth: toolpath.tabWidth,
+      tabHeight: toolpath.tabHeight,
+      safeZ: toolpath.safeZ,
+      feedRate: toolpath.feedRate,
+      plungeRate: toolpath.plungeRate,
+      spindle: toolpath.spindle,
+      libraryToolId: toolpath.libraryToolId || null,
+      libraryToolName: toolpath.libraryToolName || "",
+      libraryToolVendor: toolpath.libraryToolVendor || "",
+      libraryToolImage: toolpath.libraryToolImage || "",
+      libraryToolUrl: toolpath.libraryToolUrl || "",
+      libraryToolDescription: toolpath.libraryToolDescription || "",
+    };
+  }
+
+  function snapshotToolpathsForRebuild() {
+    return state.toolpaths.map((toolpath) => ({
+      id: toolpath.id,
+      label: toolpath.label,
+      config: extractToolpathConfig(toolpath),
+      sourceLoopSignatures: toolpath.sourceLoops.map(loopSignature).filter(Boolean),
+      tabs: toolpath.tabs.map((tab) => ({ ...tab, point: tab.point ? clonePoint(tab.point) : null })),
+    }));
+  }
+
+  function snapshotToolpathsForHistory() {
+    return state.toolpaths.map((toolpath) => ({
+      id: toolpath.id,
+      label: toolpath.label,
+      operation: toolpath.operation,
+      operationLabel: toolpath.operationLabel,
+      cardMeta: toolpath.cardMeta,
+      toolDiameter: toolpath.toolDiameter,
+      toolRadius: toolpath.toolRadius,
+      cutterAngle: toolpath.cutterAngle,
+      overlapPercent: toolpath.overlapPercent,
+      cutDepth: toolpath.cutDepth,
+      passDepth: toolpath.passDepth,
+      passDepths: [...toolpath.passDepths],
+      tabWidth: toolpath.tabWidth,
+      tabHeight: toolpath.tabHeight,
+      safeZ: toolpath.safeZ,
+      feedRate: toolpath.feedRate,
+      plungeRate: toolpath.plungeRate,
+      spindle: toolpath.spindle,
+      libraryToolId: toolpath.libraryToolId || null,
+      libraryToolName: toolpath.libraryToolName || "",
+      libraryToolVendor: toolpath.libraryToolVendor || "",
+      libraryToolImage: toolpath.libraryToolImage || "",
+      libraryToolUrl: toolpath.libraryToolUrl || "",
+      libraryToolDescription: toolpath.libraryToolDescription || "",
+      previewContours: deepClone(toolpath.previewContours || []),
+      motionPaths: deepClone(toolpath.motionPaths || []),
+      tabs: deepClone(toolpath.tabs || []),
+      sourceLoopSignatures: toolpath.sourceLoops.map(loopSignature).filter(Boolean),
+    }));
+  }
+
+  function restoreToolpathsFromHistory(toolpathSnapshots) {
+    const loopMap = new Map(state.loops.map((loop) => [loopSignature(loop), loop]));
+    return (toolpathSnapshots || []).map((snapshot) => ({
+      ...deepClone(snapshot),
+      sourceLoops: (snapshot.sourceLoopSignatures || [])
+        .map((signature) => loopMap.get(signature))
+        .filter(Boolean),
+    }));
+  }
+
+  function captureHistorySnapshot() {
+    return {
+      fileName: state.fileName,
+      entities: deepClone(state.entities),
+      toolpaths: snapshotToolpathsForHistory(),
+      selectedLoopSignatures: Array.from(selectedLoopSignatures()),
+      activeToolpathId: state.activeToolpathId,
+      editingToolpathId: state.editingToolpathId,
+      selectionFrameAngles: Array.from(state.selectionFrameAngles.entries()),
+      selectedLibraryToolId: state.selectedLibraryToolId,
+      selectedLibraryToolMeta: deepClone(state.selectedLibraryToolMeta),
+      autoTabHeight: state.autoTabHeight,
+      toolpathFormValues: {
+        operation: ui.toolpathTypeInput.value,
+        toolDiameter: ui.toolDiameterInput.value,
+        cutterAngle: ui.cutterAngleInput.value,
+        overlapPercent: ui.overlapInput.value,
+        cutDepth: ui.cutDepthInput.value,
+        passDepth: ui.passDepthInput.value,
+        tabWidth: ui.tabWidthInput.value,
+        tabHeight: ui.tabHeightInput.value,
+        safeZ: ui.safeZInput.value,
+        feedRate: ui.feedRateInput.value,
+        plungeRate: ui.plungeRateInput.value,
+        spindle: ui.spindleInput.value,
+      },
+    };
+  }
+
+  function snapshotsEqual(a, b) {
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
+
+  function pushHistorySnapshot(beforeSnapshot) {
+    if (!beforeSnapshot) {
+      return;
+    }
+    const afterSnapshot = captureHistorySnapshot();
+    if (snapshotsEqual(beforeSnapshot, afterSnapshot)) {
+      return;
+    }
+    state.history.undo.push(beforeSnapshot);
+    if (state.history.undo.length > state.history.limit) {
+      state.history.undo.shift();
+    }
+    state.history.redo = [];
+  }
+
+  function restoreHistorySnapshot(snapshot) {
+    if (!snapshot) {
+      return;
+    }
+    state.fileName = snapshot.fileName || "";
+    state.entities = deepClone(snapshot.entities || []);
+    state.selectionFrameAngles = new Map(snapshot.selectionFrameAngles || []);
+    state.activeToolpathId = snapshot.activeToolpathId || null;
+    state.editingToolpathId = snapshot.editingToolpathId || null;
+    state.selectedLibraryToolId = snapshot.selectedLibraryToolId || null;
+    state.selectedLibraryToolMeta = deepClone(snapshot.selectedLibraryToolMeta || null);
+    state.autoTabHeight = snapshot.autoTabHeight !== false;
+    state.addTabsMode = false;
+    state.hoveredTabCandidate = null;
+    state.hoveredTab = null;
+    state.draggingTab = null;
+    state.tabPress = null;
+    state.hoveredLoopId = null;
+    state.marquee = null;
+    state.marqueePreviewLoopIds.clear();
+    state.geometryTransform = null;
+    state.transformingGeometry = false;
+    state.transformTool = null;
+    state.draftBuildToken += 1;
+    clearDraftToolpath();
+    rebuildLoopsFromEntities(new Set(snapshot.selectedLoopSignatures || []));
+    state.toolpaths = restoreToolpathsFromHistory(snapshot.toolpaths);
+    if (!state.toolpaths.some((toolpath) => toolpath.id === state.activeToolpathId)) {
+      state.activeToolpathId = state.toolpaths[0]?.id || null;
+    }
+    if (!state.toolpaths.some((toolpath) => toolpath.id === state.editingToolpathId)) {
+      state.editingToolpathId = null;
+    }
+    const formValues = snapshot.toolpathFormValues || {};
+    ui.toolpathTypeInput.value = formValues.operation || ui.toolpathTypeInput.value;
+    ui.toolDiameterInput.value = formValues.toolDiameter || ui.toolDiameterInput.value;
+    ui.cutterAngleInput.value = formValues.cutterAngle || ui.cutterAngleInput.value;
+    ui.overlapInput.value = formValues.overlapPercent || ui.overlapInput.value;
+    ui.cutDepthInput.value = formValues.cutDepth || ui.cutDepthInput.value;
+    ui.passDepthInput.value = formValues.passDepth || ui.passDepthInput.value;
+    ui.tabWidthInput.value = formValues.tabWidth || ui.tabWidthInput.value;
+    ui.tabHeightInput.value = formValues.tabHeight || ui.tabHeightInput.value;
+    ui.safeZInput.value = formValues.safeZ || ui.safeZInput.value;
+    ui.feedRateInput.value = formValues.feedRate || ui.feedRateInput.value;
+    ui.plungeRateInput.value = formValues.plungeRate || ui.plungeRateInput.value;
+    ui.spindleInput.value = formValues.spindle || ui.spindleInput.value;
+    refreshOperationUi();
+    refreshToolpathFieldVisibility();
+    refreshToolLibraryUi();
+    updateTransformToolUi();
+    refreshWorkspaceUi();
+    refreshSelectionUi();
+    refreshToolpathUi();
+    draw();
+  }
+
+  function undoHistory() {
+    if (!state.history.undo.length) {
+      return;
+    }
+    const current = captureHistorySnapshot();
+    const snapshot = state.history.undo.pop();
+    state.history.redo.push(current);
+    restoreHistorySnapshot(snapshot);
+  }
+
+  function redoHistory() {
+    if (!state.history.redo.length) {
+      return;
+    }
+    const current = captureHistorySnapshot();
+    const snapshot = state.history.redo.pop();
+    state.history.undo.push(current);
+    restoreHistorySnapshot(snapshot);
+  }
+
+  function normalizeRadians(angle) {
+    let value = angle % (Math.PI * 2);
+    if (value <= -Math.PI) {
+      value += Math.PI * 2;
+    } else if (value > Math.PI) {
+      value -= Math.PI * 2;
+    }
+    return value;
+  }
+
+  function getSelectionPoints() {
+    return state.loops
+      .filter((loop) => state.selectedLoopIds.has(loop.id))
+      .flatMap((loop) => loop.points || []);
+  }
+
+  function getSelectionFrame() {
+    const selectedEntityKey = getSelectedEntityKey();
+    const points = getSelectionPoints();
+    if (points.length < 2) {
+      return null;
+    }
+    let sumX = 0;
+    let sumY = 0;
+    for (const point of points) {
+      sumX += point.x;
+      sumY += point.y;
+    }
+    const center = { x: sumX / points.length, y: sumY / points.length };
+    let covXX = 0;
+    let covYY = 0;
+    let covXY = 0;
+    for (const point of points) {
+      const dx = point.x - center.x;
+      const dy = point.y - center.y;
+      covXX += dx * dx;
+      covYY += dy * dy;
+      covXY += dx * dy;
+    }
+    const liveTransformAngle = state.transformingGeometry
+      && state.geometryTransform?.selectedEntityKey === selectedEntityKey
+      && Number.isFinite(state.geometryTransform?.resultAngle)
+      ? state.geometryTransform.resultAngle
+      : null;
+    const angle = liveTransformAngle
+      ?? state.selectionFrameAngles.get(selectedEntityKey)
+      ?? 0;
+    const axisX = { x: Math.cos(angle), y: Math.sin(angle) };
+    const axisY = { x: -Math.sin(angle), y: Math.cos(angle) };
+    let minU = Number.POSITIVE_INFINITY;
+    let maxU = Number.NEGATIVE_INFINITY;
+    let minV = Number.POSITIVE_INFINITY;
+    let maxV = Number.NEGATIVE_INFINITY;
+    for (const point of points) {
+      const dx = point.x - center.x;
+      const dy = point.y - center.y;
+      const u = dx * axisX.x + dy * axisX.y;
+      const v = dx * axisY.x + dy * axisY.y;
+      minU = Math.min(minU, u);
+      maxU = Math.max(maxU, u);
+      minV = Math.min(minV, v);
+      maxV = Math.max(maxV, v);
+    }
+    const localCenter = { u: (minU + maxU) / 2, v: (minV + maxV) / 2 };
+    const frameCenter = {
+      x: center.x + axisX.x * localCenter.u + axisY.x * localCenter.v,
+      y: center.y + axisX.y * localCenter.u + axisY.y * localCenter.v,
+    };
+    const toWorld = (u, v) => ({
+      x: frameCenter.x + axisX.x * u + axisY.x * v,
+      y: frameCenter.y + axisX.y * u + axisY.y * v,
+    });
+    const width = Math.max(0.0001, maxU - minU);
+    const height = Math.max(0.0001, maxV - minV);
+    const halfW = width / 2;
+    const halfH = height / 2;
+    const corners = {
+      nw: toWorld(-halfW, halfH),
+      ne: toWorld(halfW, halfH),
+      se: toWorld(halfW, -halfH),
+      sw: toWorld(-halfW, -halfH),
+    };
+    return {
+      key: selectedEntityKey,
+      center: frameCenter,
+      angle,
+      axisX,
+      axisY,
+      width,
+      height,
+      corners,
+      toWorld,
+      toLocal(point) {
+        const dx = point.x - frameCenter.x;
+        const dy = point.y - frameCenter.y;
+        return {
+          u: dx * axisX.x + dy * axisX.y,
+          v: dx * axisY.x + dy * axisY.y,
+        };
+      },
+    };
+  }
+
+  function getAxisAlignedSelectionFrame() {
+    const selectedEntityIndexes = getSelectedEntityIndexes();
+    if (!selectedEntityIndexes.length) {
+      return null;
+    }
+    const bounds = boundsOfEntities(selectedEntityIndexes.map((index) => state.entities[index]).filter(Boolean));
+    if (!bounds) {
+      return null;
+    }
+    const center = {
+      x: (bounds.minX + bounds.maxX) / 2,
+      y: (bounds.minY + bounds.maxY) / 2,
+    };
+    const width = Math.max(0.0001, bounds.maxX - bounds.minX);
+    const height = Math.max(0.0001, bounds.maxY - bounds.minY);
+    const halfW = width / 2;
+    const halfH = height / 2;
+    const toWorld = (u, v) => ({
+      x: center.x + u,
+      y: center.y + v,
+    });
+    return {
+      key: getSelectedEntityKey(),
+      center,
+      angle: 0,
+      axisX: { x: 1, y: 0 },
+      axisY: { x: 0, y: 1 },
+      width,
+      height,
+      corners: {
+        nw: toWorld(-halfW, halfH),
+        ne: toWorld(halfW, halfH),
+        se: toWorld(halfW, -halfH),
+        sw: toWorld(-halfW, -halfH),
+      },
+      toWorld,
+      toLocal(point) {
+        return {
+          u: point.x - center.x,
+          v: point.y - center.y,
+        };
+      },
+    };
+  }
+
+  function buildSelectionTransformOverlay() {
+    if (!state.selectedLoopIds.size || state.addTabsMode || !state.transformTool) {
+      return null;
+    }
+    const frame = state.transformTool === "move"
+      ? getAxisAlignedSelectionFrame()
+      : getSelectionFrame();
+    if (!frame) {
+      return null;
+    }
+    const corners = {
+      nw: worldToScreen(frame.corners.nw),
+      ne: worldToScreen(frame.corners.ne),
+      se: worldToScreen(frame.corners.se),
+      sw: worldToScreen(frame.corners.sw),
+    };
+    const center = worldToScreen(frame.center);
+    const polygon = [corners.nw, corners.ne, corners.se, corners.sw];
+    const handles = [
+      { key: "nw", ...corners.nw, world: frame.corners.nw },
+      { key: "ne", ...corners.ne, world: frame.corners.ne },
+      { key: "se", ...corners.se, world: frame.corners.se },
+      { key: "sw", ...corners.sw, world: frame.corners.sw },
+    ];
+    const rotateHandles = handles.map((handle) => {
+      const dx = handle.x - center.x;
+      const dy = handle.y - center.y;
+      const length = Math.hypot(dx, dy) || 1;
+      const offset = 18;
+      return {
+        key: handle.key,
+        anchor: { x: handle.x, y: handle.y },
+        x: handle.x + (dx / length) * offset,
+        y: handle.y + (dy / length) * offset,
+      };
+    });
+    return {
+      mode: state.transformTool,
+      center,
+      polygon,
+      frame,
+      width: frame.width,
+      height: frame.height,
+      angleDeg: normalizeRadians(frame.angle) * 180 / Math.PI,
+      handles,
+      rotateHandles,
+    };
+  }
+
+  function findTransformHit(screenPoint) {
+    const overlay = buildSelectionTransformOverlay();
+    if (!overlay) {
+      return null;
+    }
+    if (state.transformTool === "scale") {
+      for (const handle of overlay.handles) {
+        if (Math.hypot(screenPoint.x - handle.x, screenPoint.y - handle.y) <= 10) {
+          const cursor = handle.key === "ne" || handle.key === "sw" ? "nesw-resize" : "nwse-resize";
+          return { type: "scale", handle, cursor };
+        }
+      }
+    }
+    if (state.transformTool === "rotate") {
+      for (const handle of overlay.rotateHandles) {
+        if (Math.hypot(screenPoint.x - handle.x, screenPoint.y - handle.y) <= 10) {
+          return { type: "rotate", handle, cursor: "grab" };
+        }
+      }
+    }
+    if (state.transformTool === "move") {
+      const worldPoint = screenToWorld(screenPoint);
+      const local = overlay.frame.toLocal(worldPoint);
+      const withinRect = Math.abs(local.u) <= overlay.width / 2 && Math.abs(local.v) <= overlay.height / 2;
+      if (withinRect || state.selectedLoopIds.has(findLoopHit(screenPoint)?.id)) {
+        return { type: "move", cursor: "move" };
+      }
+    }
+    return null;
+  }
+
+  function updateTransformToolUi() {
+    if (!state.selectedLoopIds.size) {
+      state.transformTool = null;
+    }
+    for (const button of ui.transformToolButtons) {
+      const active = button.dataset.transformTool === state.transformTool;
+      button.classList.toggle("is-active", active);
+      button.classList.toggle("btn-primary", active);
+      button.classList.toggle("btn-light", !active);
+    }
+    ui.vectorActionGroup.classList.toggle("d-none", state.selectedLoopIds.size === 0);
+    refreshSidebarMode();
+  }
+
+  function refreshTransformInspector() {
+    const overlay = buildSelectionTransformOverlay();
+    const showInspector = Boolean(overlay) && !state.transformingGeometry;
+    ui.transformSidebarPanel.classList.toggle("d-none", !showInspector);
+    if (!showInspector) {
+      return;
+    }
+    ui.transformMoveGroup.classList.toggle("d-none", state.transformTool !== "move");
+    ui.transformAngleGroup.classList.toggle("d-none", state.transformTool !== "rotate");
+    ui.transformSizeGroup.classList.toggle("d-none", state.transformTool !== "scale");
+    ui.transformAspectLockBtn.classList.toggle("btn-primary", state.transformAspectLocked);
+    ui.transformAspectLockBtn.classList.toggle("btn-outline-secondary", !state.transformAspectLocked);
+    ui.transformAspectLockIcon.className = state.transformAspectLocked ? "fa-solid fa-link" : "fa-solid fa-link-slash";
+    if (state.transformTool === "rotate") {
+      ui.transformAngleInput.value = formatNumber(overlay.angleDeg);
+    }
+    if (state.transformTool === "move") {
+      ui.transformPositionXInput.value = formatNumber(overlay.frame.center.x);
+      ui.transformPositionYInput.value = formatNumber(overlay.frame.center.y);
+    }
+    if (state.transformTool === "scale") {
+      ui.transformWidthInput.value = formatNumber(overlay.width);
+      ui.transformHeightInput.value = formatNumber(overlay.height);
+    }
+  }
+
+  function refreshSidebarMode() {
+    const editing = getEditingToolpath();
+    const count = state.selectedLoopIds.size;
+    const showTransform = Boolean(state.transformTool) && count > 0;
+    ui.selectionCount.textContent = String(count);
+    ui.selectionHeading.textContent = showTransform
+      ? {
+        move: "Move Vectors",
+        scale: "Resize Vectors",
+        rotate: "Rotate Vectors",
+      }[state.transformTool] || "Transform Vectors"
+      : editing ? "Edit Toolpath" : "Assign Toolpaths";
+    ui.selectionEmpty.classList.toggle("d-none", showTransform || count > 0 || Boolean(editing));
+    ui.toolpathForm.classList.toggle("d-none", showTransform || (count === 0 && !editing));
+    ui.transformSidebarPanel.classList.toggle("d-none", !showTransform);
+    refreshTransformInspector();
+  }
+
+  async function deleteSelectedVectors() {
+    const entityIndexes = getSelectedEntityIndexes();
+    if (!entityIndexes.length) {
+      return;
+    }
+    const label = entityIndexes.length === 1 ? "this segment" : `these ${entityIndexes.length} segments`;
+    if (!window.confirm(`Delete ${label}?`)) {
+      return;
+    }
+    const historyBefore = captureHistorySnapshot();
+    state.transformTool = null;
+    await deleteVectorsByEntityIndexes(entityIndexes);
+    pushHistorySnapshot(historyBefore);
+    updateTransformToolUi();
+  }
+
+  async function deleteVectorsByEntityIndexes(entityIndexes) {
+    if (!entityIndexes?.length) {
+      return;
+    }
+    const removed = new Set(entityIndexes);
+    const snapshots = snapshotToolpathsForRebuild();
+    state.entities = state.entities.filter((_, index) => !removed.has(index));
+    state.selectionFrameAngles.clear();
+    state.selectedLoopIds.clear();
+    state.hoveredLoopId = null;
+    state.activeToolpathId = null;
+    clearToolpathEditing();
+    clearDraftToolpath();
+    rebuildLoopsFromEntities(new Set());
+
+    const loopMap = new Map(state.loops.map((loop) => [loopSignature(loop), loop]));
+    const rebuiltToolpaths = [];
+    const impacted = snapshots.some((snapshot) => snapshot.sourceLoopSignatures.some((signature) => !loopMap.has(signature)));
+    if (snapshots.length && impacted) {
+      startWorkerJob("delete", {
+        label: "Updating toolpaths",
+        percent: 8,
+        priority: 1,
+      });
+      try {
+        for (let index = 0; index < snapshots.length; index += 1) {
+          const snapshot = snapshots[index];
+          const sourceLoops = snapshot.sourceLoopSignatures
+            .map((signature) => loopMap.get(signature))
+            .filter(Boolean);
+          if (!sourceLoops.length) {
+            continue;
+          }
+          updateWorkerJob("delete", {
+            label: "Updating toolpaths",
+            percent: 12 + Math.round((index / Math.max(1, snapshots.length)) * 80),
+            priority: 1,
+          });
+          const rebuilt = await createToolpathFromLoopsAsync(sourceLoops, snapshot.config, {
+            id: snapshot.id,
+            label: snapshot.label,
+          });
+          rebuilt.sourceLoops = sourceLoops;
+          rebuilt.tabs = normalizeTabsForToolpath(rebuilt, snapshot.tabs);
+          rebuiltToolpaths.push(rebuilt);
+        }
+        state.toolpaths = rebuiltToolpaths;
+        state.activeToolpathId = rebuiltToolpaths[0]?.id || null;
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Failed to update toolpaths after deleting vectors.", "danger");
+      } finally {
+        finishWorkerJob("delete");
+      }
+    } else if (snapshots.length) {
+      state.toolpaths = state.toolpaths.slice();
+    }
+
+    refreshWorkspaceUi();
+    refreshToolpathUi();
+    refreshSelectionUi();
+    draw();
+  }
+
+  function captureSelectionTransformContext() {
+    const selectedEntityIndexes = getSelectedEntityIndexes();
+    if (!selectedEntityIndexes.length) {
+      return null;
+    }
+    return {
+      initialEntities: state.entities.slice(),
+      selectedEntityIndexes,
+      selectedEntityKey: selectedEntityKeyFromIndexes(selectedEntityIndexes),
+      selectionSignatures: selectedLoopSignatures(),
+      toolpathSnapshots: snapshotToolpathsForRebuild(),
+      activeToolpathId: state.activeToolpathId,
+    };
+  }
+
+  async function applySelectionTransformAndRebuild(matrix = null, context = null) {
+    const transformContext = context || captureSelectionTransformContext();
+    if (!transformContext) {
+      return;
+    }
+    if (matrix) {
+      applyMatrixToSelectedEntities(matrix, transformContext);
+    }
+    if (Number.isFinite(transformContext.resultAngle)) {
+      state.selectionFrameAngles.set(transformContext.selectedEntityKey, normalizeRadians(transformContext.resultAngle));
+    } else if (!state.selectionFrameAngles.has(transformContext.selectedEntityKey)) {
+      const currentFrame = getSelectionFrame();
+      if (currentFrame) {
+        state.selectionFrameAngles.set(transformContext.selectedEntityKey, normalizeRadians(currentFrame.angle));
+      }
+    }
+    const loopMap = new Map(state.loops.map((loop) => [loopSignature(loop), loop]));
+    const snapshots = transformContext.toolpathSnapshots;
+    if (snapshots.length) {
+      startWorkerJob("transform", {
+        label: "Updating toolpaths",
+        percent: 6,
+        priority: 1,
+      });
+      try {
+        const rebuiltToolpaths = [];
+        for (let index = 0; index < snapshots.length; index += 1) {
+          const snapshot = snapshots[index];
+          const sourceLoops = snapshot.sourceLoopSignatures
+            .map((signature) => loopMap.get(signature))
+            .filter(Boolean);
+          if (!sourceLoops.length) {
+            continue;
+          }
+          updateWorkerJob("transform", {
+            label: "Updating toolpaths",
+            percent: 10 + Math.round((index / Math.max(1, snapshots.length)) * 80),
+            priority: 1,
+          });
+          const rebuilt = await createToolpathFromLoopsAsync(sourceLoops, snapshot.config, {
+            id: snapshot.id,
+            label: snapshot.label,
+          });
+          rebuilt.sourceLoops = sourceLoops;
+          rebuilt.tabs = normalizeTabsForToolpath(rebuilt, snapshot.tabs);
+          rebuiltToolpaths.push(rebuilt);
+        }
+        state.toolpaths = rebuiltToolpaths;
+        state.activeToolpathId = rebuiltToolpaths.some((toolpath) => toolpath.id === transformContext.activeToolpathId)
+          ? transformContext.activeToolpathId
+          : rebuiltToolpaths[0]?.id || null;
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Failed to update toolpaths after transform.", "danger");
+      } finally {
+        finishWorkerJob("transform");
+      }
+    }
+    refreshWorkspaceUi();
+    refreshToolpathUi();
+    refreshSelectionUi();
+    refreshTransformInspector();
+    draw();
+  }
+
+  function getToolLibraryImageUrl(tool) {
+    if (tool?.libraryToolImage) {
+      return tool.libraryToolImage;
+    }
+    if (typeof tool?.image === "string" && /^library\/tools\//.test(tool.image)) {
+      return tool.image;
+    }
+    if (!tool?.vendor || !tool?.image) {
+      return "";
+    }
+    return `library/tools/${tool.vendor}/${tool.image}`;
+  }
+
+  function buildToolLibraryDescription(tool) {
+    const segments = [];
+    if (tool.toolType) {
+      segments.push(tool.toolType.replace("-", " "));
+    }
+    if (Number.isFinite(tool.cuttingDiameterMm)) {
+      segments.push(`${formatNumber(tool.cuttingDiameterMm)}mm cut`);
+    }
+    if (Number.isFinite(tool.shankDiameterMm)) {
+      segments.push(`${formatNumber(tool.shankDiameterMm)}mm shank`);
+    }
+    if (Number.isFinite(tool.flutes)) {
+      segments.push(`${tool.flutes}F`);
+    }
+    if (tool.fluteType) {
+      segments.push(tool.fluteType);
+    }
+    if (Number.isFinite(tool.fluteAngleDeg) && tool.fluteAngleDeg > 0 && tool.toolType === "v-bit") {
+      segments.push(`${formatNumber(tool.fluteAngleDeg)}deg`);
+    }
+    return segments.join(" - ");
+  }
+
+  function getSelectedLibraryTool() {
+    return state.toolLibrary.byId.get(state.selectedLibraryToolId) || state.selectedLibraryToolMeta;
+  }
+
+  function buildToolLibraryMetaLine(tool) {
+    const vendor = tool?.vendorDisplayName || tool?.vendor || "";
+    const description = buildToolLibraryDescription(tool);
+    if (vendor && description) {
+      return `${vendor} - ${description}`;
+    }
+    return vendor || description || "";
+  }
+
+  function toolSupportsOperation(tool, operation) {
+    if (!tool) {
+      return false;
+    }
+    if (Array.isArray(tool.operationHints) && tool.operationHints.length) {
+      return tool.operationHints.includes(operation);
+    }
+    if (operation === "vcarve") {
+      return tool.toolType === "v-bit";
+    }
+    return true;
+  }
+
+  function getToolLibraryToolsForOperation(operation) {
+    return state.toolLibrary.tools.filter((tool) => toolSupportsOperation(tool, operation));
+  }
+
+  function closeToolLibraryMenu() {
+    ui.toolLibraryMenu.classList.add("d-none");
+    ui.toolLibraryToggle.setAttribute("aria-expanded", "false");
+  }
+
+  function openToolLibraryMenu() {
+    if (!state.toolLibrary.loaded) {
+      return;
+    }
+    ui.toolLibraryMenu.classList.remove("d-none");
+    ui.toolLibraryToggle.setAttribute("aria-expanded", "true");
+  }
+
+  function renderToolLibraryPreview() {
+    const tool = getSelectedLibraryTool();
+    const imageUrl = getToolLibraryImageUrl(tool);
+    ui.toolLibraryPreview.classList.toggle("empty", !tool);
+    ui.toolLibraryClearBtn.classList.toggle("d-none", !tool);
+    if (!tool) {
+      ui.toolLibraryPreview.innerHTML = `
+        <div class="tool-library-preview-thumb">
+          <i class="fa-solid fa-toolbox"></i>
+        </div>
+        <div class="tool-library-preview-copy">
+          <div class="tool-library-preview-name">Choose tool from library</div>
+          <div class="tool-library-preview-meta"></div>
+        </div>
+      `;
+      ui.toolLibrarySummary.classList.add("d-none");
+      return;
+    }
+    ui.toolLibraryPreview.innerHTML = `
+      <img class="tool-library-preview-thumb" src="${imageUrl}" alt="${tool.name}">
+      <div class="tool-library-preview-copy">
+        <div class="tool-library-preview-name">${tool.name}</div>
+        <div class="tool-library-preview-meta">${buildToolLibraryMetaLine(tool)}</div>
+      </div>
+    `;
+    ui.toolLibrarySummary.classList.remove("d-none");
+    ui.toolLibrarySummaryImage.src = imageUrl;
+    ui.toolLibrarySummaryImage.alt = tool.name;
+    ui.toolLibrarySummaryName.textContent = tool.name;
+    ui.toolLibrarySummaryMeta.textContent = buildToolLibraryMetaLine(tool);
+    ui.toolLibrarySummaryLink.href = tool.storeUrl || tool.purchaseUrl || tool.productUrl || "#";
+  }
+
+  function renderToolLibraryMenu() {
+    if (!state.toolLibrary.loaded) {
+      ui.toolLibraryList.innerHTML = `<div class="tool-library-empty">Loading tool library...</div>`;
+      return;
+    }
+    const operation = ui.toolpathTypeInput.value;
+    const tools = getToolLibraryToolsForOperation(operation);
+    if (!tools.length) {
+      ui.toolLibraryList.innerHTML = `<div class="tool-library-empty">No library tools match this operation yet.</div>`;
+      return;
+    }
+    const groups = new Map();
+    for (const tool of tools) {
+      const key = tool.vendorDisplayName || tool.vendor || "Tools";
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key).push(tool);
+    }
+    ui.toolLibraryList.innerHTML = "";
+    for (const [groupName, groupTools] of groups.entries()) {
+      groupTools.sort((a, b) => a.name.localeCompare(b.name));
+      const group = document.createElement("div");
+      group.className = "tool-library-group";
+      const title = document.createElement("div");
+      title.className = "tool-library-group-title";
+      title.textContent = groupName;
+      group.appendChild(title);
+      for (const tool of groupTools) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `tool-library-option ${tool.id === state.selectedLibraryToolId ? "is-selected" : ""}`;
+        button.innerHTML = `
+          <img class="tool-library-option-image" src="${getToolLibraryImageUrl(tool)}" alt="${tool.name}">
+          <div class="tool-library-option-copy">
+            <div class="tool-library-option-name">${tool.name}</div>
+            <div class="tool-library-option-meta">${buildToolLibraryDescription(tool)}</div>
+            <div class="tool-library-option-desc">${tool.tip || tool.toolTypeLabel || tool.material || ""}</div>
+          </div>
+        `;
+        button.addEventListener("click", async () => {
+          selectLibraryTool(tool.id, { applyDefaults: true });
+          closeToolLibraryMenu();
+          await rebuildDraftToolpath();
+          refreshToolpathUi();
+          draw();
+        });
+        group.appendChild(button);
+      }
+      ui.toolLibraryList.appendChild(group);
+    }
+  }
+
+  function refreshToolLibraryUi() {
+    renderToolLibraryPreview();
+    renderToolLibraryMenu();
+  }
+
+  function syncToolInputsFromLibraryTool(tool) {
+    if (!tool) {
+      return;
+    }
+    if (Number.isFinite(tool.cuttingDiameterMm)) {
+      ui.toolDiameterInput.value = formatNumber(tool.cuttingDiameterMm);
+    }
+    if (Number.isFinite(tool.fluteAngleDeg) && tool.fluteAngleDeg > 0) {
+      ui.cutterAngleInput.value = formatNumber(tool.fluteAngleDeg);
+    }
+  }
+
+  function selectLibraryTool(toolId, options = {}) {
+    const tool = state.toolLibrary.byId.get(toolId) || null;
+    state.selectedLibraryToolId = tool?.id || null;
+    state.selectedLibraryToolMeta = tool
+      ? {
+        ...tool,
+        image: tool.image,
+      }
+      : null;
+    if (tool && options.applyDefaults !== false) {
+      syncToolInputsFromLibraryTool(tool);
+    }
+    refreshToolLibraryUi();
+  }
+
+  function clearSelectedLibraryTool() {
+    state.selectedLibraryToolId = null;
+    state.selectedLibraryToolMeta = null;
+    refreshToolLibraryUi();
+  }
+
+  function ensureSelectedToolMatchesOperation() {
+    const tool = getSelectedLibraryTool();
+    if (tool && !toolSupportsOperation(tool, ui.toolpathTypeInput.value)) {
+      clearSelectedLibraryTool();
+    }
+  }
+
+  async function loadToolLibraries() {
+    const sources = [
+      { url: "library/tools/sienci/tools.json", vendor: "sienci" },
+      { url: "library/tools/ooznest/tools.json", vendor: "ooznest" },
+    ];
+    const tools = [];
+    for (const source of sources) {
+      const response = await fetch(source.url);
+      if (!response.ok) {
+        throw new Error(`Failed to load ${source.vendor} tool library.`);
+      }
+      const payload = await response.json();
+      const sourceTools = Array.isArray(payload) ? payload : payload.tools || [];
+      tools.push(...sourceTools);
+    }
+    state.toolLibrary.tools = tools;
+    state.toolLibrary.byId = new Map(tools.map((tool) => [tool.id, tool]));
+    state.toolLibrary.loaded = true;
+    if (state.selectedLibraryToolId && state.toolLibrary.byId.has(state.selectedLibraryToolId)) {
+      state.selectedLibraryToolMeta = state.toolLibrary.byId.get(state.selectedLibraryToolId);
+    }
+    refreshToolLibraryUi();
+  }
+
   function refreshWorkspaceUi() {
     const hasGeometry = state.loops.length > 0;
     const hasToolpaths = state.toolpaths.length > 0;
     const hasDraft = Boolean(state.draftToolpath);
     const hasSelection = state.selectedLoopIds.size > 0;
     const isEditing = Boolean(state.editingToolpathId);
+    if (!hasSelection && state.transformTool) {
+      state.transformTool = null;
+    }
 
     ui.projectTitle.textContent = state.fileName || "Untitled Project";
+    updateDockStatus();
     ui.canvasEmptyState.classList.toggle("d-none", hasGeometry);
     ui.canvasWrap.classList.toggle("is-drop-target", state.dragImportActive);
+    ui.vectorActionGroup.classList.toggle("d-none", !hasSelection);
 
     for (const button of ui.originToggleButtons) {
       button.classList.toggle("is-active", state.showOrigin);
@@ -164,8 +1201,23 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     canvas.width = Math.round(rect.width * ratio);
     canvas.height = Math.round(rect.height * ratio);
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    resizeAuxCanvas(ui.topRulerCanvas, topRulerCtx, ratio);
+    resizeAuxCanvas(ui.leftRulerCanvas, leftRulerCtx, ratio);
     loopPathsDirty = true;
     draw();
+  }
+
+  function resizeAuxCanvas(targetCanvas, targetCtx, ratio) {
+    if (!targetCanvas || !targetCtx) {
+      return;
+    }
+    const rect = targetCanvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      return;
+    }
+    targetCanvas.width = Math.round(rect.width * ratio);
+    targetCanvas.height = Math.round(rect.height * ratio);
+    targetCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
   }
 
   function requestDraw() {
@@ -324,6 +1376,186 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     state.camera.panY = -((bounds.minY + bounds.maxY) / 2);
   }
 
+  function matrixForTranslation(dx, dy) {
+    return createMatrix(1, 0, 0, 1, dx, dy);
+  }
+
+  function matrixForRotation(angleRad, cx, cy) {
+    const cos = Math.cos(angleRad);
+    const sin = Math.sin(angleRad);
+    return multiplyMatrices(
+      multiplyMatrices(createMatrix(1, 0, 0, 1, cx, cy), createMatrix(cos, sin, -sin, cos, 0, 0)),
+      createMatrix(1, 0, 0, 1, -cx, -cy)
+    );
+  }
+
+  function matrixForUniformScale(scale, ox, oy) {
+    return multiplyMatrices(
+      multiplyMatrices(createMatrix(1, 0, 0, 1, ox, oy), createMatrix(scale, 0, 0, scale, 0, 0)),
+      createMatrix(1, 0, 0, 1, -ox, -oy)
+    );
+  }
+
+  function matrixForFrameScale(scaleX, scaleY, frame) {
+    const angle = frame.angle;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const rotate = createMatrix(cos, sin, -sin, cos, 0, 0);
+    const unrotate = createMatrix(cos, -sin, sin, cos, 0, 0);
+    return multiplyMatrices(
+      multiplyMatrices(
+        multiplyMatrices(
+          multiplyMatrices(createMatrix(1, 0, 0, 1, frame.center.x, frame.center.y), rotate),
+          createMatrix(scaleX, 0, 0, scaleY, 0, 0)
+        ),
+        unrotate
+      ),
+      createMatrix(1, 0, 0, 1, -frame.center.x, -frame.center.y)
+    );
+  }
+
+  function selectionContainsCurvedEntities() {
+    const selectedIndexes = new Set(getSelectedEntityIndexes());
+    return state.entities.some((entity, index) => selectedIndexes.has(index) && (entity.type === "ARC" || entity.type === "CIRCLE"));
+  }
+
+  function applyMatrixToSelectedEntities(matrix, transformState) {
+    const selectedSet = new Set(transformState.selectedEntityIndexes);
+    state.entities = transformState.initialEntities.map((entity, index) => (
+      selectedSet.has(index) ? transformEntity(entity, matrix) : entity
+    ));
+    rebuildLoopsFromEntities(transformState.selectionSignatures);
+  }
+
+  function beginGeometryTransform(kind, screenPoint, hit = null) {
+    const captured = captureSelectionTransformContext();
+    if (!captured) {
+      return false;
+    }
+    const overlay = buildSelectionTransformOverlay();
+    if (!overlay) {
+      return false;
+    }
+    clearTabPressState();
+    state.addTabsMode = false;
+    state.hoveredLoopId = null;
+    state.marqueePreviewLoopIds.clear();
+    clearToolpathEditing();
+    clearDraftToolpath();
+    const worldPoint = screenToWorld(screenPoint);
+    state.geometryTransform = {
+      kind,
+      hit,
+      ...captured,
+      frameAtStart: overlay.frame,
+      center: overlay.frame.center,
+      startFrameAngle: overlay.frame.angle,
+      startWorld: worldPoint,
+      startAngle: Math.atan2(worldPoint.y - overlay.frame.center.y, worldPoint.x - overlay.frame.center.x),
+      changed: false,
+    };
+    if (kind === "scale" && hit?.handle) {
+      const handleWorld = hit.handle.world;
+      state.geometryTransform.handleWorld = handleWorld;
+      const oppositeKey = { nw: "se", ne: "sw", se: "nw", sw: "ne" }[hit.handle.key];
+      state.geometryTransform.anchor = overlay.frame.corners[oppositeKey];
+      state.geometryTransform.initialDistance = Math.hypot(
+        handleWorld.x - state.geometryTransform.anchor.x,
+        handleWorld.y - state.geometryTransform.anchor.y
+      ) || 1;
+    }
+    state.transformingGeometry = true;
+    refreshToolpathUi();
+    refreshWorkspaceUi();
+    refreshTransformInspector();
+    requestDraw();
+    return true;
+  }
+
+  function updateGeometryTransform(screenPoint) {
+    const transformState = state.geometryTransform;
+    if (!transformState) {
+      return;
+    }
+    const worldPoint = screenToWorld(screenPoint);
+    let matrix = createMatrix();
+    if (transformState.kind === "move") {
+      transformState.resultAngle = transformState.startFrameAngle;
+      matrix = matrixForTranslation(
+        worldPoint.x - transformState.startWorld.x,
+        worldPoint.y - transformState.startWorld.y
+      );
+    } else if (transformState.kind === "rotate") {
+      const angle = Math.atan2(worldPoint.y - transformState.center.y, worldPoint.x - transformState.center.x);
+      const delta = angle - transformState.startAngle;
+      transformState.resultAngle = normalizeRadians(transformState.startFrameAngle + delta);
+      matrix = matrixForRotation(delta, transformState.center.x, transformState.center.y);
+      if (state.transformTool === "rotate") {
+        ui.transformAngleInput.value = formatNumber((transformState.resultAngle * 180) / Math.PI);
+      }
+    } else if (transformState.kind === "scale") {
+      const currentDistance = Math.hypot(
+        worldPoint.x - transformState.anchor.x,
+        worldPoint.y - transformState.anchor.y
+      );
+      const scale = Math.max(0.02, currentDistance / transformState.initialDistance);
+      transformState.resultAngle = transformState.startFrameAngle;
+      matrix = matrixForUniformScale(scale, transformState.anchor.x, transformState.anchor.y);
+      if (state.transformTool === "scale") {
+        ui.transformWidthInput.value = formatNumber(transformState.frameAtStart.width * scale);
+        ui.transformHeightInput.value = formatNumber(transformState.frameAtStart.height * scale);
+      }
+    }
+    transformState.changed = true;
+    applyMatrixToSelectedEntities(matrix, transformState);
+    if (state.transformTool === "move") {
+      ui.transformPositionXInput.value = formatNumber(transformState.frameAtStart.center.x + (worldPoint.x - transformState.startWorld.x));
+      ui.transformPositionYInput.value = formatNumber(transformState.frameAtStart.center.y + (worldPoint.y - transformState.startWorld.y));
+    }
+    updateCanvasCursor(screenPoint);
+    requestDraw();
+  }
+
+  async function finalizeGeometryTransform() {
+    const transformState = state.geometryTransform;
+    if (!transformState) {
+      return;
+    }
+    state.geometryTransform = null;
+    state.transformingGeometry = false;
+    if (!transformState.changed) {
+      state.transformTool = null;
+      refreshWorkspaceUi();
+      refreshToolpathUi();
+      refreshSelectionUi();
+      refreshTransformInspector();
+      draw();
+      return;
+    }
+    const historyBefore = captureHistorySnapshot();
+    await applySelectionTransformAndRebuild(null, transformState);
+    pushHistorySnapshot(historyBefore);
+    state.transformTool = null;
+    updateTransformToolUi();
+  }
+
+  function cancelGeometryTransform() {
+    const transformState = state.geometryTransform;
+    if (!transformState) {
+      return;
+    }
+    state.entities = transformState.initialEntities.slice();
+    rebuildLoopsFromEntities(transformState.selectionSignatures);
+    state.geometryTransform = null;
+    state.transformingGeometry = false;
+    state.transformTool = null;
+    refreshWorkspaceUi();
+    refreshToolpathUi();
+    refreshSelectionUi();
+    refreshTransformInspector();
+    draw();
+  }
+
   function adjustZoom(zoomFactor) {
     const rect = canvas.getBoundingClientRect();
     const center = { x: rect.width / 2, y: rect.height / 2 };
@@ -380,6 +1612,10 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     return Paths.translateEntity(...args);
   }
 
+  function transformEntity(...args) {
+    return Paths.transformEntity(...args);
+  }
+
   function parseDxf(text) {
     return parseDxfFile(text);
   }
@@ -421,12 +1657,17 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   }
 
   function createLoopPath2D(segments) {
-    return Paths.createLoopPath2D(segments, worldToScreen, state.camera.zoom);
+    return Paths.createLoopPath2D(
+      segments,
+      worldToScreen,
+      state.camera.zoom,
+      segments?.[0]?.source?.closed ?? true
+    );
   }
 
   function rebuildLoopPaths() {
     for (const loop of state.loops) {
-      loop.path2d = createLoopPath2D(loop.segments);
+      loop.path2d = Paths.createLoopPath2D(loop.segments, worldToScreen, state.camera.zoom, loop.closed !== false);
     }
   }
 
@@ -439,6 +1680,9 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       refreshToolpathFieldVisibilityFn: UiState.refreshToolpathFieldVisibility,
       rebuildDraftToolpath,
     });
+    refreshToolLibraryUi();
+    updateTransformToolUi();
+    refreshSidebarMode();
     refreshWorkspaceUi();
   }
 
@@ -551,9 +1795,6 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     });
 
     try {
-      if (config.operation === "vcarve" && !isVCarveEngineReady()) {
-        setStatus("V-Carve engine is loading...");
-      }
       const draftOptions = editing
         ? { id: editing.id, label: editing.label }
         : {};
@@ -579,9 +1820,6 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       const existingTabs = state.draftToolpath?.tabs || editing?.tabs || [];
       draft.tabs = normalizeTabsForToolpath(draft, existingTabs);
       state.draftToolpath = draft;
-      if (config.operation === "vcarve") {
-        setStatus("V-Carve engine ready.");
-      }
       refreshToolpathUi();
       refreshWorkspaceUi();
       requestDraw();
@@ -591,7 +1829,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       }
       state.draftToolpath = null;
       if (error instanceof Error) {
-        setStatus(error.message);
+        showToast(error.message, "danger");
       }
       refreshToolpathUi();
       refreshWorkspaceUi();
@@ -622,8 +1860,8 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
   function readToolpathConfigFromForm() {
     const toolDiameter = Number.parseFloat(ui.toolDiameterInput.value) || 6;
-    const minimumTabWidth = getMinimumTabWidth(toolDiameter);
-    const tabWidth = Math.max(Number.parseFloat(ui.tabWidthInput.value) || minimumTabWidth, minimumTabWidth);
+    const tabWidth = Math.min(50, Math.max(3, Number.parseFloat(ui.tabWidthInput.value) || 9));
+    const selectedTool = getSelectedLibraryTool();
     ui.tabWidthInput.value = formatNumber(tabWidth);
     return {
       operation: ui.toolpathTypeInput.value,
@@ -639,6 +1877,12 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       feedRate: Number.parseFloat(ui.feedRateInput.value) || 1800,
       plungeRate: Number.parseFloat(ui.plungeRateInput.value) || 600,
       spindle: Number.parseFloat(ui.spindleInput.value) || 18000,
+      libraryToolId: selectedTool?.id || null,
+      libraryToolName: selectedTool?.name || "",
+      libraryToolVendor: selectedTool?.vendorDisplayName || selectedTool?.vendor || "",
+      libraryToolImage: getToolLibraryImageUrl(selectedTool),
+      libraryToolUrl: selectedTool?.storeUrl || selectedTool?.purchaseUrl || selectedTool?.productUrl || "",
+      libraryToolDescription: selectedTool ? buildToolLibraryDescription(selectedTool) : "",
     };
   }
 
@@ -650,14 +1894,29 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     ui.overlapInput.value = toolpath.overlapPercent;
     ui.cutDepthInput.value = toolpath.cutDepth;
     ui.passDepthInput.value = toolpath.passDepth;
-    ui.tabWidthInput.value = formatNumber(Math.max(toolpath.tabWidth, getMinimumTabWidth(toolpath.toolDiameter)));
+    ui.tabWidthInput.value = formatNumber(Math.min(50, Math.max(3, toolpath.tabWidth)));
     ui.tabHeightInput.value = toolpath.tabHeight;
     ui.safeZInput.value = toolpath.safeZ;
     ui.feedRateInput.value = toolpath.feedRate;
     ui.plungeRateInput.value = toolpath.plungeRate;
     ui.spindleInput.value = toolpath.spindle;
+    state.selectedLibraryToolId = toolpath.libraryToolId || null;
+    state.selectedLibraryToolMeta = toolpath.libraryToolId
+      ? state.toolLibrary.byId.get(toolpath.libraryToolId) || {
+        id: toolpath.libraryToolId,
+        name: toolpath.libraryToolName,
+        vendorDisplayName: toolpath.libraryToolVendor,
+        libraryToolImage: toolpath.libraryToolImage,
+        image: toolpath.libraryToolImage?.replace(/^library\/tools\/[^/]+\//, ""),
+        storeUrl: toolpath.libraryToolUrl,
+        productUrl: toolpath.libraryToolUrl,
+        purchaseUrl: toolpath.libraryToolUrl,
+        operationHints: [],
+      }
+      : null;
     refreshOperationUi();
     refreshToolpathFieldVisibility();
+    refreshToolLibraryUi();
   }
 
   function loadToolpathIntoForm(toolpath) {
@@ -681,6 +1940,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   }
 
   function deleteToolpathById(toolpathId) {
+    const historyBefore = captureHistorySnapshot();
     state.toolpaths = state.toolpaths.filter((toolpath) => toolpath.id !== toolpathId);
     if (state.editingToolpathId === toolpathId) {
       clearToolpathEditing();
@@ -694,6 +1954,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     refreshToolpathUi();
     refreshWorkspaceUi();
     draw();
+    pushHistorySnapshot(historyBefore);
   }
 
   function draw() {
@@ -717,7 +1978,17 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
         state.camera.zoom,
         options
       ),
+      transformOverlay: buildSelectionTransformOverlay(),
       navigationMode: state.isNavigatingView,
+    });
+    CanvasView.drawRulers({
+      topCtx: topRulerCtx,
+      topCanvas: ui.topRulerCanvas,
+      leftCtx: leftRulerCtx,
+      leftCanvas: ui.leftRulerCanvas,
+      state,
+      worldToScreen,
+      formatNumber,
     });
   }
 
@@ -822,6 +2093,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     if (!state.draftToolpath) {
       return;
     }
+    const historyBefore = captureHistorySnapshot();
     const editing = getEditingToolpath();
     if (editing) {
       const index = state.toolpaths.findIndex((toolpath) => toolpath.id === editing.id);
@@ -841,9 +2113,11 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     state.addTabsMode = false;
     clearDraftToolpath();
     refreshWorkspaceUi();
+    pushHistorySnapshot(historyBefore);
   }
 
   function loadImportedEntities(entities, name, sourceLabel) {
+    const historyBefore = state.entities.length || state.toolpaths.length ? captureHistorySnapshot() : null;
     state.fileName = name;
     const rawBounds = boundsOfEntities(entities);
     const shiftX = rawBounds ? -rawBounds.minX : 0;
@@ -863,6 +2137,8 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     state.activeToolpathId = null;
     state.addTabsMode = false;
     state.dragImportActive = false;
+    state.geometryTransform = null;
+    state.transformingGeometry = false;
     clearToolpathEditing();
     clearDraftToolpath();
     state.bounds = mergeBounds(state.loops.map((loop) => loop.bounds));
@@ -871,10 +2147,8 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     refreshSelectionUi();
     refreshToolpathUi();
     refreshWorkspaceUi();
-    setStatus(
-      `Loaded ${name}: ${state.entities.length} entities from ${sourceLabel}, ${state.loops.length} closed vectors.`
-    );
     draw();
+    pushHistorySnapshot(historyBefore);
   }
 
   function mirrorEntityY(entity, maxY) {
@@ -910,7 +2184,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       const text = await response.text();
       loadDxfText(text, "Hockey Sticks Cut 1.dxf");
     } catch (error) {
-      setStatus("Bundled sample could not be fetched directly. Use Load DXF File if you opened the app from the filesystem.");
+      showToast("Bundled sample could not be fetched directly. Use Browse Vector Files if you opened the app from the filesystem.", "warning");
     }
   }
 
@@ -935,8 +2209,19 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
   function findLoopHit(point) {
     for (let i = state.loops.length - 1; i >= 0; i -= 1) {
-      if (ctx.isPointInPath(state.loops[i].path2d, point.x, point.y)) {
-        return state.loops[i];
+      const loop = state.loops[i];
+      if (loop.closed !== false) {
+        if (ctx.isPointInPath(loop.path2d, point.x, point.y)) {
+          return loop;
+        }
+        continue;
+      }
+      ctx.save();
+      ctx.lineWidth = 8;
+      const hit = ctx.isPointInStroke(loop.path2d, point.x, point.y);
+      ctx.restore();
+      if (hit) {
+        return loop;
       }
     }
     return null;
@@ -1080,6 +2365,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     if (!toolpath) {
       return;
     }
+    const historyBefore = captureHistorySnapshot();
     toolpath.tabs.push({
       contourIndex: state.hoveredTabCandidate.contourIndex,
       along: state.hoveredTabCandidate.along,
@@ -1090,6 +2376,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     state.hoveredTabCandidate = null;
     refreshToolpathUi();
     draw();
+    pushHistorySnapshot(historyBefore);
   }
 
   function canMoveTabs() {
@@ -1201,20 +2488,24 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     if (!toolpath?.tabs[index]) {
       return;
     }
+    const historyBefore = captureHistorySnapshot();
     toolpath.tabs.splice(index, 1);
     clearTabPressState();
     state.draggingTab = null;
     refreshToolpathUi();
     draw();
+    pushHistorySnapshot(historyBefore);
   }
 
   function updateCanvasCursor(screenPoint = null) {
+    const transformHit = screenPoint ? findTransformHit(screenPoint) : null;
     CanvasView.updateCanvasCursor({
       canvas,
       state,
       screenPoint,
       findTabHit,
       findLoopHit,
+      transformCursor: transformHit?.cursor || "",
     });
   }
 
@@ -1252,8 +2543,14 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     URL.revokeObjectURL(url);
   }
 
+  function isTypingTarget(target) {
+    return target instanceof HTMLElement
+      && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable);
+  }
+
   ui.loadSampleBtn.addEventListener("click", loadBundledSample);
   ui.browseVectorBtn.addEventListener("click", openFilePicker);
+  ui.openFileBtn.addEventListener("click", openFilePicker);
   ui.toggleSettingsBtn.addEventListener("click", () => {
     ui.globalSettingsSection.classList.toggle("d-none");
   });
@@ -1270,16 +2567,163 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       draw();
     });
   });
+  ui.transformToolButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const requestedTool = button.dataset.transformTool || null;
+      state.transformTool = state.transformTool === requestedTool ? null : requestedTool;
+      updateTransformToolUi();
+      updateCanvasCursor();
+      draw();
+    });
+  });
+  ui.deleteVectorsBtn.addEventListener("click", () => {
+    deleteSelectedVectors();
+  });
   for (const option of ui.operationOptions) {
     option.addEventListener("click", () => {
       ui.toolpathTypeInput.value = option.dataset.operation;
+      ensureSelectedToolMatchesOperation();
       refreshOperationUi();
       refreshToolpathFieldVisibility();
+      refreshToolLibraryUi();
       rebuildDraftToolpath();
       refreshToolpathUi();
       draw();
     });
   }
+  ui.toolLibraryToggle.addEventListener("click", () => {
+    if (ui.toolLibraryMenu.classList.contains("d-none")) {
+      openToolLibraryMenu();
+    } else {
+      closeToolLibraryMenu();
+    }
+  });
+  ui.toolLibraryClearBtn.addEventListener("click", async () => {
+    clearSelectedLibraryTool();
+    closeToolLibraryMenu();
+    await rebuildDraftToolpath();
+    refreshToolpathUi();
+    draw();
+  });
+  document.addEventListener("click", (event) => {
+    if (ui.toolLibraryMenu.classList.contains("d-none")) {
+      return;
+    }
+    if (ui.toolLibraryMenu.contains(event.target) || ui.toolLibraryToggle.contains(event.target)) {
+      return;
+    }
+    closeToolLibraryMenu();
+  });
+  ui.transformAspectLockBtn.addEventListener("click", () => {
+    state.transformAspectLocked = !state.transformAspectLocked;
+    refreshTransformInspector();
+  });
+  ui.applyTransformMoveBtn.addEventListener("click", async () => {
+    const overlay = buildSelectionTransformOverlay();
+    if (!overlay) {
+      return;
+    }
+    const targetX = Number.parseFloat(ui.transformPositionXInput.value);
+    const targetY = Number.parseFloat(ui.transformPositionYInput.value);
+    if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) {
+      return;
+    }
+    const context = captureSelectionTransformContext();
+    if (!context) {
+      return;
+    }
+    context.resultAngle = overlay.frame.angle;
+    await applySelectionTransformAndRebuild(
+      matrixForTranslation(targetX - overlay.frame.center.x, targetY - overlay.frame.center.y),
+      context
+    );
+    state.transformTool = null;
+    updateTransformToolUi();
+  });
+  ui.transformWidthInput.addEventListener("input", () => {
+    state.transformSizeLastEdited = "width";
+    if (!state.transformAspectLocked || state.transformTool !== "scale") {
+      return;
+    }
+    const overlay = buildSelectionTransformOverlay();
+    if (!overlay) {
+      return;
+    }
+    const width = Number.parseFloat(ui.transformWidthInput.value);
+    if (!Number.isFinite(width) || overlay.width <= 0) {
+      return;
+    }
+    ui.transformHeightInput.value = formatNumber((width / overlay.width) * overlay.height);
+  });
+  ui.transformHeightInput.addEventListener("input", () => {
+    state.transformSizeLastEdited = "height";
+    if (!state.transformAspectLocked || state.transformTool !== "scale") {
+      return;
+    }
+    const overlay = buildSelectionTransformOverlay();
+    if (!overlay) {
+      return;
+    }
+    const height = Number.parseFloat(ui.transformHeightInput.value);
+    if (!Number.isFinite(height) || overlay.height <= 0) {
+      return;
+    }
+    ui.transformWidthInput.value = formatNumber((height / overlay.height) * overlay.width);
+  });
+  ui.applyTransformAngleBtn.addEventListener("click", async () => {
+    const overlay = buildSelectionTransformOverlay();
+    if (!overlay) {
+      return;
+    }
+    const targetAngleDeg = Number.parseFloat(ui.transformAngleInput.value);
+    if (!Number.isFinite(targetAngleDeg)) {
+      return;
+    }
+    const deltaRad = ((targetAngleDeg - overlay.angleDeg) * Math.PI) / 180;
+    const context = captureSelectionTransformContext();
+    if (!context) {
+      return;
+    }
+    context.resultAngle = normalizeRadians((targetAngleDeg * Math.PI) / 180);
+    await applySelectionTransformAndRebuild(
+      matrixForRotation(deltaRad, overlay.frame.center.x, overlay.frame.center.y),
+      context
+    );
+    state.transformTool = null;
+    updateTransformToolUi();
+  });
+  ui.applyTransformSizeBtn.addEventListener("click", async () => {
+    const overlay = buildSelectionTransformOverlay();
+    if (!overlay) {
+      return;
+    }
+    const targetWidth = Number.parseFloat(ui.transformWidthInput.value);
+    const targetHeight = Number.parseFloat(ui.transformHeightInput.value);
+    if (!Number.isFinite(targetWidth) || !Number.isFinite(targetHeight) || targetWidth <= 0 || targetHeight <= 0) {
+      return;
+    }
+    let scaleX = targetWidth / overlay.width;
+    let scaleY = targetHeight / overlay.height;
+    if (state.transformAspectLocked) {
+      const lockedScale = state.transformSizeLastEdited === "height" ? scaleY : scaleX;
+      scaleX = lockedScale;
+      scaleY = lockedScale;
+    } else if (selectionContainsCurvedEntities()) {
+      showToast("Non-uniform resize is not supported for circles or arcs. Re-enable aspect lock for this selection.", "warning");
+      return;
+    }
+    const context = captureSelectionTransformContext();
+    if (!context) {
+      return;
+    }
+    context.resultAngle = overlay.frame.angle;
+    await applySelectionTransformAndRebuild(
+      matrixForFrameScale(scaleX, scaleY, overlay.frame),
+      context
+    );
+    state.transformTool = null;
+    updateTransformToolUi();
+  });
   [
     ui.toolDiameterInput,
     ui.cutterAngleInput,
@@ -1360,9 +2804,11 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     if (!window.confirm(`Clear all tabs from ${active.label}?`)) {
       return;
     }
+    const historyBefore = captureHistorySnapshot();
     active.tabs = [];
     refreshToolpathUi();
     draw();
+    pushHistorySnapshot(historyBefore);
   });
   ui.generateGcodeBtn.addEventListener("click", async () => {
     startWorkerJob("gcode", {
@@ -1387,7 +2833,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       downloadTextFile(`${fileName}.nc`, gcode);
     } catch (error) {
       if (error instanceof Error) {
-        setStatus(error.message);
+        showToast(error.message, "danger");
       }
     } finally {
       finishWorkerJob("gcode");
@@ -1436,6 +2882,11 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
   canvas.addEventListener("mousedown", (event) => {
     const point = { x: event.offsetX, y: event.offsetY };
+    const transformHit = findTransformHit(point);
+    if (event.button === 0 && transformHit && beginGeometryTransform(transformHit.type, point, transformHit)) {
+      updateCanvasCursor(point);
+      return;
+    }
     const tabHit = findTabHit(point);
     if (tabHit) {
       if (event.button === 2) {
@@ -1476,7 +2927,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       addTabAtHoveredCandidate();
       return;
     }
-    if (event.button === 0) {
+    if (event.button === 0 && !state.transformTool) {
       state.marquee = {
         start: point,
         current: point,
@@ -1493,6 +2944,39 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       renderWorkerBadge();
     }
   });
+  window.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+      const typing = isTypingTarget(event.target);
+      if (!typing && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          redoHistory();
+        } else {
+          undoHistory();
+        }
+        return;
+      }
+      if (!typing && event.key.toLowerCase() === "y") {
+        event.preventDefault();
+        redoHistory();
+        return;
+      }
+    }
+    if (event.key === "Escape" && state.geometryTransform) {
+      event.preventDefault();
+      cancelGeometryTransform();
+      state.transformTool = null;
+      updateTransformToolUi();
+      return;
+    }
+    if (event.key === "Delete" && state.selectedLoopIds.size > 0) {
+      const typing = isTypingTarget(event.target);
+      if (!typing) {
+        event.preventDefault();
+        deleteSelectedVectors();
+      }
+    }
+  });
 
   canvas.addEventListener("mousemove", (event) => {
     const point = { x: event.offsetX, y: event.offsetY };
@@ -1500,11 +2984,13 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       const moveDistance = Math.hypot(point.x - state.tabPress.startPoint.x, point.y - state.tabPress.startPoint.y);
       if (moveDistance >= TAB_DELETE_MOVE_THRESHOLD) {
         const press = state.tabPress;
-        clearTabPressState();
-        state.draggingTab = {
-          toolpath: press.toolpath,
-          index: press.index,
-        };
+      clearTabPressState();
+      state.draggingTab = {
+        toolpath: press.toolpath,
+        index: press.index,
+        historyBefore: captureHistorySnapshot(),
+        changed: false,
+      };
       } else {
         updateCanvasCursor(point);
         return;
@@ -1519,9 +3005,14 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       if (nearest) {
         active.tabs[state.draggingTab.index].along = nearest.along;
         active.tabs[state.draggingTab.index].point = nearest.point;
+        state.draggingTab.changed = true;
         updateCanvasCursor(point);
         requestDraw();
       }
+      return;
+    }
+    if (state.geometryTransform) {
+      updateGeometryTransform(point);
       return;
     }
     if (state.dragPan) {
@@ -1541,7 +3032,9 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       const dragDistance = Math.hypot(point.x - state.marquee.start.x, point.y - state.marquee.start.y);
       if (dragDistance >= MARQUEE_DRAG_THRESHOLD) {
         state.marquee.active = true;
-        state.marqueePreviewLoopIds = loopIdsInMarquee(state.marquee.start, point);
+        state.marqueePreviewLoopIds = !state.transformTool
+          ? loopIdsInMarquee(state.marquee.start, point)
+          : new Set();
       } else {
         state.marqueePreviewLoopIds.clear();
       }
@@ -1550,13 +3043,21 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       return;
     }
     state.hoveredTab = findTabHit(point);
-    state.hoveredLoopId = state.addTabsMode ? null : findLoopHit(point)?.id || null;
+    state.hoveredLoopId = state.addTabsMode || Boolean(state.transformTool)
+      ? null
+      : findLoopHit(point)?.id || null;
     updateHoveredTabCandidate(point);
     updateCanvasCursor(point);
     requestDraw();
   });
 
-  canvas.addEventListener("mouseup", () => {
+  canvas.addEventListener("mouseup", async (event) => {
+    const point = { x: event.offsetX, y: event.offsetY };
+    if (state.geometryTransform) {
+      finalizeGeometryTransform();
+      updateCanvasCursor();
+      return;
+    }
     if (state.dragPan) {
       endViewNavigation();
     }
@@ -1564,15 +3065,20 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       const { start, current, active, append } = state.marquee;
       state.marquee = null;
       state.marqueePreviewLoopIds.clear();
-      if (active) {
-        pickLoopsInMarquee(start, current, append);
-      } else {
-        pickLoopAtScreenPoint(current, append);
+      if (!state.transformTool) {
+        if (active) {
+          pickLoopsInMarquee(start, current, append);
+        } else {
+          pickLoopAtScreenPoint(current, append);
+        }
       }
       return;
     }
     clearTabPressState();
     state.dragPan = null;
+    if (state.draggingTab?.changed) {
+      pushHistorySnapshot(state.draggingTab.historyBefore);
+    }
     state.draggingTab = null;
     state.hoveredTab = null;
     updateCanvasCursor();
@@ -1580,6 +3086,9 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   });
 
   canvas.addEventListener("mouseleave", () => {
+    if (state.geometryTransform) {
+      finalizeGeometryTransform();
+    }
     if (state.dragPan) {
       endViewNavigation();
     }
@@ -1588,6 +3097,9 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     state.hoveredTabCandidate = null;
     state.hoveredLoopId = null;
     state.dragPan = null;
+    if (state.draggingTab?.changed) {
+      pushHistorySnapshot(state.draggingTab.historyBefore);
+    }
     state.draggingTab = null;
     state.marquee = null;
     state.marqueePreviewLoopIds.clear();
@@ -1709,7 +3221,13 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   refreshWorkspaceUi();
   refreshSelectionUi();
   refreshToolpathUi();
+  refreshToolLibraryUi();
+  updateTransformToolUi();
   syncAutoTabHeight();
+  loadToolLibraries().catch((error) => {
+    showToast(error instanceof Error ? error.message : "Failed to load tool library.", "danger");
+    ui.toolLibraryList.innerHTML = `<div class="tool-library-empty">Failed to load tool library.</div>`;
+  });
   window.addEventListener("resize", resizeCanvas);
   if ("ResizeObserver" in window) {
     canvasResizeObserver = new ResizeObserver(() => {

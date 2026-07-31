@@ -86,6 +86,12 @@ function serializeToolpath(toolpath) {
     feedRate: toolpath.feedRate,
     plungeRate: toolpath.plungeRate,
     spindle: toolpath.spindle,
+    libraryToolId: toolpath.libraryToolId,
+    libraryToolName: toolpath.libraryToolName,
+    libraryToolVendor: toolpath.libraryToolVendor,
+    libraryToolImage: toolpath.libraryToolImage,
+    libraryToolUrl: toolpath.libraryToolUrl,
+    libraryToolDescription: toolpath.libraryToolDescription,
     previewContours: toolpath.previewContours.map((contour) => contour.map((point) => ({ x: point.x, y: point.y }))),
     motionPaths: (toolpath.motionPaths || []).map((path) => ({
       safeToClose: Boolean(path.safeToClose),

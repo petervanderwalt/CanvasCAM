@@ -9,28 +9,12 @@ export function drawScene({
   drawTabs,
   drawTabMarker,
   navigationMode = false,
+  transformOverlay = null,
 }) {
   const rect = canvas.getBoundingClientRect();
   ctx.clearRect(0, 0, rect.width, rect.height);
 
-  const gridColor = "#dbeafe";
-  ctx.save();
-  ctx.strokeStyle = gridColor;
-  ctx.lineWidth = 1;
-  const spacing = 50;
-  for (let x = rect.width % spacing; x < rect.width; x += spacing) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, rect.height);
-    ctx.stroke();
-  }
-  for (let y = rect.height % spacing; y < rect.height; y += spacing) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(rect.width, y);
-    ctx.stroke();
-  }
-  ctx.restore();
+  drawWorldGrid(ctx, rect, state, worldToScreen);
 
   drawOriginGuides(ctx, rect, state, worldToScreen, formatNumber);
 
@@ -39,6 +23,7 @@ export function drawScene({
     const isPreviewed = state.marqueePreviewLoopIds.has(loop.id) && !isSelected;
     const isHovered = state.hoveredLoopId === loop.id && !isSelected && !isPreviewed;
     const selectionAlpha = state.draftToolpath ? 0.06 : 0.18;
+    const isClosed = loop.closed !== false;
     ctx.save();
     ctx.fillStyle = isSelected
       ? `rgba(13, 110, 253, ${selectionAlpha})`
@@ -52,15 +37,17 @@ export function drawScene({
       : isHovered
         ? "#3b82f6"
         : isPreviewed
-          ? "#60a5fa"
-          : "#495057";
+        ? "#60a5fa"
+        : "#495057";
     ctx.lineWidth = isSelected ? 2.2 : isHovered ? 1.9 : isPreviewed ? 1.8 : 1.2;
-    ctx.fill(loop.path2d);
+    if (isClosed) {
+      ctx.fill(loop.path2d);
+    }
     ctx.stroke(loop.path2d);
     ctx.restore();
   }
 
-  if (!navigationMode) {
+  if (!navigationMode && !state.transformingGeometry) {
     for (const toolpath of getRenderableToolpaths()) {
       const active = state.draftToolpath
         ? toolpath === state.draftToolpath
@@ -84,9 +71,247 @@ export function drawScene({
     drawTabMarker(candidate, candidate.toolDiameter, { alpha: 0.85 });
   }
 
+  if (transformOverlay) {
+    drawTransformOverlay(ctx, transformOverlay);
+  }
+
   if (state.marquee?.active) {
     drawMarqueeRect(ctx, state.marquee.current, state.marquee.start);
   }
+}
+
+function drawWorldGrid(ctx, rect, state, worldToScreen) {
+  const zoom = Math.max(state.camera?.zoom || 1, 1e-6);
+  const minX = (-rect.width / 2) / zoom - state.camera.panX;
+  const maxX = (rect.width / 2) / zoom - state.camera.panX;
+  const maxY = (rect.height / 2) / zoom - state.camera.panY;
+  const minY = (-rect.height / 2) / zoom - state.camera.panY;
+
+  const minorStep = 10;
+  const majorStep = 50;
+
+  ctx.save();
+  ctx.fillStyle = "#fbfcfd";
+  ctx.fillRect(0, 0, rect.width, rect.height);
+  ctx.lineWidth = 1;
+
+  drawGridAxisSet(ctx, rect, worldToScreen, minX, maxX, minorStep, "x", "rgba(176, 186, 198, 0.22)");
+  drawGridAxisSet(ctx, rect, worldToScreen, minY, maxY, minorStep, "y", "rgba(176, 186, 198, 0.22)");
+  drawGridAxisSet(ctx, rect, worldToScreen, minX, maxX, majorStep, "x", "rgba(122, 138, 156, 0.46)");
+  drawGridAxisSet(ctx, rect, worldToScreen, minY, maxY, majorStep, "y", "rgba(122, 138, 156, 0.46)");
+
+  ctx.restore();
+}
+
+function drawGridAxisSet(ctx, rect, worldToScreen, min, max, step, axis, strokeStyle) {
+  if (!Number.isFinite(step) || step <= 0) {
+    return;
+  }
+  const epsilon = step * 1e-6;
+  const start = Math.floor(min / step) * step;
+  ctx.strokeStyle = strokeStyle;
+  for (let value = start; value <= max + epsilon; value += step) {
+    const snapped = Math.abs(value) < epsilon ? 0 : value;
+    const screen = axis === "x"
+      ? worldToScreen({ x: snapped, y: 0 }).x
+      : worldToScreen({ x: 0, y: snapped }).y;
+    if (axis === "x") {
+      ctx.beginPath();
+      ctx.moveTo(screen, 0);
+      ctx.lineTo(screen, rect.height);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(0, screen);
+      ctx.lineTo(rect.width, screen);
+      ctx.stroke();
+    }
+  }
+}
+
+export function drawRulers({
+  topCtx,
+  topCanvas,
+  leftCtx,
+  leftCanvas,
+  state,
+  worldToScreen,
+  formatNumber,
+}) {
+  if (topCtx && topCanvas) {
+    drawHorizontalRuler(topCtx, topCanvas, state, worldToScreen, formatNumber);
+  }
+  if (leftCtx && leftCanvas) {
+    drawVerticalRuler(leftCtx, leftCanvas, state, worldToScreen, formatNumber);
+  }
+}
+
+function drawHorizontalRuler(ctx, canvas, state, worldToScreen, formatNumber) {
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) {
+    return;
+  }
+  const zoom = Math.max(state.camera?.zoom || 1, 1e-6);
+  const minX = (-rect.width / 2) / zoom - state.camera.panX;
+  const maxX = (rect.width / 2) / zoom - state.camera.panX;
+  const minorStep = 10;
+  const majorStep = 50;
+
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
+  ctx.fillRect(0, 0, rect.width, rect.height);
+  ctx.strokeStyle = "rgba(208, 216, 226, 0.95)";
+  ctx.beginPath();
+  ctx.moveTo(0, rect.height - 0.5);
+  ctx.lineTo(rect.width, rect.height - 0.5);
+  ctx.stroke();
+  drawRulerTicks(ctx, rect, worldToScreen, minX, maxX, minorStep, majorStep, "x", formatNumber);
+}
+
+function drawVerticalRuler(ctx, canvas, state, worldToScreen, formatNumber) {
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) {
+    return;
+  }
+  const zoom = Math.max(state.camera?.zoom || 1, 1e-6);
+  const maxY = (rect.height / 2) / zoom - state.camera.panY;
+  const minY = (-rect.height / 2) / zoom - state.camera.panY;
+  const minorStep = 10;
+  const majorStep = 50;
+
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
+  ctx.fillRect(0, 0, rect.width, rect.height);
+  ctx.strokeStyle = "rgba(208, 216, 226, 0.95)";
+  ctx.beginPath();
+  ctx.moveTo(rect.width - 0.5, 0);
+  ctx.lineTo(rect.width - 0.5, rect.height);
+  ctx.stroke();
+  drawRulerTicks(ctx, rect, worldToScreen, minY, maxY, minorStep, majorStep, "y", formatNumber);
+}
+
+function drawRulerTicks(ctx, rect, worldToScreen, min, max, minorStep, majorStep, axis, formatNumber) {
+  const epsilon = minorStep * 1e-6;
+  const start = Math.floor(min / minorStep) * minorStep;
+  ctx.font = "10px Segoe UI, sans-serif";
+  ctx.fillStyle = "#7b8795";
+  ctx.textBaseline = axis === "x" ? "top" : "middle";
+  ctx.textAlign = axis === "x" ? "center" : "right";
+
+  for (let value = start; value <= max + epsilon; value += minorStep) {
+    const snapped = Math.abs(value) < epsilon ? 0 : value;
+    const screen = axis === "x"
+      ? worldToScreen({ x: snapped, y: 0 }).x
+      : worldToScreen({ x: 0, y: snapped }).y;
+    const isMajor = isNearMultiple(snapped, majorStep);
+    const tickStart = axis === "x" ? rect.height : rect.width;
+    const tickLength = isMajor ? 11 : 5;
+
+    ctx.strokeStyle = isMajor ? "rgba(122, 138, 156, 0.8)" : "rgba(176, 186, 198, 0.75)";
+    ctx.beginPath();
+    if (axis === "x") {
+      ctx.moveTo(screen + 0.5, tickStart);
+      ctx.lineTo(screen + 0.5, tickStart - tickLength);
+    } else {
+      ctx.moveTo(tickStart, screen + 0.5);
+      ctx.lineTo(tickStart - tickLength, screen + 0.5);
+    }
+    ctx.stroke();
+
+    if (!isMajor) {
+      continue;
+    }
+    const label = formatRulerValue(snapped, formatNumber);
+    if (axis === "x") {
+      ctx.fillText(label, screen, 2);
+    } else {
+      ctx.save();
+      ctx.translate(rect.width - 13, screen);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = "center";
+      ctx.fillText(label, 0, 0);
+      ctx.restore();
+    }
+  }
+}
+
+function isNearMultiple(value, step) {
+  if (!Number.isFinite(step) || step <= 0) {
+    return false;
+  }
+  const remainder = Math.abs(value % step);
+  const epsilon = step * 1e-4;
+  return remainder < epsilon || Math.abs(remainder - step) < epsilon;
+}
+
+function formatRulerValue(value, formatNumber) {
+  if (Math.abs(value) >= 100) {
+    return String(Math.round(value));
+  }
+  return formatNumber(value);
+}
+
+function drawTransformOverlay(ctx, overlay) {
+  const { polygon = [], handles = [], rotateHandles = [] } = overlay;
+  ctx.save();
+  ctx.strokeStyle = "#2563eb";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  if (polygon.length) {
+    ctx.beginPath();
+    ctx.moveTo(polygon[0].x, polygon[0].y);
+    for (let i = 1; i < polygon.length; i += 1) {
+      ctx.lineTo(polygon[i].x, polygon[i].y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  if (overlay.mode === "scale") {
+    for (const handle of handles) {
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = "#2563eb";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.rect(handle.x - 5, handle.y - 5, 10, 10);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+
+  if (overlay.mode === "rotate") {
+    for (const handle of rotateHandles) {
+      ctx.strokeStyle = "rgba(37, 99, 235, 0.45)";
+      ctx.beginPath();
+      ctx.moveTo(handle.anchor.x, handle.anchor.y);
+      ctx.lineTo(handle.x, handle.y);
+      ctx.stroke();
+      ctx.fillStyle = "#eff6ff";
+      ctx.strokeStyle = "#2563eb";
+      ctx.beginPath();
+      ctx.arc(handle.x, handle.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      drawRotateGlyph(ctx, handle.x, handle.y);
+    }
+  }
+  ctx.restore();
+}
+
+function drawRotateGlyph(ctx, x, y) {
+  ctx.save();
+  ctx.strokeStyle = "#2563eb";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(x, y, 2.7, Math.PI * 0.15, Math.PI * 1.45);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + 1.5, y - 3.6);
+  ctx.lineTo(x + 4.2, y - 3.5);
+  ctx.lineTo(x + 3.3, y - 1.1);
+  ctx.stroke();
+  ctx.restore();
 }
 
 export function drawMarqueeRect(ctx, current, start) {
@@ -282,7 +507,11 @@ function angleLiesOnCounterClockwiseSweep(start, end, target) {
   return ccwTarget <= ccwSpan;
 }
 
-export function updateCanvasCursor({ canvas, state, screenPoint, findTabHit, findLoopHit }) {
+export function updateCanvasCursor({ canvas, state, screenPoint, findTabHit, findLoopHit, transformCursor = "" }) {
+  if (state.geometryTransform) {
+    canvas.style.cursor = transformCursor || "grabbing";
+    return;
+  }
   if (state.draggingTab || state.dragPan) {
     canvas.style.cursor = "grabbing";
     return;
@@ -297,6 +526,22 @@ export function updateCanvasCursor({ canvas, state, screenPoint, findTabHit, fin
   }
   if (state.addTabsMode) {
     canvas.style.cursor = "copy";
+    return;
+  }
+  if (transformCursor) {
+    canvas.style.cursor = transformCursor;
+    return;
+  }
+  if (state.transformTool === "move") {
+    canvas.style.cursor = "move";
+    return;
+  }
+  if (state.transformTool === "scale") {
+    canvas.style.cursor = "nwse-resize";
+    return;
+  }
+  if (state.transformTool === "rotate") {
+    canvas.style.cursor = "grab";
     return;
   }
   if (screenPoint && findLoopHit(screenPoint)) {

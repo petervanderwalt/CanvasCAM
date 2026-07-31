@@ -140,6 +140,80 @@ export function translateEntity(entity, dx, dy) {
   return entity;
 }
 
+export function transformEntity(entity, matrix) {
+  if (entity.type === "LINE") {
+    const start = applyMatrixToPoint({ x: entity.x1, y: entity.y1 }, matrix);
+    const end = applyMatrixToPoint({ x: entity.x2, y: entity.y2 }, matrix);
+    return {
+      ...entity,
+      x1: start.x,
+      y1: start.y,
+      x2: end.x,
+      y2: end.y,
+    };
+  }
+
+  if (entity.type === "ARC") {
+    const center = applyMatrixToPoint({ x: entity.cx, y: entity.cy }, matrix);
+    const startAngle = normalizeAngleDeg(entity.startAngleDeg) * Math.PI / 180;
+    let endAngle = normalizeAngleDeg(entity.endAngleDeg) * Math.PI / 180;
+    if (endAngle <= startAngle) {
+      endAngle += Math.PI * 2;
+    }
+    const start = applyMatrixToPoint({
+      x: entity.cx + Math.cos(startAngle) * entity.radius,
+      y: entity.cy + Math.sin(startAngle) * entity.radius,
+    }, matrix);
+    const end = applyMatrixToPoint({
+      x: entity.cx + Math.cos(endAngle) * entity.radius,
+      y: entity.cy + Math.sin(endAngle) * entity.radius,
+    }, matrix);
+    const startVector = { x: start.x - center.x, y: start.y - center.y };
+    const endVector = { x: end.x - center.x, y: end.y - center.y };
+    return {
+      ...entity,
+      cx: center.x,
+      cy: center.y,
+      radius: (Math.hypot(startVector.x, startVector.y) + Math.hypot(endVector.x, endVector.y)) / 2,
+      startAngleDeg: normalizeAngleDeg(Math.atan2(startVector.y, startVector.x) * 180 / Math.PI),
+      endAngleDeg: normalizeAngleDeg(Math.atan2(endVector.y, endVector.x) * 180 / Math.PI),
+    };
+  }
+
+  if (entity.type === "CIRCLE") {
+    const center = applyMatrixToPoint({ x: entity.cx, y: entity.cy }, matrix);
+    const edge = applyMatrixToPoint({ x: entity.cx + entity.radius, y: entity.cy }, matrix);
+    return {
+      ...entity,
+      cx: center.x,
+      cy: center.y,
+      radius: Math.hypot(edge.x - center.x, edge.y - center.y),
+    };
+  }
+
+  if (entity.type === "SPLINE") {
+    return {
+      ...entity,
+      controlPoints: entity.controlPoints.map((point) => ({
+        ...point,
+        ...applyMatrixToPoint(point, matrix),
+      })),
+    };
+  }
+
+  if (entity.type === "LWPOLYLINE" || entity.type === "POLYLINE") {
+    return {
+      ...entity,
+      vertices: entity.vertices.map((vertex) => ({
+        ...vertex,
+        ...applyMatrixToPoint(vertex, matrix),
+      })),
+    };
+  }
+
+  return entity;
+}
+
 export function mirrorEntityY(entity, maxY) {
   if (entity.type === "LINE") {
     return {
@@ -207,11 +281,12 @@ export function pointKey(point) {
   return `${Math.round(point.x / LOOP_TOLERANCE)}:${Math.round(point.y / LOOP_TOLERANCE)}`;
 }
 
-export function entityToSegment(entity) {
+export function entityToSegment(entity, sourceEntityIndex = -1) {
   if (entity.type === "LINE") {
     return {
       kind: "line",
       source: entity,
+      sourceEntityIndex,
       start: { x: entity.x1, y: entity.y1 },
       end: { x: entity.x2, y: entity.y2 },
       reverse() {
@@ -255,6 +330,7 @@ export function entityToSegment(entity) {
     return {
       kind: "arc",
       source: entity,
+      sourceEntityIndex,
       start,
       end,
       cx: entity.cx,
@@ -308,6 +384,7 @@ export function entityToSegment(entity) {
     return {
       kind: "circle",
       source: entity,
+      sourceEntityIndex,
       closed: true,
       cx: entity.cx,
       cy: entity.cy,
@@ -354,6 +431,7 @@ function createSplineSegment(entity) {
     return {
       kind: "bezier",
       source: entity,
+      sourceEntityIndex: entity.__sourceEntityIndex ?? -1,
       cps: cps.map(clonePoint),
       start: clonePoint(cps[0]),
       end: clonePoint(cps[3]),
@@ -397,6 +475,7 @@ function createSplineSegment(entity) {
   return {
     kind: "spline",
     source: entity,
+    sourceEntityIndex: entity.__sourceEntityIndex ?? -1,
     cps,
     degree,
     knots,
@@ -424,16 +503,18 @@ function createSplineSegment(entity) {
   };
 }
 
-export function polylineSegmentFromPoints(points, entity) {
+export function polylineSegmentFromPoints(points, entity, sourceEntityIndex = -1) {
+  const resolvedSourceEntityIndex = sourceEntityIndex >= 0 ? sourceEntityIndex : entity?.__sourceEntityIndex ?? -1;
   const start = points[0];
   const end = points[points.length - 1];
   return {
     kind: "polyline",
     source: entity,
+    sourceEntityIndex: resolvedSourceEntityIndex,
     start,
     end,
     reverse() {
-      return polylineSegmentFromPoints(points.slice().reverse(), entity);
+      return polylineSegmentFromPoints(points.slice().reverse(), entity, resolvedSourceEntityIndex);
     },
     draw(path, transform, scale = 1, startNewSubpath = true) {
       drawPolylineIntoPath(path, points, transform, startNewSubpath);
@@ -448,17 +529,20 @@ export function buildLoops(entities) {
   const openSegments = [];
   const loops = [];
   const circles = [];
-  for (const entity of entities) {
+  for (let entityIndex = 0; entityIndex < entities.length; entityIndex += 1) {
+    const entity = entities[entityIndex];
     if (entity.type === "LWPOLYLINE" || entity.type === "POLYLINE") {
       const points = closePoints(entity.vertices.map((vertex) => ({ x: vertex.x, y: vertex.y })));
       if (points.length < 2) {
         continue;
       }
       if (entity.closed) {
-        const segment = polylineSegmentFromPoints(points, entity);
+        const segment = polylineSegmentFromPoints(points, entity, entityIndex);
         loops.push({
           id: crypto.randomUUID(),
+          closed: true,
           sourceType: entity.type.toLowerCase(),
+          sourceEntityIndexes: [entityIndex],
           segments: [segment],
           points,
           bounds: boundsOfPoints(points),
@@ -470,11 +554,12 @@ export function buildLoops(entities) {
           },
         });
       } else {
-        openSegments.push(polylineSegmentFromPoints(points, entity));
+        openSegments.push(polylineSegmentFromPoints(points, entity, entityIndex));
       }
       continue;
     }
-    const segment = entityToSegment(entity);
+    entity.__sourceEntityIndex = entityIndex;
+    const segment = entityToSegment(entity, entityIndex);
     if (!segment) {
       continue;
     }
@@ -500,35 +585,48 @@ export function buildLoops(entities) {
     const seed = openSegments[i];
     used.add(i);
     let chain = [seed];
+    let currentStart = clonePoint(seed.start);
     let currentEnd = clonePoint(seed.end);
     let changed = true;
 
     while (changed) {
       changed = false;
-      const candidates = adjacency.get(pointKey(currentEnd)) || [];
-      for (const candidate of candidates) {
-        if (used.has(candidate.index)) {
-          continue;
-        }
-        const nextSegment = openSegments[candidate.index];
-        const oriented = dist(nextSegment.start, currentEnd) <= LOOP_TOLERANCE ? nextSegment : nextSegment.reverse();
-        if (dist(oriented.start, currentEnd) > LOOP_TOLERANCE) {
-          continue;
-        }
-        chain.push(oriented);
-        currentEnd = clonePoint(oriented.end);
-        used.add(candidate.index);
+      const endMatch = findConnectedSegment(openSegments, adjacency, used, currentEnd, "end");
+      if (endMatch) {
+        chain.push(endMatch.segment);
+        currentEnd = clonePoint(endMatch.segment.end);
+        used.add(endMatch.index);
         changed = true;
-        break;
+        continue;
+      }
+      const startMatch = findConnectedSegment(openSegments, adjacency, used, currentStart, "start");
+      if (startMatch) {
+        chain.unshift(startMatch.segment);
+        currentStart = clonePoint(startMatch.segment.start);
+        used.add(startMatch.index);
+        changed = true;
       }
     }
 
-    if (dist(chain[0].start, currentEnd) <= LOOP_TOLERANCE) {
+    if (dist(currentStart, currentEnd) <= LOOP_TOLERANCE) {
       loops.push(buildLoopFromChain(chain));
+    } else if (chain.length) {
+      loops.push(buildOpenChain(chain));
     }
   }
 
-  return loops.filter((loop) => Math.abs(loop.area) > 1e-3);
+  const filteredLoops = loops.filter((loop) => loop.closed === false || Math.abs(loop.area) > 1e-3);
+  const representedEntityIndexes = new Set(
+    filteredLoops.flatMap((loop) => loop.sourceEntityIndexes || []).filter((value) => value >= 0)
+  );
+  for (const segment of openSegments) {
+    if (segment.sourceEntityIndex >= 0 && !representedEntityIndexes.has(segment.sourceEntityIndex)) {
+      filteredLoops.push(buildOpenChain([segment]));
+      representedEntityIndexes.add(segment.sourceEntityIndex);
+    }
+  }
+
+  return filteredLoops;
 }
 
 function addAdjacency(map, key, item) {
@@ -538,11 +636,39 @@ function addAdjacency(map, key, item) {
   map.get(key).push(item);
 }
 
+function findConnectedSegment(openSegments, adjacency, used, anchorPoint, side) {
+  const candidates = adjacency.get(pointKey(anchorPoint)) || [];
+  for (const candidate of candidates) {
+    if (used.has(candidate.index)) {
+      continue;
+    }
+    const nextSegment = openSegments[candidate.index];
+    if (side === "end") {
+      const oriented = dist(nextSegment.start, anchorPoint) <= LOOP_TOLERANCE
+        ? nextSegment
+        : nextSegment.reverse();
+      if (dist(oriented.start, anchorPoint) <= LOOP_TOLERANCE) {
+        return { index: candidate.index, segment: oriented };
+      }
+      continue;
+    }
+    const oriented = dist(nextSegment.end, anchorPoint) <= LOOP_TOLERANCE
+      ? nextSegment
+      : nextSegment.reverse();
+    if (dist(oriented.end, anchorPoint) <= LOOP_TOLERANCE) {
+      return { index: candidate.index, segment: oriented };
+    }
+  }
+  return null;
+}
+
 function buildCircleLoop(segment) {
   const points = segment.flatten(TOOLPATH_SAMPLE_STEP);
   return {
     id: crypto.randomUUID(),
+    closed: true,
     sourceType: "circle",
+    sourceEntityIndexes: [segment.sourceEntityIndex],
     segments: [segment],
     points,
     bounds: {
@@ -574,7 +700,9 @@ function buildLoopFromChain(chain) {
   const closed = closePoints(points);
   return {
     id: crypto.randomUUID(),
+    closed: true,
     sourceType: "chain",
+    sourceEntityIndexes: Array.from(new Set(chain.map((segment) => segment.sourceEntityIndex).filter((value) => value >= 0))).sort((a, b) => a - b),
     segments: chain,
     points: closed,
     bounds: boundsOfPoints(closed),
@@ -587,7 +715,33 @@ function buildLoopFromChain(chain) {
   };
 }
 
-export function createLoopPath2D(segments, transform, scale = 1) {
+function buildOpenChain(chain) {
+  const points = [];
+  for (const segment of chain) {
+    const flattened = segment.flatten(TOOLPATH_SAMPLE_STEP);
+    if (points.length > 0) {
+      flattened.shift();
+    }
+    points.push(...flattened);
+  }
+  return {
+    id: crypto.randomUUID(),
+    closed: false,
+    sourceType: "open-chain",
+    sourceEntityIndexes: Array.from(new Set(chain.map((segment) => segment.sourceEntityIndex).filter((value) => value >= 0))).sort((a, b) => a - b),
+    segments: chain,
+    points,
+    bounds: boundsOfPoints(points),
+    area: 0,
+    path2d: null,
+    exportGeometry: {
+      type: "segments",
+      segments: chain,
+    },
+  };
+}
+
+export function createLoopPath2D(segments, transform, scale = 1, closed = true) {
   const path = new Path2D();
   let first = true;
   for (const segment of segments) {
@@ -603,7 +757,9 @@ export function createLoopPath2D(segments, transform, scale = 1) {
       segment.draw(path, transform, scale, false);
     }
   }
-  path.closePath();
+  if (closed) {
+    path.closePath();
+  }
   return path;
 }
 
