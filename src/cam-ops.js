@@ -237,8 +237,8 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
 
   const label = options.label || `${operationLabel} (${selectedLoops.length} vector${selectedLoops.length === 1 ? "" : "s"})`;
   const cardMeta = config.operation === "vcarve"
-    ? `${operationLabel} - ${formatNumber(config.cutterAngle)}deg - ${formatNumber(cutDepth)}mm max depth - single pass`
-    : `${operationLabel} - ${config.toolDiameter.toFixed(1)}mm - ${cutDepth.toFixed(2)}mm deep - ${passDepth.toFixed(2)}mm/pass - ${passDepths.length} passes`;
+    ? `${operationLabel} - T${config.toolNumber} - ${formatNumber(config.cutterAngle)}deg - ${formatNumber(cutDepth)}mm max depth - single pass`
+    : `${operationLabel} - T${config.toolNumber} - ${config.toolDiameter.toFixed(1)}mm - ${cutDepth.toFixed(2)}mm deep - ${passDepth.toFixed(2)}mm/pass - ${passDepths.length} passes`;
 
   reportProgress(96, "Finalizing toolpath");
 
@@ -261,6 +261,7 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
     feedRate: config.feedRate,
     plungeRate: config.plungeRate,
     spindle: config.spindle,
+    toolNumber: config.toolNumber,
     libraryToolId: config.libraryToolId || null,
     libraryToolName: config.libraryToolName || "",
     libraryToolVendor: config.libraryToolVendor || "",
@@ -371,6 +372,9 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs, onProgress 
     return count + Math.max(1, toolpath.passDepths.length * Math.max(1, toolpath.previewContours.length));
   }, 0));
   let completedSteps = 0;
+  let currentToolNumber = null;
+  let spindleRunning = false;
+  let currentSpindle = null;
   const reportProgress = (label) => {
     completedSteps += 1;
     onProgress(Math.min(99, Math.round((completedSteps / totalSteps) * 100)), label);
@@ -381,18 +385,37 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs, onProgress 
     const feed = toolpath.feedRate;
     const plunge = toolpath.plungeRate;
     const spindle = toolpath.spindle;
+    const toolNumber = Number.isFinite(toolpath.toolNumber) ? Math.max(1, Math.round(toolpath.toolNumber)) : null;
     lines.push(`(${toolpath.operationLabel} - ${toolpath.label})`);
-    lines.push(`G0 Z${formatNumber(safeZ)}`);
-    lines.push(`M3 S${Math.round(spindle)}`);
+    const requiresToolChange = toolNumber && toolNumber !== currentToolNumber;
+    if (requiresToolChange) {
+      lines.push(`G0 Z${formatNumber(safeZ)}`);
+      if (spindleRunning) {
+        lines.push("M5");
+        spindleRunning = false;
+      }
+      lines.push(`(${buildToolChangeComment(toolpath, toolNumber)})`);
+      lines.push(`T${toolNumber}`);
+      lines.push("M6");
+      currentToolNumber = toolNumber;
+    }
 
     if (toolpath.operation === "vcarve") {
-      emitVCarveMoves(lines, toolpath, feed, plunge, safeZ);
+      emitVCarveMoves(lines, toolpath, feed, plunge, safeZ, {
+        spindle,
+        spindleState: {
+          running: spindleRunning,
+          speed: currentSpindle,
+        },
+      });
+      spindleRunning = true;
+      currentSpindle = spindle;
       reportProgress(`Writing ${toolpath.operationLabel}`);
       lines.push(`G0 Z${formatNumber(safeZ)}`);
-      lines.push("M5");
       continue;
     }
 
+    let startedThisToolpath = false;
     for (const depth of toolpath.passDepths) {
       for (let contourIndex = 0; contourIndex < toolpath.previewContours.length; contourIndex += 1) {
         const contour = toolpath.previewContours[contourIndex];
@@ -403,6 +426,12 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs, onProgress 
         const start = contour[0];
         lines.push(`G0 Z${formatNumber(safeZ)}`);
         lines.push(`G0 X${formatNumber(start.x)} Y${formatNumber(start.y)}`);
+        if (!startedThisToolpath || !spindleRunning || currentSpindle !== spindle) {
+          lines.push(`M3 S${Math.round(spindle)}`);
+          spindleRunning = true;
+          currentSpindle = spindle;
+          startedThisToolpath = true;
+        }
 
         const tabsForContour = operationUsesTabs(toolpath)
           ? toolpath.tabs.filter((tab) => tab.contourIndex === contourIndex).sort((a, b) => a.along - b.along)
@@ -453,14 +482,32 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs, onProgress 
       }
     }
     lines.push(`G0 Z${formatNumber(safeZ)}`);
-    lines.push("M5");
   }
 
+  if (spindleRunning) {
+    lines.push("M5");
+  }
   lines.push("M30");
   return lines.join("\n");
 }
 
-function emitVCarveMoves(lines, toolpath, feed, plunge, safeZ) {
+function buildToolChangeComment(toolpath, toolNumber) {
+  const parts = [`Change to tool T${toolNumber}`];
+  const namedTool = (toolpath.libraryToolName || "").trim();
+  if (namedTool) {
+    parts.push(namedTool);
+  } else if (toolpath.operation === "vcarve" && Number.isFinite(toolpath.cutterAngle)) {
+    parts.push(`${formatNumber(toolpath.cutterAngle)}deg V-bit`);
+  } else if (Number.isFinite(toolpath.toolDiameter)) {
+    parts.push(`${formatNumber(toolpath.toolDiameter)}mm tool`);
+  }
+  return parts.join(" - ");
+}
+
+function emitVCarveMoves(lines, toolpath, feed, plunge, safeZ, options = {}) {
+  const spindle = options.spindle;
+  const spindleState = options.spindleState || { running: false, speed: null };
+  let started = false;
   for (const path of toolpath.motionPaths || []) {
     if (!path.points?.length) {
       continue;
@@ -468,6 +515,12 @@ function emitVCarveMoves(lines, toolpath, feed, plunge, safeZ) {
     const [start, ...rest] = path.points;
     lines.push(`G0 Z${formatNumber(safeZ)}`);
     lines.push(`G0 X${formatNumber(start.x)} Y${formatNumber(start.y)}`);
+    if (!started || !spindleState.running || spindleState.speed !== spindle) {
+      lines.push(`M3 S${Math.round(spindle)}`);
+      spindleState.running = true;
+      spindleState.speed = spindle;
+      started = true;
+    }
     lines.push(`G1 Z${formatNumber(start.z)} F${formatNumber(plunge)}`);
 
     let previous = start;

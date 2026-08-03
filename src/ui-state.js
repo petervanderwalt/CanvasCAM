@@ -53,12 +53,14 @@ export function refreshToolpathUi({
   tabEligibleToolpathCount,
   onEditToolpath,
   onDeleteToolpath,
+  onClearTabs,
   onActivateToolpath,
 }) {
   ui.toolpathCount.textContent = String(state.toolpaths.length);
   ui.toolpathList.innerHTML = "";
 
   for (const toolpath of state.toolpaths) {
+    const usesTabs = toolpath.operation === "profile-outside" || toolpath.operation === "profile-inside";
     const card = document.createElement("div");
     card.className = `toolpath-card text-start ${toolpath.id === state.activeToolpathId ? "active" : ""}`;
     card.innerHTML = `
@@ -76,7 +78,12 @@ export function refreshToolpathUi({
           </button>
         </div>
       </div>
-      <div class="meta mt-2">Feed ${Math.round(toolpath.feedRate)} - Plunge ${Math.round(toolpath.plungeRate)} - RPM ${Math.round(toolpath.spindle)}</div>
+      <div class="meta mt-2">T${toolpath.toolNumber || 1} - Feed ${Math.round(toolpath.feedRate)} - Plunge ${Math.round(toolpath.plungeRate)} - RPM ${Math.round(toolpath.spindle)}</div>
+      ${usesTabs ? `
+        <div class="toolpath-card-footer">
+          <button type="button" class="btn btn-outline-secondary btn-xs" data-action="clear-tabs">Clear Tabs</button>
+        </div>
+      ` : ""}
     `;
     card.addEventListener("click", (event) => {
       if (window.getSelection()?.toString()) {
@@ -91,6 +98,10 @@ export function refreshToolpathUi({
         onDeleteToolpath(toolpath);
         return;
       }
+      if (action?.dataset.action === "clear-tabs") {
+        onClearTabs(toolpath);
+        return;
+      }
       onActivateToolpath(toolpath);
     });
     ui.toolpathList.appendChild(card);
@@ -99,12 +110,9 @@ export function refreshToolpathUi({
   const hasToolpaths = state.toolpaths.length > 0;
   const hasTabEligibleToolpaths = tabEligibleToolpathCount > 0;
   const canEnterAddTabsMode = hasTabEligibleToolpaths && !state.editingToolpathId && !state.draftToolpath;
-  const activeUsesTabs = activeToolpath
-    && (activeToolpath.operation === "profile-outside" || activeToolpath.operation === "profile-inside");
   ui.generateGcodeBtn.disabled = !hasToolpaths;
   ui.generateGcodeBtn.title = hasToolpaths ? "Generate GRBL-compatible G-code" : "Add at least 1 toolpath to export";
   ui.addTabsBtn.disabled = !canEnterAddTabsMode;
-  ui.removeTabsBtn.disabled = !activeUsesTabs;
   ui.addTabsBtn.classList.toggle("btn-primary", state.addTabsMode);
   ui.addTabsBtn.classList.toggle("btn-outline-primary", !state.addTabsMode);
 

@@ -106,11 +106,10 @@
             <div class="canvas-empty-state" id="canvasEmptyState">
               <div class="empty-state-card">
                 <div class="empty-state-icon"><i class="fa-regular fa-file-lines"></i></div>
-                <h1>Drag &amp; Drop DXF / SVG Here</h1>
-                <p>Import your vector geometry to start assigning CAM operations.</p>
                 <div class="empty-state-actions">
-                  <button id="browseVectorBtn" type="button" class="btn btn-success btn-lg">Browse Vector Files</button>
+                  <button id="browseVectorBtn" type="button" class="btn btn-success btn-lg">Open DXF/SVG File</button>
                 </div>
+                <p id="emptyStateDropNote" class="empty-state-drop-note">or drag DXF/SVG here</p>
                 <button id="loadSampleBtn" type="button" class="btn btn-link btn-sm sample-link">Try Sample Vector</button>
               </div>
             </div>
@@ -233,23 +232,26 @@
 
               <div class="panel-group mb-3">
                 <div class="panel-group-title">Endmill</div>
-                <div class="tool-library-picker mb-2">
-                  <div class="tool-library-label-row">
-                    <label class="form-label small mb-1" for="toolLibraryToggle">Tool Library</label>
-                    <button id="toolLibraryClearBtn" class="btn btn-link btn-sm p-0 text-decoration-none d-none" type="button">Clear</button>
+                <div class="row g-2 align-items-end mb-2">
+                  <div class="col-9">
+                    <label class="form-label small mb-1" for="myEndmillSelect">My Endmills</label>
+                    <select id="myEndmillSelect" class="form-select form-select-sm">
+                      <option value="">Choose a tool slot</option>
+                    </select>
                   </div>
-                  <button id="toolLibraryToggle" class="tool-library-toggle" type="button" aria-expanded="false">
-                    <div id="toolLibraryPreview" class="tool-library-preview empty">
-                      <div class="tool-library-preview-thumb">
-                        <i class="fa-solid fa-toolbox"></i>
-                      </div>
-                      <div class="tool-library-preview-copy">
-                        <div id="toolLibraryPreviewName" class="tool-library-preview-name">Choose tool from library</div>
-                        <div id="toolLibraryPreviewMeta" class="tool-library-preview-meta"></div>
-                      </div>
-                    </div>
-                    <i class="fa-solid fa-chevron-down tool-library-toggle-icon"></i>
-                  </button>
+                  <div class="col-3">
+                    <button id="editMyEndmillsBtn" type="button" class="btn btn-outline-secondary btn-sm w-100" title="Edit My Endmills">
+                      <i class="fa-solid fa-gear"></i>
+                    </button>
+                  </div>
+                </div>
+                <div id="myEndmillSummary" class="my-endmill-summary empty">
+                  <div class="my-endmill-summary-title">No tool slot selected</div>
+                  <div class="my-endmill-summary-meta">Pick a tool from your saved T1 to T12 slots.</div>
+                </div>
+                <div class="d-none">
+                  <button id="toolLibraryToggle" class="tool-library-toggle" type="button" aria-expanded="false"></button>
+                  <button id="toolLibraryClearBtn" class="btn btn-link btn-sm p-0 text-decoration-none d-none" type="button">Clear</button>
                   <div id="toolLibraryMenu" class="tool-library-menu d-none">
                     <div id="toolLibrarySummary" class="tool-library-summary d-none">
                       <img id="toolLibrarySummaryImage" class="tool-library-summary-image" alt="">
@@ -261,50 +263,21 @@
                     </div>
                     <div id="toolLibraryList" class="tool-library-list"></div>
                   </div>
-                </div>
-                <div class="row g-2">
-                  <div id="toolDiameterField" class="col-6">
-                  <label class="form-label small mb-1" for="toolDiameterInput">Diameter</label>
-                  <div class="input-group input-group-sm">
+                  <div id="toolLibraryPreview" class="tool-library-preview empty">
+                    <div id="toolLibraryPreviewName" class="tool-library-preview-name"></div>
+                    <div id="toolLibraryPreviewMeta" class="tool-library-preview-meta"></div>
+                  </div>
+                  <input id="toolNumberInput" class="form-control form-control-sm" type="number" step="1" min="1" value="1">
+                  <div id="toolDiameterField">
                     <input id="toolDiameterInput" class="form-control form-control-sm" type="number" step="0.001" value="6">
-                    <span class="input-group-text">mm</span>
                   </div>
-                </div>
-                  <div class="col-6">
-                  <label class="form-label small mb-1" for="spindleInput">RPM</label>
-                  <div class="input-group input-group-sm">
-                    <input id="spindleInput" class="form-control form-control-sm" type="number" step="100" value="18000">
-                    <span class="input-group-text">rpm</span>
-                  </div>
-                  </div>
-                  <div id="cutterAngleField" class="col-6 d-none">
-                  <label class="form-label small mb-1" for="cutterAngleInput">V Angle</label>
-                  <div class="input-group input-group-sm">
+                  <div id="cutterAngleField">
                     <input id="cutterAngleInput" class="form-control form-control-sm" type="number" step="1" value="90">
-                    <span class="input-group-text">deg</span>
                   </div>
-                  </div>
-                  <div class="col-6">
-                  <label class="form-label small mb-1" for="feedRateInput">Feed</label>
-                  <div class="input-group input-group-sm">
-                    <input id="feedRateInput" class="form-control form-control-sm" type="number" step="1" value="1800">
-                    <span class="input-group-text">mm/min</span>
-                  </div>
-                  </div>
-                  <div class="col-6">
-                  <label class="form-label small mb-1" for="plungeRateInput">Plunge</label>
-                  <div class="input-group input-group-sm">
-                    <input id="plungeRateInput" class="form-control form-control-sm" type="number" step="1" value="600">
-                    <span class="input-group-text">mm/min</span>
-                  </div>
-                  </div>
-                  <div id="overlapField" class="col-6 d-none">
-                  <label class="form-label small mb-1" for="overlapInput">Overlap %</label>
-                  <div class="input-group input-group-sm">
-                    <input id="overlapInput" class="form-control form-control-sm" type="number" step="1" min="0" max="95" value="40">
-                    <span class="input-group-text">%</span>
-                  </div>
-                  </div>
+                  <input id="spindleInput" class="form-control form-control-sm" type="number" step="100" value="18000">
+                  <input id="feedRateInput" class="form-control form-control-sm" type="number" step="1" value="1800">
+                  <input id="plungeRateInput" class="form-control form-control-sm" type="number" step="1" value="600">
+                  <input id="passDepthInput" class="form-control form-control-sm" type="number" step="0.01" value="3">
                 </div>
               </div>
 
@@ -318,11 +291,11 @@
                     <span class="input-group-text">mm</span>
                   </div>
                   </div>
-                  <div class="col-6">
-                  <label class="form-label small mb-1" for="passDepthInput">Pass Depth</label>
+                  <div id="overlapField" class="col-6 d-none">
+                  <label class="form-label small mb-1" for="overlapInput">Overlap %</label>
                   <div class="input-group input-group-sm">
-                    <input id="passDepthInput" class="form-control form-control-sm" type="number" step="0.01" value="3">
-                    <span class="input-group-text">mm</span>
+                    <input id="overlapInput" class="form-control form-control-sm" type="number" step="1" min="0" max="95" value="40">
+                    <span class="input-group-text">%</span>
                   </div>
                   </div>
                 </div>
@@ -375,7 +348,6 @@
           <div id="toolpathList" class="toolpath-stack"></div>
           <div class="toolbar-mini">
             <button id="addTabsBtn" type="button" class="btn btn-outline-primary btn-xs" disabled>Add Tabs</button>
-            <button id="removeTabsBtn" type="button" class="btn btn-outline-secondary btn-xs" disabled>Clear Tabs</button>
           </div>
           <div class="toolpath-hint" id="tabModeHint"></div>
         </section>
@@ -387,6 +359,26 @@
       </div>
     </aside>
   </div>
+  <div class="modal fade" id="myEndmillsModal" tabindex="-1" aria-labelledby="myEndmillsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title fs-5" id="myEndmillsModalLabel">My Endmills</h2>
+            <div class="small text-muted">Configure your tool rack.</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="accordion my-endmills-accordion" id="myEndmillsSlots"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="saveMyEndmillsBtn" type="button" class="btn btn-primary">Save My Endmills</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="toastContainer" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
   <div id="workerBadge" class="worker-badge d-none" aria-live="polite">
     <div class="worker-spinner spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
@@ -395,6 +387,11 @@
   <input id="fileInput" type="file" accept=".dxf,.svg,image/svg+xml" hidden>
 
   <script src="clipperjs/clipper_unminified.js"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"
+  ></script>
   <script type="module" src="app.js?v=20260730-vcarve12"></script>
 </body>
 </html>

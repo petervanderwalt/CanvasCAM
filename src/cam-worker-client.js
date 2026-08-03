@@ -86,6 +86,7 @@ function serializeToolpath(toolpath) {
     feedRate: toolpath.feedRate,
     plungeRate: toolpath.plungeRate,
     spindle: toolpath.spindle,
+    toolNumber: toolpath.toolNumber,
     libraryToolId: toolpath.libraryToolId,
     libraryToolName: toolpath.libraryToolName,
     libraryToolVendor: toolpath.libraryToolVendor,

@@ -17,10 +17,11 @@ export function parseDxf(text) {
   let activeVertex = null;
 
   function buildRawEntityState() {
-    return { values: new Map(), arrays: new Map() };
+    return { values: new Map(), arrays: new Map(), pairs: [] };
   }
 
   function appendPair(target, pair) {
+    target.pairs.push({ code: pair.code, value: pair.value.trim() });
     if (!target.arrays.has(pair.code)) {
       target.arrays.set(pair.code, []);
     }
@@ -194,15 +195,35 @@ function buildEntity(type, data) {
   }
 
   if (type === "LWPOLYLINE") {
-    const xs = a(10).map(Number.parseFloat);
-    const ys = a(20).map(Number.parseFloat);
-    const bulges = a(42).map(Number.parseFloat);
     const flags = Number.parseInt(v(70, "0"), 10);
-    const vertices = xs.map((x, index) => ({
-      x,
-      y: ys[index] || 0,
-      bulge: bulges[index] || 0,
-    }));
+    const vertices = [];
+    let currentVertex = null;
+    for (const pair of data.pairs || []) {
+      if (pair.code === 10) {
+        if (currentVertex) {
+          vertices.push(currentVertex);
+        }
+        currentVertex = {
+          x: Number.parseFloat(pair.value) || 0,
+          y: 0,
+          bulge: 0,
+        };
+        continue;
+      }
+      if (!currentVertex) {
+        continue;
+      }
+      if (pair.code === 20) {
+        currentVertex.y = Number.parseFloat(pair.value) || 0;
+        continue;
+      }
+      if (pair.code === 42) {
+        currentVertex.bulge = Number.parseFloat(pair.value) || 0;
+      }
+    }
+    if (currentVertex) {
+      vertices.push(currentVertex);
+    }
     return {
       ...common,
       vertices,

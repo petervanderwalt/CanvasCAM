@@ -371,12 +371,19 @@ body {
 }
 
 .canvas-wrap.is-drop-target::after {
-  content: "";
+  content: "Drop DXF/SVG to open";
   position: absolute;
   inset: 1rem;
-  border: 2px dashed rgba(37, 99, 235, 0.42);
+  display: grid;
+  place-items: center;
+  border: 2px dashed rgba(37, 99, 235, 0.58);
   border-radius: 1rem;
-  background: rgba(37, 99, 235, 0.08);
+  background: rgba(37, 99, 235, 0.12);
+  color: #0f4ccf;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65), 0 0 0 9999px rgba(255, 255, 255, 0.18);
   z-index: 3;
 }
 
@@ -399,7 +406,7 @@ body {
 
 .empty-state-card {
   width: min(540px, 100%);
-  padding: 2rem 1.8rem;
+  padding: 1.75rem 1.8rem;
   border: 1px dashed rgba(100, 116, 139, 0.42);
   border-radius: 1.4rem;
   background: rgba(255, 255, 255, 0.88);
@@ -419,20 +426,16 @@ body {
   font-size: 1.4rem;
 }
 
-.empty-state-card h1 {
-  margin: 0 0 0.55rem;
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-
-.empty-state-card p {
-  margin: 0 0 1.15rem;
-  color: var(--text-muted);
-}
-
 .sample-link {
   font-weight: 600;
   text-decoration: none;
+}
+
+.empty-state-drop-note {
+  margin: 0.9rem 0 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 500;
 }
 
 .sidebar {
@@ -581,6 +584,53 @@ body {
 
 .tool-library-picker {
   position: relative;
+}
+
+.my-endmill-summary {
+  padding: 0.72rem 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 0.8rem;
+  background: #f8fbff;
+}
+
+.my-endmill-summary.empty {
+  background: #f8fafc;
+}
+
+.my-endmill-summary-title {
+  font-size: 0.83rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.my-endmill-summary-meta {
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.my-endmills-accordion .accordion-button {
+  padding: 0.72rem 0.9rem;
+}
+
+.my-endmill-slot-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: left;
+}
+
+.my-endmill-slot-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.my-endmill-slot-summary {
+  font-size: 0.74rem;
+  color: #64748b;
+  line-height: 1.35;
 }
 
 .tool-library-label-row {
@@ -791,10 +841,10 @@ body {
   border: 1px solid var(--panel-border);
   border-radius: 0.8rem;
   background: #fff;
-  padding: 0.2rem 0.18rem 0.3rem;
+  padding: 0.16rem 0.14rem 0.22rem;
   text-align: center;
   transition: 120ms ease;
-  min-height: 102px;
+  min-height: 88px;
 }
 
 .operation-option.active {
@@ -808,16 +858,16 @@ body {
   font-size: 0.7rem;
   font-weight: 600;
   color: #334155;
-  line-height: 1.1;
+  line-height: 1;
 }
 
 .operation-preview-image {
   display: block;
   width: 100%;
-  height: 68px;
+  height: 56px;
   object-fit: contain;
   object-position: center;
-  margin-bottom: 0.1rem;
+  margin-bottom: 0.02rem;
 }
 
 .form-actions-sticky {
@@ -897,6 +947,12 @@ body {
 .toolpath-card .meta {
   font-size: 0.76rem;
   color: var(--text-muted);
+}
+
+.toolpath-card-footer {
+  margin-top: 0.48rem;
+  display: flex;
+  justify-content: flex-start;
 }
 
 .sidebar-dock {

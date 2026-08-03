@@ -412,6 +412,141 @@ export function entityToSegment(entity, sourceEntityIndex = -1) {
   return null;
 }
 
+function createBulgeArcSegment(start, end, bulge, entity, sourceEntityIndex = -1) {
+  const chord = dist(start, end);
+  if (!Number.isFinite(bulge) || Math.abs(bulge) < 1e-9 || chord <= 1e-9) {
+    return {
+      kind: "line",
+      source: entity,
+      sourceEntityIndex,
+      start: clonePoint(start),
+      end: clonePoint(end),
+      reverse() {
+        return {
+          ...this,
+          start: clonePoint(this.end),
+          end: clonePoint(this.start),
+          reverse: this.reverse,
+          draw: this.draw,
+          flatten: this.flatten,
+        };
+      },
+      draw(path, transform, scale = 1, startNewSubpath = true) {
+        const p = transform(this.start);
+        const q = transform(this.end);
+        if (startNewSubpath) {
+          path.moveTo(p.x, p.y);
+        }
+        path.lineTo(q.x, q.y);
+      },
+      flatten() {
+        return [clonePoint(this.start), clonePoint(this.end)];
+      },
+    };
+  }
+
+  const midpoint = {
+    x: (start.x + end.x) / 2,
+    y: (start.y + end.y) / 2,
+  };
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const length = Math.hypot(dx, dy) || 1;
+  const leftNormal = {
+    x: -dy / length,
+    y: dx / length,
+  };
+  const centerOffset = (chord * (1 - bulge * bulge)) / (4 * bulge);
+  const center = {
+    x: midpoint.x + leftNormal.x * centerOffset,
+    y: midpoint.y + leftNormal.y * centerOffset,
+  };
+  const radius = dist(center, start);
+  const startAngle = Math.atan2(start.y - center.y, start.x - center.x);
+  let endAngle = Math.atan2(end.y - center.y, end.x - center.x);
+  const clockwise = bulge < 0;
+
+  if (!clockwise && endAngle <= startAngle) {
+    endAngle += Math.PI * 2;
+  } else if (clockwise && endAngle >= startAngle) {
+    endAngle -= Math.PI * 2;
+  }
+
+  return {
+    kind: "arc",
+    source: entity,
+    sourceEntityIndex,
+    start: clonePoint(start),
+    end: clonePoint(end),
+    cx: center.x,
+    cy: center.y,
+    radius,
+    startAngle,
+    endAngle,
+    clockwise,
+    reverse() {
+      return {
+        ...this,
+        start: clonePoint(this.end),
+        end: clonePoint(this.start),
+        startAngle: this.endAngle,
+        endAngle: this.startAngle,
+        clockwise: !this.clockwise,
+        reverse: this.reverse,
+        draw: this.draw,
+        flatten: this.flatten,
+      };
+    },
+    draw(path, transform, scale = 1, startNewSubpath = true) {
+      const c = transform({ x: this.cx, y: this.cy });
+      if (startNewSubpath) {
+        const transformedStart = transform(this.start);
+        path.moveTo(transformedStart.x, transformedStart.y);
+      }
+      path.arc(c.x, c.y, this.radius * scale, -this.startAngle, -this.endAngle, !this.clockwise);
+    },
+    flatten(step = RENDER_SAMPLE_STEP) {
+      const sweep = this.clockwise ? this.startAngle - this.endAngle : this.endAngle - this.startAngle;
+      const total = Math.abs(sweep);
+      const steps = Math.max(12, Math.ceil((this.radius * total) / step));
+      const points = [];
+      for (let i = 0; i <= steps; i += 1) {
+        const t = i / steps;
+        const angle = this.clockwise
+          ? this.startAngle - total * t
+          : this.startAngle + total * t;
+        points.push({
+          x: this.cx + Math.cos(angle) * this.radius,
+          y: this.cy + Math.sin(angle) * this.radius,
+        });
+      }
+      return points;
+    },
+  };
+}
+
+function buildSegmentsFromPolylineEntity(entity, entityIndex) {
+  const vertices = entity.vertices || [];
+  if (vertices.length < 2) {
+    return [];
+  }
+  const segments = [];
+  const count = entity.closed ? vertices.length : vertices.length - 1;
+  for (let i = 0; i < count; i += 1) {
+    const current = vertices[i];
+    const next = vertices[(i + 1) % vertices.length];
+    const start = { x: current.x, y: current.y };
+    const end = { x: next.x, y: next.y };
+    const bulge = Number(current.bulge) || 0;
+    if (Math.abs(bulge) > 1e-9) {
+      segments.push(createBulgeArcSegment(start, end, bulge, entity, entityIndex));
+    } else {
+      segments.push(polylineSegmentFromPoints([start, end], entity, entityIndex));
+    }
+  }
+  return segments;
+}
+
 function createSplineSegment(entity) {
   const cps = entity.controlPoints.map((point) => ({ x: point.x, y: point.y, w: point.w }));
   const degree = entity.degree;
@@ -532,29 +667,37 @@ export function buildLoops(entities) {
   for (let entityIndex = 0; entityIndex < entities.length; entityIndex += 1) {
     const entity = entities[entityIndex];
     if (entity.type === "LWPOLYLINE" || entity.type === "POLYLINE") {
-      const points = closePoints(entity.vertices.map((vertex) => ({ x: vertex.x, y: vertex.y })));
-      if (points.length < 2) {
+      const segments = buildSegmentsFromPolylineEntity(entity, entityIndex);
+      if (!segments.length) {
         continue;
       }
       if (entity.closed) {
-        const segment = polylineSegmentFromPoints(points, entity, entityIndex);
+        const points = [];
+        for (const segment of segments) {
+          const flattened = segment.flatten(TOOLPATH_SAMPLE_STEP);
+          if (points.length > 0) {
+            flattened.shift();
+          }
+          points.push(...flattened);
+        }
+        const closedPoints = closePoints(points);
         loops.push({
           id: crypto.randomUUID(),
           closed: true,
           sourceType: entity.type.toLowerCase(),
           sourceEntityIndexes: [entityIndex],
-          segments: [segment],
-          points,
-          bounds: boundsOfPoints(points),
-          area: polygonArea(points),
+          segments,
+          points: closedPoints,
+          bounds: boundsOfPoints(closedPoints),
+          area: polygonArea(closedPoints),
           path2d: null,
           exportGeometry: {
-            type: "polyline",
-            points,
+            type: "segments",
+            segments,
           },
         });
       } else {
-        openSegments.push(polylineSegmentFromPoints(points, entity, entityIndex));
+        openSegments.push(...segments);
       }
       continue;
     }
@@ -569,20 +712,21 @@ export function buildLoops(entities) {
       openSegments.push(segment);
     }
   }
+  const dedupedOpenSegments = dedupeOpenSegments(openSegments);
   loops.push(...circles);
 
   const adjacency = new Map();
-  openSegments.forEach((segment, index) => {
+  dedupedOpenSegments.forEach((segment, index) => {
     addAdjacency(adjacency, pointKey(segment.start), { index, atStart: true });
     addAdjacency(adjacency, pointKey(segment.end), { index, atStart: false });
   });
   const used = new Set();
 
-  for (let i = 0; i < openSegments.length; i += 1) {
+  for (let i = 0; i < dedupedOpenSegments.length; i += 1) {
     if (used.has(i)) {
       continue;
     }
-    const seed = openSegments[i];
+    const seed = dedupedOpenSegments[i];
     used.add(i);
     let chain = [seed];
     let currentStart = clonePoint(seed.start);
@@ -591,7 +735,7 @@ export function buildLoops(entities) {
 
     while (changed) {
       changed = false;
-      const endMatch = findConnectedSegment(openSegments, adjacency, used, currentEnd, "end");
+      const endMatch = findConnectedSegment(dedupedOpenSegments, adjacency, used, currentEnd, "end", chain[chain.length - 1]);
       if (endMatch) {
         chain.push(endMatch.segment);
         currentEnd = clonePoint(endMatch.segment.end);
@@ -599,7 +743,7 @@ export function buildLoops(entities) {
         changed = true;
         continue;
       }
-      const startMatch = findConnectedSegment(openSegments, adjacency, used, currentStart, "start");
+      const startMatch = findConnectedSegment(dedupedOpenSegments, adjacency, used, currentStart, "start", chain[0]);
       if (startMatch) {
         chain.unshift(startMatch.segment);
         currentStart = clonePoint(startMatch.segment.start);
@@ -619,7 +763,7 @@ export function buildLoops(entities) {
   const representedEntityIndexes = new Set(
     filteredLoops.flatMap((loop) => loop.sourceEntityIndexes || []).filter((value) => value >= 0)
   );
-  for (const segment of openSegments) {
+  for (const segment of dedupedOpenSegments) {
     if (segment.sourceEntityIndex >= 0 && !representedEntityIndexes.has(segment.sourceEntityIndex)) {
       filteredLoops.push(buildOpenChain([segment]));
       representedEntityIndexes.add(segment.sourceEntityIndex);
@@ -629,6 +773,37 @@ export function buildLoops(entities) {
   return filteredLoops;
 }
 
+function dedupeOpenSegments(segments) {
+  const unique = [];
+  const seen = new Set();
+  for (const segment of segments) {
+    const signature = segmentGeometrySignature(segment);
+    if (seen.has(signature)) {
+      continue;
+    }
+    seen.add(signature);
+    unique.push(segment);
+  }
+  return unique;
+}
+
+function segmentGeometrySignature(segment) {
+  const points = segment.flatten(Math.max(0.25, RENDER_SAMPLE_STEP / 2));
+  if (!points?.length) {
+    return `${segment.kind}:empty`;
+  }
+  const start = points[0];
+  const end = points[points.length - 1];
+  const midpoint = points[Math.floor((points.length - 1) / 2)] || start;
+  const forward = [start, midpoint, end].map(signaturePoint).join("|");
+  const reverse = [end, midpoint, start].map(signaturePoint).join("|");
+  return `${segment.kind}:${forward < reverse ? forward : reverse}`;
+}
+
+function signaturePoint(point) {
+  return `${Math.round(point.x / LOOP_TOLERANCE)}:${Math.round(point.y / LOOP_TOLERANCE)}`;
+}
+
 function addAdjacency(map, key, item) {
   if (!map.has(key)) {
     map.set(key, []);
@@ -636,8 +811,10 @@ function addAdjacency(map, key, item) {
   map.get(key).push(item);
 }
 
-function findConnectedSegment(openSegments, adjacency, used, anchorPoint, side) {
+function findConnectedSegment(openSegments, adjacency, used, anchorPoint, side, currentSegment = null) {
   const candidates = adjacency.get(pointKey(anchorPoint)) || [];
+  let bestMatch = null;
+  let bestScore = Number.NEGATIVE_INFINITY;
   for (const candidate of candidates) {
     if (used.has(candidate.index)) {
       continue;
@@ -648,7 +825,11 @@ function findConnectedSegment(openSegments, adjacency, used, anchorPoint, side) 
         ? nextSegment
         : nextSegment.reverse();
       if (dist(oriented.start, anchorPoint) <= LOOP_TOLERANCE) {
-        return { index: candidate.index, segment: oriented };
+        const score = scoreSegmentContinuation(currentSegment, oriented, "end");
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = { index: candidate.index, segment: oriented };
+        }
       }
       continue;
     }
@@ -656,10 +837,66 @@ function findConnectedSegment(openSegments, adjacency, used, anchorPoint, side) 
       ? nextSegment
       : nextSegment.reverse();
     if (dist(oriented.end, anchorPoint) <= LOOP_TOLERANCE) {
-      return { index: candidate.index, segment: oriented };
+      const score = scoreSegmentContinuation(currentSegment, oriented, "start");
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = { index: candidate.index, segment: oriented };
+      }
     }
   }
-  return null;
+  return bestMatch;
+}
+
+function scoreSegmentContinuation(currentSegment, candidateSegment, side) {
+  if (!currentSegment) {
+    return 0;
+  }
+  const currentTangent = side === "end"
+    ? getSegmentTangent(currentSegment, true)
+    : scaleVector(getSegmentTangent(currentSegment, false), -1);
+  const candidateTangent = side === "end"
+    ? getSegmentTangent(candidateSegment, false)
+    : scaleVector(getSegmentTangent(candidateSegment, true), -1);
+
+  const currentUnit = normalizeVector(currentTangent);
+  const candidateUnit = normalizeVector(candidateTangent);
+  if (!currentUnit || !candidateUnit) {
+    return 0;
+  }
+  return currentUnit.x * candidateUnit.x + currentUnit.y * candidateUnit.y;
+}
+
+function getSegmentTangent(segment, atEnd) {
+  const points = segment.flatten(Math.max(0.25, RENDER_SAMPLE_STEP / 2));
+  if (!points?.length || points.length < 2) {
+    return { x: 0, y: 0 };
+  }
+  if (atEnd) {
+    const a = points[points.length - 2];
+    const b = points[points.length - 1];
+    return { x: b.x - a.x, y: b.y - a.y };
+  }
+  const a = points[0];
+  const b = points[1];
+  return { x: b.x - a.x, y: b.y - a.y };
+}
+
+function normalizeVector(vector) {
+  const length = Math.hypot(vector.x, vector.y);
+  if (length <= 1e-9) {
+    return null;
+  }
+  return {
+    x: vector.x / length,
+    y: vector.y / length,
+  };
+}
+
+function scaleVector(vector, scalar) {
+  return {
+    x: vector.x * scalar,
+    y: vector.y * scalar,
+  };
 }
 
 function buildCircleLoop(segment) {
