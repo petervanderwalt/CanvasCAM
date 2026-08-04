@@ -150,6 +150,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     editingToolpathId: null,
     draftToolpath: null,
     autoTabHeight: true,
+    lastToolingWarning: "",
     draftBuildToken: 0,
     showOrigin: true,
     dragImportActive: false,
@@ -1050,6 +1051,30 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
   function isConfiguredMyEndmillSlot(slot) {
     return Boolean(slot && slot.name && Number.isFinite(slot.cuttingDiameterMm) && Number.isFinite(slot.feedRate) && Number.isFinite(slot.plungeRate) && Number.isFinite(slot.spindle) && Number.isFinite(slot.passDepthMm));
+  }
+
+  function warnOnce(key, message) {
+    if (state.lastToolingWarning === key) {
+      return;
+    }
+    state.lastToolingWarning = key;
+    showToast(message, "warning");
+  }
+
+  function validateToolSlotForOperation(slot, operation, options = {}) {
+    if (!slot || !isConfiguredMyEndmillSlot(slot)) {
+      return false;
+    }
+    if (operation === "vcarve" && slot.toolType !== "v-bit") {
+      if (options.notify !== false) {
+        warnOnce(`operation:${operation}:slot:${slot.slot}:type:${slot.toolType || "unknown"}`, "V-Carve requires a V-bit. Select a V-bit from your tool rack.");
+      }
+      return false;
+    }
+    if (state.lastToolingWarning.startsWith("operation:")) {
+      state.lastToolingWarning = "";
+    }
+    return true;
   }
 
   function getMyEndmillSlotOperationHints(slot) {
@@ -2300,7 +2325,8 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
   function readToolpathConfigFromForm() {
     const slot = getMyEndmillSlot(state.myEndmills.selectedSlot);
-    if (!slot || !isConfiguredMyEndmillSlot(slot)) {
+    const operation = ui.toolpathTypeInput.value;
+    if (!validateToolSlotForOperation(slot, operation)) {
       return null;
     }
     applyMyEndmillSlotToInputs(slot);
@@ -2309,7 +2335,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     const selectedTool = getSelectedLibraryTool();
     ui.tabWidthInput.value = formatNumber(tabWidth);
     return {
-      operation: ui.toolpathTypeInput.value,
+      operation,
       toolNumber: slot.slot,
       toolDiameter,
       toolRadius: toolDiameter / 2,
