@@ -45,8 +45,18 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     cadActionGroup: document.getElementById("cadActionGroup"),
     cadToolButtons: Array.from(document.querySelectorAll(".cad-tool-btn")),
     cadSnapBtn: document.getElementById("cadSnapBtn"),
-    cadCornerRadiusInput: document.getElementById("cadCornerRadiusInput"),
     clearGuidesBtn: document.getElementById("clearGuidesBtn"),
+    cadInspector: document.getElementById("cadInspector"),
+    cadInspectorTitle: document.getElementById("cadInspectorTitle"),
+    cadInspectorCloseBtn: document.getElementById("cadInspectorCloseBtn"),
+    cadInspectorXInput: document.getElementById("cadInspectorXInput"),
+    cadInspectorYInput: document.getElementById("cadInspectorYInput"),
+    cadInspectorWidthInput: document.getElementById("cadInspectorWidthInput"),
+    cadInspectorHeightInput: document.getElementById("cadInspectorHeightInput"),
+    cadInspectorAngleInput: document.getElementById("cadInspectorAngleInput"),
+    cadInspectorRadiusField: document.getElementById("cadInspectorRadiusField"),
+    cadInspectorRadiusInput: document.getElementById("cadInspectorRadiusInput"),
+    applyCadInspectorBtn: document.getElementById("applyCadInspectorBtn"),
     topRulerCanvas,
     leftRulerCanvas,
     canvasEmptyState: document.getElementById("canvasEmptyState"),
@@ -172,7 +182,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     cadTool: null,
     cadDraft: null,
     cadSnapEnabled: true,
-    cadCornerRadius: 0,
+    cadInspectorDismissed: false,
     pendingBitmapFile: null,
     geometryTransform: null,
     transformingGeometry: false,
@@ -2145,11 +2155,48 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     return { x: start.x + dx * t, y: start.y + dy * t };
   }
 
+  function createCadRectangleEntity(center, width, height, radius = 0, angleRad = 0) {
+    const halfWidth = Math.max(0.0005, width / 2);
+    const halfHeight = Math.max(0.0005, height / 2);
+    const cappedRadius = Math.min(Math.max(0, radius), halfWidth, halfHeight);
+    const minX = center.x - halfWidth;
+    const maxX = center.x + halfWidth;
+    const minY = center.y - halfHeight;
+    const maxY = center.y + halfHeight;
+    const entity = {
+      type: "LWPOLYLINE",
+      closed: true,
+      __cadShape: "rectangle",
+      __cadCornerRadius: cappedRadius,
+      vertices: cappedRadius > 0.001
+        ? [
+          { x: minX + cappedRadius, y: minY, bulge: 0 },
+          { x: maxX - cappedRadius, y: minY, bulge: Math.tan(Math.PI / 8) },
+          { x: maxX, y: minY + cappedRadius, bulge: 0 },
+          { x: maxX, y: maxY - cappedRadius, bulge: Math.tan(Math.PI / 8) },
+          { x: maxX - cappedRadius, y: maxY, bulge: 0 },
+          { x: minX + cappedRadius, y: maxY, bulge: Math.tan(Math.PI / 8) },
+          { x: minX, y: maxY - cappedRadius, bulge: 0 },
+          { x: minX, y: minY + cappedRadius, bulge: Math.tan(Math.PI / 8) },
+        ]
+        : [
+          { x: minX, y: minY, bulge: 0 },
+          { x: maxX, y: minY, bulge: 0 },
+          { x: maxX, y: maxY, bulge: 0 },
+          { x: minX, y: maxY, bulge: 0 },
+        ],
+    };
+    return Math.abs(angleRad) > 1e-9
+      ? transformEntity(entity, matrixForRotation(angleRad, center.x, center.y))
+      : entity;
+  }
+
   function createCadEntity(tool, draft) {
     const { points } = draft;
     if (tool === "line") {
       return {
         type: "LINE",
+        __cadShape: "line",
         x1: points[0].x,
         y1: points[0].y,
         x2: points[1].x,
@@ -2159,6 +2206,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     if (tool === "polyline") {
       return {
         type: "LWPOLYLINE",
+        __cadShape: "polyline",
         closed: false,
         vertices: points.map((point) => ({ x: point.x, y: point.y, bulge: 0 })),
       };
@@ -2169,44 +2217,13 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       const maxX = Math.max(a.x, b.x);
       const minY = Math.min(a.y, b.y);
       const maxY = Math.max(a.y, b.y);
-      const radius = Math.min(
-        Math.max(0, state.cadCornerRadius),
-        (maxX - minX) / 2,
-        (maxY - minY) / 2
-      );
-      if (radius > 0.001) {
-        const bulge = Math.tan(Math.PI / 8);
-        return {
-          type: "LWPOLYLINE",
-          closed: true,
-          __cadCornerRadius: radius,
-          vertices: [
-            { x: minX + radius, y: minY, bulge: 0 },
-            { x: maxX - radius, y: minY, bulge },
-            { x: maxX, y: minY + radius, bulge: 0 },
-            { x: maxX, y: maxY - radius, bulge },
-            { x: maxX - radius, y: maxY, bulge: 0 },
-            { x: minX + radius, y: maxY, bulge },
-            { x: minX, y: maxY - radius, bulge: 0 },
-            { x: minX, y: minY + radius, bulge },
-          ],
-        };
-      }
-      return {
-        type: "LWPOLYLINE",
-        closed: true,
-        vertices: [
-          { x: minX, y: minY, bulge: 0 },
-          { x: maxX, y: minY, bulge: 0 },
-          { x: maxX, y: maxY, bulge: 0 },
-          { x: minX, y: maxY, bulge: 0 },
-        ],
-      };
+      return createCadRectangleEntity({ x: (minX + maxX) / 2, y: (minY + maxY) / 2 }, maxX - minX, maxY - minY);
     }
     if (tool === "circle") {
       const [center, edge] = points;
       return {
         type: "CIRCLE",
+        __cadShape: "circle",
         cx: center.x,
         cy: center.y,
         radius: Math.hypot(edge.x - center.x, edge.y - center.y),
@@ -2216,6 +2233,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       const [center, start, end] = points;
       return {
         type: "ARC",
+        __cadShape: "arc",
         cx: center.x,
         cy: center.y,
         radius: Math.hypot(start.x - center.x, start.y - center.y),
@@ -2226,6 +2244,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     if (tool === "bezier") {
       return {
         type: "SPLINE",
+        __cadShape: "bezier",
         degree: 3,
         knots: [0, 0, 0, 0, 1, 1, 1, 1],
         controlPoints: points.map((point) => ({ x: point.x, y: point.y, w: 1 })),
@@ -2234,6 +2253,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     if (tool === "guide") {
       return {
         type: "GUIDE",
+        __cadShape: "guide",
         start: { x: points[0].x, y: points[0].y },
         end: { x: points[1].x, y: points[1].y },
       };
@@ -2248,6 +2268,119 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
         state.selectedLoopIds.add(loop.id);
       }
     }
+  }
+
+  function getSelectedCadEntity() {
+    const indexes = getSelectedEntityIndexes();
+    if (indexes.length !== 1) {
+      return null;
+    }
+    const entity = state.entities[indexes[0]];
+    if (!entity?.__cadShape || entity.__cadShape === "guide") {
+      return null;
+    }
+    return { entity, index: indexes[0] };
+  }
+
+  function cadShapeLabel(shape) {
+    return {
+      line: "Line",
+      polyline: "Polyline",
+      rectangle: "Rectangle",
+      circle: "Circle",
+      arc: "Arc",
+      bezier: "Bezier curve",
+    }[shape] || "CAD shape";
+  }
+
+  function refreshCadInspector() {
+    const selected = getSelectedCadEntity();
+    const show = Boolean(selected)
+      && !state.cadInspectorDismissed
+      && !state.cadTool
+      && !state.transformTool
+      && !state.transformingGeometry;
+    ui.cadInspector.classList.toggle("d-none", !show);
+    if (!show) {
+      return;
+    }
+    const frame = getSelectionFrame();
+    if (!frame) {
+      ui.cadInspector.classList.add("d-none");
+      return;
+    }
+    const isRectangle = selected.entity.__cadShape === "rectangle";
+    ui.cadInspectorTitle.textContent = cadShapeLabel(selected.entity.__cadShape);
+    ui.cadInspectorXInput.value = formatNumber(frame.center.x);
+    ui.cadInspectorYInput.value = formatNumber(frame.center.y);
+    ui.cadInspectorWidthInput.value = formatNumber(frame.width);
+    ui.cadInspectorHeightInput.value = formatNumber(frame.height);
+    ui.cadInspectorAngleInput.value = formatNumber((frame.angle * 180) / Math.PI);
+    ui.cadInspectorRadiusField.classList.toggle("d-none", !isRectangle);
+    if (isRectangle) {
+      ui.cadInspectorRadiusInput.value = formatNumber(selected.entity.__cadCornerRadius || 0);
+    }
+  }
+
+  async function applyCadInspectorChanges() {
+    const selected = getSelectedCadEntity();
+    const frame = getSelectionFrame();
+    if (!selected || !frame) {
+      return;
+    }
+    const targetX = Number.parseFloat(ui.cadInspectorXInput.value);
+    const targetY = Number.parseFloat(ui.cadInspectorYInput.value);
+    const targetWidth = Number.parseFloat(ui.cadInspectorWidthInput.value);
+    const targetHeight = Number.parseFloat(ui.cadInspectorHeightInput.value);
+    const targetAngleDeg = Number.parseFloat(ui.cadInspectorAngleInput.value);
+    if (![targetX, targetY, targetWidth, targetHeight, targetAngleDeg].every(Number.isFinite)
+      || targetWidth <= 0 || targetHeight <= 0) {
+      showToast("Enter a valid position, size, and angle.", "warning");
+      return;
+    }
+    const historyBefore = captureHistorySnapshot();
+    const context = captureSelectionTransformContext();
+    if (!context) {
+      return;
+    }
+    const targetAngle = (targetAngleDeg * Math.PI) / 180;
+    if (selected.entity.__cadShape === "rectangle") {
+      const requestedRadius = Number.parseFloat(ui.cadInspectorRadiusInput.value);
+      if (!Number.isFinite(requestedRadius) || requestedRadius < 0) {
+        showToast("Corner radius must be zero or greater.", "warning");
+        return;
+      }
+      state.entities[selected.index] = createCadRectangleEntity(
+        { x: targetX, y: targetY },
+        targetWidth,
+        targetHeight,
+        requestedRadius,
+        targetAngle
+      );
+      state.selectionFrameAngles.set(context.selectedEntityKey, normalizeRadians(targetAngle));
+      rebuildLoopsFromEntities(context.selectionSignatures);
+      await applySelectionTransformAndRebuild(null, context);
+    } else {
+      const scaleX = targetWidth / frame.width;
+      const scaleY = targetHeight / frame.height;
+      if (selectionContainsCurvedEntities() && Math.abs(scaleX - scaleY) > 1e-6) {
+        showToast("Curved shapes need proportional resize. Set matching width and height scaling.", "warning");
+        return;
+      }
+      const deltaAngle = targetAngle - frame.angle;
+      const matrix = multiplyMatrices(
+        matrixForTranslation(targetX - frame.center.x, targetY - frame.center.y),
+        multiplyMatrices(
+          matrixForRotation(deltaAngle, frame.center.x, frame.center.y),
+          matrixForFrameScale(scaleX, scaleY, frame)
+        )
+      );
+      context.resultAngle = normalizeRadians(targetAngle);
+      await applySelectionTransformAndRebuild(matrix, context);
+    }
+    pushHistorySnapshot(historyBefore);
+    state.cadInspectorDismissed = false;
+    refreshCadInspector();
   }
 
   function commitCadDraft() {
@@ -2640,6 +2773,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     updateTransformToolUi();
     refreshSidebarMode();
     refreshWorkspaceUi();
+    refreshCadInspector();
   }
 
   function refreshToolpathUi() {
@@ -3279,6 +3413,9 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     clearToolpathEditing();
     rebuildLoopPaths();
     const hit = findLoopHit(point);
+    if (hit) {
+      state.cadInspectorDismissed = false;
+    }
     if (!append) {
       state.selectedLoopIds.clear();
     }
@@ -3357,6 +3494,9 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   function pickLoopsInMarquee(startPoint, endPoint, append) {
     clearToolpathEditing();
     const loopIds = loopIdsInMarquee(startPoint, endPoint);
+    if (loopIds.size) {
+      state.cadInspectorDismissed = false;
+    }
     if (!append) {
       state.selectedLoopIds.clear();
     }
@@ -3780,9 +3920,11 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       ? "Snap to the 10mm grid, endpoints, corners, and centers"
       : "Snapping is off";
   });
-  ui.cadCornerRadiusInput.addEventListener("input", () => {
-    state.cadCornerRadius = Math.max(0, Number.parseFloat(ui.cadCornerRadiusInput.value) || 0);
+  ui.cadInspectorCloseBtn.addEventListener("click", () => {
+    state.cadInspectorDismissed = true;
+    refreshCadInspector();
   });
+  ui.applyCadInspectorBtn.addEventListener("click", applyCadInspectorChanges);
   ui.transformAspectLockBtn.addEventListener("click", () => {
     state.transformAspectLocked = !state.transformAspectLocked;
     refreshTransformInspector();

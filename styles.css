@@ -506,38 +506,101 @@ body {
   box-shadow: 0 3px 0 rgba(17, 17, 17, 0.9);
 }
 
-.cad-radius-control {
-  min-height: 2.1rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.28rem;
-  padding: 0.08rem 0.48rem;
+.cad-inspector {
+  position: absolute;
+  top: calc(var(--ruler-size) + 0.7rem);
+  right: 0.7rem;
+  z-index: 12;
+  width: min(18rem, calc(100% - var(--ruler-size) - 1.4rem));
+  padding: 0.6rem;
   border: 3px solid var(--funky-ink);
-  border-radius: 0.65rem;
-  background: #fff8d8;
-  box-shadow: 0 4px 0 rgba(17, 17, 17, 0.9);
-  color: var(--funky-ink);
+  border-radius: 0.9rem;
+  background: #ffe06f;
+  box-shadow: var(--funky-shadow);
+}
+
+.cad-inspector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
   font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
-  font-size: 0.72rem;
+}
+
+.cad-inspector-head strong { font-size: 0.88rem; }
+
+.cad-inspector-close {
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.52rem;
+  background: #a9bfff;
+  color: var(--funky-ink);
+  box-shadow: 0 3px 0 rgba(17, 17, 17, 0.9);
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.cad-inspector-close:hover,
+.cad-inspector-close:focus-visible {
+  transform: translateY(1px);
+  box-shadow: 0 2px 0 rgba(17, 17, 17, 0.9);
+}
+
+.cad-inspector-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.cad-inspector-grid label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0;
+  color: var(--funky-ink);
+  font-size: 0.68rem;
   font-weight: 900;
 }
 
-.cad-radius-control input {
-  width: 3.3rem;
+.cad-inspector-label { grid-column: 1 / -1; }
+
+.cad-inspector-grid input {
+  grid-column: 1;
   min-width: 0;
-  border: 0;
-  border-radius: 0.3rem;
+  height: 2rem;
+  margin-top: 0.16rem;
+  padding: 0.25rem 0.42rem;
+  border: 3px solid var(--funky-ink);
+  border-right: 0;
+  border-radius: 0.5rem 0 0 0.5rem;
   background: #fffdf4;
   color: var(--funky-ink);
-  font: inherit;
   font-weight: 800;
   outline: 0;
 }
 
-.cad-radius-control em {
-  font-style: normal;
-  font-size: 0.64rem;
-  opacity: 0.72;
+.cad-inspector-grid > label > span:not(.cad-inspector-label) {
+  grid-column: 2;
+  align-self: end;
+  display: grid;
+  place-items: center;
+  height: 2rem;
+  margin-top: 0.16rem;
+  padding-inline: 0.36rem;
+  border: 3px solid var(--funky-ink);
+  border-radius: 0 0.5rem 0.5rem 0;
+  background: #fff8d8;
+  font-size: 0.68rem;
+}
+
+.cad-inspector-apply {
+  width: 100%;
+  margin-top: 0.62rem;
 }
 
 .transform-tool-btn.is-active {
