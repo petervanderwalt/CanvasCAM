@@ -45,7 +45,6 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     leftRulerCanvas,
     canvasEmptyState: document.getElementById("canvasEmptyState"),
     emptyStateDropNote: document.getElementById("emptyStateDropNote"),
-    originToggleButtons: Array.from(document.querySelectorAll(".origin-toggle-btn")),
     transformToolButtons: Array.from(document.querySelectorAll(".transform-tool-btn")),
     deleteVectorsBtn: document.getElementById("deleteVectorsBtn"),
     transformSidebarPanel: document.getElementById("transformSidebarPanel"),
@@ -77,6 +76,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     editMyEndmillsBtn: document.getElementById("editMyEndmillsBtn"),
     myEndmillsModal: document.getElementById("myEndmillsModal"),
     myEndmillsSlots: document.getElementById("myEndmillsSlots"),
+    myEndmillsValidationHint: document.getElementById("myEndmillsValidationHint"),
     saveMyEndmillsBtn: document.getElementById("saveMyEndmillsBtn"),
     operationOptions: Array.from(document.querySelectorAll(".operation-option")),
     toolLibraryToggle: document.getElementById("toolLibraryToggle"),
@@ -101,6 +101,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     cutDepthField: document.getElementById("cutDepthField"),
     cutDepthInput: document.getElementById("cutDepthInput"),
     passDepthInput: document.getElementById("passDepthInput"),
+    jobSettingsSection: document.getElementById("jobSettingsSection"),
     tabWidthField: document.getElementById("tabWidthField"),
     tabWidthInput: document.getElementById("tabWidthInput"),
     tabHeightField: document.getElementById("tabHeightField"),
@@ -152,7 +153,6 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     autoTabHeight: true,
     lastToolingWarning: "",
     draftBuildToken: 0,
-    showOrigin: true,
     dragImportActive: false,
     isNavigatingView: false,
     transformTool: null,
@@ -208,16 +208,25 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     }
     const toast = document.createElement("div");
     const title = options.title || (variant === "warning" ? "Warning" : variant === "success" ? "Done" : "Error");
-    toast.className = `toast align-items-center text-bg-${variant} border-0 show`;
+    const icon = variant === "warning"
+      ? "fa-solid fa-triangle-exclamation"
+      : variant === "success"
+        ? "fa-solid fa-check"
+        : "fa-solid fa-xmark";
+    toast.className = `toast toast-funky is-${variant} show`;
     toast.setAttribute("role", "alert");
     toast.setAttribute("aria-live", "assertive");
     toast.setAttribute("aria-atomic", "true");
     toast.innerHTML = `
-      <div class="d-flex">
-        <div class="toast-body">
-          <strong class="me-2">${title}</strong>${message}
+      <div class="toast-inner">
+        <div class="toast-icon" aria-hidden="true">
+          <i class="${icon}"></i>
         </div>
-        <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Close"></button>
+        <div class="toast-copy">
+          <strong class="toast-title">${title}</strong>
+          <div class="toast-message">${message}</div>
+        </div>
+        <button type="button" class="toast-close" aria-label="Close"></button>
       </div>
     `;
     const removeToast = () => {
@@ -980,6 +989,36 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     return segments.join(" - ");
   }
 
+  function normalizeLibraryToolType(rawTool = {}) {
+    const raw = String(rawTool.toolType || rawTool.toolTypeLabel || rawTool.tip || "").trim().toLowerCase();
+    if (!raw) {
+      return "flat";
+    }
+    if (raw === "v-bit" || raw.includes("v-bit") || raw.includes("v bit") || raw.includes("engraving vbit") || raw.includes("vee")) {
+      return "v-bit";
+    }
+    if (raw === "ball" || raw === "ballnose" || raw.includes("ball nose") || raw.includes("ballnose") || raw.includes("ball end")) {
+      return "ball";
+    }
+    if (raw === "flat" || raw.includes("square end") || raw.includes("flat")) {
+      return "flat";
+    }
+    return "other";
+  }
+
+  function normalizeLibraryTool(tool = {}) {
+    return {
+      ...tool,
+      vendor: tool.vendor || "",
+      vendorDisplayName: tool.vendorDisplayName || tool.vendor || "",
+      toolType: normalizeLibraryToolType(tool),
+      cuttingDiameterMm: Number.isFinite(Number(tool.cuttingDiameterMm)) ? Number(tool.cuttingDiameterMm) : null,
+      fluteAngleDeg: Number.isFinite(Number(tool.fluteAngleDeg)) ? Number(tool.fluteAngleDeg) : null,
+      shankDiameterMm: Number.isFinite(Number(tool.shankDiameterMm)) ? Number(tool.shankDiameterMm) : null,
+      flutes: Number.isFinite(Number(tool.flutes)) ? Number(tool.flutes) : null,
+    };
+  }
+
   function getSelectedLibraryTool() {
     return state.toolLibrary.byId.get(state.selectedLibraryToolId) || state.selectedLibraryToolMeta;
   }
@@ -1053,6 +1092,10 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     return Boolean(slot && slot.name && Number.isFinite(slot.cuttingDiameterMm) && Number.isFinite(slot.feedRate) && Number.isFinite(slot.plungeRate) && Number.isFinite(slot.spindle) && Number.isFinite(slot.passDepthMm));
   }
 
+  function getConfiguredMyEndmillSlots() {
+    return state.myEndmills.slots.filter((slot) => isConfiguredMyEndmillSlot(slot));
+  }
+
   function warnOnce(key, message) {
     if (state.lastToolingWarning === key) {
       return;
@@ -1065,9 +1108,10 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     if (!slot || !isConfiguredMyEndmillSlot(slot)) {
       return false;
     }
-    if (operation === "vcarve" && slot.toolType !== "v-bit") {
+    if ((operation === "vcarve" || operation === "chamfer") && slot.toolType !== "v-bit") {
       if (options.notify !== false) {
-        warnOnce(`operation:${operation}:slot:${slot.slot}:type:${slot.toolType || "unknown"}`, "V-Carve requires a V-bit. Select a V-bit from your tool rack.");
+        const operationLabel = operation === "chamfer" ? "Chamfer" : "V-Carve";
+        warnOnce(`operation:${operation}:slot:${slot.slot}:type:${slot.toolType || "unknown"}`, `${operationLabel} requires a V-bit. Select a V-bit from your tool rack.`);
       }
       return false;
     }
@@ -1082,7 +1126,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       return slot.operationHints;
     }
     if (slot?.toolType === "v-bit") {
-      return ["vcarve"];
+      return ["vcarve", "chamfer"];
     }
     if (slot?.toolType === "ball") {
       return ["profile-outside", "profile-inside", "pocket", "engrave"];
@@ -1102,6 +1146,98 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     return state.myEndmills.slots.filter((slot) => myEndmillSlotSupportsOperation(slot, operation));
   }
 
+  function modalRowFieldValue(row, selector) {
+    return row.querySelector(selector)?.value?.trim() || "";
+  }
+
+  function modalRowHasAnyData(row) {
+    const libraryToolId = modalRowFieldValue(row, ".slot-library-tool");
+    const name = modalRowFieldValue(row, ".slot-name");
+    const diameter = Number.parseFloat(modalRowFieldValue(row, ".slot-diameter"));
+    const angle = Number.parseFloat(modalRowFieldValue(row, ".slot-angle"));
+    const rpm = Number.parseFloat(modalRowFieldValue(row, ".slot-rpm"));
+    const feed = Number.parseFloat(modalRowFieldValue(row, ".slot-feed"));
+    const plunge = Number.parseFloat(modalRowFieldValue(row, ".slot-plunge"));
+    const passDepth = Number.parseFloat(modalRowFieldValue(row, ".slot-pass-depth"));
+    return Boolean(
+      libraryToolId ||
+      name ||
+      Number.isFinite(diameter) ||
+      Number.isFinite(angle) ||
+      Number.isFinite(rpm) ||
+      Number.isFinite(feed) ||
+      Number.isFinite(plunge) ||
+      Number.isFinite(passDepth)
+    );
+  }
+
+  function validateMyEndmillModalRow(row) {
+    const toolType = modalRowFieldValue(row, ".slot-tool-type") || "flat";
+    const requiredFields = [
+      [".slot-name", "Tool name"],
+      [".slot-diameter", "Diameter"],
+      [".slot-rpm", "Spindle RPM"],
+      [".slot-feed", "Feed Rate"],
+      [".slot-plunge", "Plunge Rate"],
+      [".slot-pass-depth", "Pass Depth"],
+    ];
+    if (toolType === "v-bit") {
+      requiredFields.push([".slot-angle", "V Angle"]);
+    }
+    let valid = true;
+    const missing = [];
+    for (const [selector, label] of requiredFields) {
+      const input = row.querySelector(selector);
+      if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement)) {
+        continue;
+      }
+      const hasValue = input.value.trim() !== "";
+      input.classList.toggle("is-invalid", !hasValue);
+      input.setAttribute("aria-invalid", hasValue ? "false" : "true");
+      if (!hasValue) {
+        input.title = `${label} is required`;
+        valid = false;
+        missing.push(label);
+      } else {
+        input.removeAttribute("title");
+      }
+    }
+    return { valid, missing };
+  }
+
+  function updateMyEndmillsSaveState() {
+    let valid = true;
+    const issues = [];
+    for (const row of ui.myEndmillsSlots.querySelectorAll("[data-slot-index]")) {
+      if (!modalRowHasAnyData(row)) {
+        for (const input of row.querySelectorAll(".is-invalid")) {
+          input.classList.remove("is-invalid");
+          input.removeAttribute("aria-invalid");
+          input.removeAttribute("title");
+        }
+        continue;
+      }
+      const slotIndex = row.dataset.slotIndex || "?";
+      const result = validateMyEndmillModalRow(row);
+      valid = result.valid && valid;
+      if (!result.valid) {
+        issues.push(`T${slotIndex}: ${result.missing.join(", ")}`);
+      }
+    }
+    ui.saveMyEndmillsBtn.disabled = !valid;
+    if (ui.myEndmillsValidationHint) {
+      const hint = issues.length ? issues[0] : "";
+      ui.myEndmillsValidationHint.textContent = hint;
+      ui.myEndmillsValidationHint.classList.toggle("d-none", !hint);
+    }
+    if (!valid && issues.length) {
+      ui.saveMyEndmillsBtn.title = issues.join(" | ");
+    } else {
+      ui.saveMyEndmillsBtn.removeAttribute("title");
+    }
+    return valid;
+  }
+
   function summarizeMyEndmillSlot(slot) {
     if (!slot) {
       return { title: "No tool slot selected", meta: "Pick a tool from your saved T1 to T12 slots." };
@@ -1118,6 +1254,19 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       Number.isFinite(slot.spindle) ? `RPM ${Math.round(slot.spindle)}` : "",
     ].filter(Boolean).join(" - ");
     return { title, meta };
+  }
+
+  function getToolTypeBadgeLabel(toolType) {
+    switch (toolType) {
+      case "v-bit":
+        return "V-Bit";
+      case "ball":
+        return "Ball";
+      case "flat":
+        return "Flat";
+      default:
+        return "Tool";
+    }
   }
 
   function applyMyEndmillSlotToInputs(slot) {
@@ -1168,18 +1317,26 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   function renderMyEndmillSummary() {
     const slot = getMyEndmillSlot(state.myEndmills.selectedSlot);
     const summary = summarizeMyEndmillSlot(slot);
+    const operation = ui.toolpathTypeInput.value;
+    const recommended = slot ? myEndmillSlotSupportsOperation(slot, operation) : false;
+    const recommendationMeta = slot && isConfiguredMyEndmillSlot(slot)
+      ? `<div class="my-endmill-summary-recommendation ${recommended ? "is-recommended" : "is-neutral"}">${recommended ? "Recommended for this operation" : "Not the ideal match for this operation"}</div>`
+      : "";
     ui.myEndmillSummary.classList.toggle("empty", !slot || !isConfiguredMyEndmillSlot(slot));
+    ui.myEndmillSummary.classList.toggle("is-recommended", recommended);
     ui.myEndmillSummary.innerHTML = `
       <div class="my-endmill-summary-title">${summary.title}</div>
       <div class="my-endmill-summary-meta">${summary.meta}</div>
+      ${recommendationMeta}
     `;
   }
 
   function renderMyEndmillSelect() {
     const operation = ui.toolpathTypeInput.value;
-    const tools = getConfiguredMyEndmillSlotsForOperation(operation);
+    const tools = getConfiguredMyEndmillSlots();
     const selected = state.myEndmills.selectedSlot;
     ui.myEndmillSelect.innerHTML = "";
+    ui.myEndmillSelect.classList.remove("is-recommended");
     const placeholder = document.createElement("option");
     if (!tools.length) {
       placeholder.value = "";
@@ -1197,7 +1354,14 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     for (const slot of tools) {
       const option = document.createElement("option");
       option.value = String(slot.slot);
-      option.textContent = `T${slot.slot} - ${slot.name}`;
+      const recommended = myEndmillSlotSupportsOperation(slot, operation);
+      const badge = getToolTypeBadgeLabel(slot.toolType);
+      option.textContent = `${recommended ? "Recommended · " : ""}[${badge}] T${slot.slot} - ${slot.name}`;
+      if (recommended) {
+        option.classList.add("is-recommended");
+        option.style.color = "#15803d";
+        option.style.fontWeight = "600";
+      }
       option.selected = selected === slot.slot;
       ui.myEndmillSelect.appendChild(option);
     }
@@ -1206,13 +1370,15 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     }
     ui.myEndmillSelect.value = state.myEndmills.selectedSlot ? String(state.myEndmills.selectedSlot) : "";
     const slot = getMyEndmillSlot(state.myEndmills.selectedSlot);
+    if (slot && myEndmillSlotSupportsOperation(slot, operation)) {
+      ui.myEndmillSelect.classList.add("is-recommended");
+    }
     applyMyEndmillSlotToInputs(slot);
     renderMyEndmillSummary();
   }
 
   function syncSelectedMyEndmillForOperation(options = {}) {
-    const operation = ui.toolpathTypeInput.value;
-    const matching = getConfiguredMyEndmillSlotsForOperation(operation);
+    const matching = getConfiguredMyEndmillSlots();
     const preserve = options.preserve !== false;
     if (!preserve || !matching.some((slot) => slot.slot === state.myEndmills.selectedSlot)) {
       state.myEndmills.selectedSlot = matching[0]?.slot || null;
@@ -1336,18 +1502,30 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
         </div>
       `;
       ui.myEndmillsSlots.appendChild(item);
+      if (slot.libraryToolId) {
+        populateSlotEditorFromLibrary(item.querySelector("[data-slot-index]"), slot.libraryToolId, { preserveRates: true, preserveName: true });
+      }
     }
+    updateMyEndmillsSaveState();
   }
 
-  function populateSlotEditorFromLibrary(slotRow, toolId) {
+  function populateSlotEditorFromLibrary(slotRow, toolId, options = {}) {
     const tool = state.toolLibrary.byId.get(toolId);
     if (!tool || !slotRow) {
       return;
     }
-    slotRow.querySelector(".slot-name").value = tool.name || "";
+    if (!options.preserveName || !slotRow.querySelector(".slot-name").value.trim()) {
+      slotRow.querySelector(".slot-name").value = tool.name || "";
+    }
     slotRow.querySelector(".slot-tool-type").value = tool.toolType || "flat";
     slotRow.querySelector(".slot-diameter").value = Number.isFinite(tool.cuttingDiameterMm) ? formatNumber(tool.cuttingDiameterMm) : "";
     slotRow.querySelector(".slot-angle").value = Number.isFinite(tool.fluteAngleDeg) ? formatNumber(tool.fluteAngleDeg) : "";
+    if (!options.preserveRates) {
+      slotRow.querySelector(".slot-rpm").value = "";
+      slotRow.querySelector(".slot-feed").value = "";
+      slotRow.querySelector(".slot-plunge").value = "";
+      slotRow.querySelector(".slot-pass-depth").value = "";
+    }
   }
 
   function collectMyEndmillsFromModal() {
@@ -1389,7 +1567,9 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     }
     if (!myEndmillsModalInstance) {
       if (window.bootstrap?.Modal) {
-        myEndmillsModalInstance = window.bootstrap.Modal.getOrCreateInstance(ui.myEndmillsModal);
+        myEndmillsModalInstance = window.bootstrap.Modal.getOrCreateInstance(ui.myEndmillsModal, {
+          backdrop: "static",
+        });
       } else {
         myEndmillsModalInstance = {
           show() {
@@ -1428,7 +1608,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     if (Array.isArray(tool.operationHints) && tool.operationHints.length) {
       return tool.operationHints.includes(operation);
     }
-    if (operation === "vcarve") {
+    if (operation === "vcarve" || operation === "chamfer") {
       return tool.toolType === "v-bit";
     }
     return true;
@@ -1595,7 +1775,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       }
       const payload = await response.json();
       const sourceTools = Array.isArray(payload) ? payload : payload.tools || [];
-      tools.push(...sourceTools);
+      tools.push(...sourceTools.map((tool) => normalizeLibraryTool({ ...tool, vendor: tool.vendor || source.vendor })));
     }
     state.toolLibrary.tools = tools;
     state.toolLibrary.byId = new Map(tools.map((tool) => [tool.id, tool]));
@@ -1626,14 +1806,6 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
         : "or drag DXF/SVG here";
     }
     ui.vectorActionGroup.classList.toggle("d-none", !hasSelection);
-
-    for (const button of ui.originToggleButtons) {
-      button.classList.toggle("is-active", state.showOrigin);
-      if (button.classList.contains("canvas-tool-btn")) {
-        button.classList.toggle("btn-primary", state.showOrigin);
-        button.classList.toggle("btn-light", !state.showOrigin);
-      }
-    }
 
     setWorkflowStep("import", hasGeometry ? "complete" : "active");
     if (!hasGeometry) {
@@ -3054,13 +3226,6 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   ui.zoomOutBtn.addEventListener("click", () => {
     adjustZoom(1 / 1.2);
   });
-  ui.originToggleButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      state.showOrigin = !state.showOrigin;
-      refreshWorkspaceUi();
-      draw();
-    });
-  });
   ui.transformToolButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const requestedTool = button.dataset.transformTool || null;
@@ -3104,6 +3269,10 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     if (target.classList.contains("slot-library-tool")) {
       populateSlotEditorFromLibrary(target.closest("[data-slot-index]"), target.value);
     }
+    updateMyEndmillsSaveState();
+  });
+  ui.myEndmillsSlots.addEventListener("input", () => {
+    updateMyEndmillsSaveState();
   });
   ui.myEndmillsSlots.addEventListener("click", (event) => {
     const target = event.target instanceof HTMLElement ? event.target.closest(".clear-slot-btn") : null;
@@ -3123,8 +3292,13 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     row.querySelector(".slot-feed").value = "";
     row.querySelector(".slot-plunge").value = "";
     row.querySelector(".slot-pass-depth").value = "";
+    updateMyEndmillsSaveState();
   });
   ui.saveMyEndmillsBtn.addEventListener("click", async () => {
+    if (!updateMyEndmillsSaveState()) {
+      showToast("Finish the required fields for each tool slot before saving.", "warning");
+      return;
+    }
     state.myEndmills.slots = collectMyEndmillsFromModal();
     saveMyEndmillsToStorage();
     syncSelectedMyEndmillForOperation({ preserve: true });
@@ -3132,11 +3306,6 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     await rebuildDraftToolpath();
     refreshToolpathUi();
     draw();
-  });
-  ui.myEndmillsModal?.addEventListener("click", (event) => {
-    if (event.target === ui.myEndmillsModal) {
-      getMyEndmillsModalInstance()?.hide();
-    }
   });
   ui.myEndmillsModal?.querySelectorAll("[data-bs-dismiss='modal']").forEach((button) => {
     button.addEventListener("click", () => {

@@ -330,10 +330,6 @@ export function drawMarqueeRect(ctx, current, start) {
 }
 
 export function drawOriginGuides(ctx, rect, state, worldToScreen, formatNumber) {
-  const showOrigin = state.showOrigin !== false;
-  if (!showOrigin) {
-    return;
-  }
   const originScreen = worldToScreen({ x: 0, y: 0 });
   const xVisible = originScreen.x >= 0 && originScreen.x <= rect.width;
   const yVisible = originScreen.y >= 0 && originScreen.y <= rect.height;
@@ -342,7 +338,7 @@ export function drawOriginGuides(ctx, rect, state, worldToScreen, formatNumber) 
   ctx.setLineDash([]);
   ctx.lineWidth = 1.5;
 
-  if (showOrigin && yVisible) {
+  if (yVisible) {
     ctx.strokeStyle = "#dc3545";
     ctx.beginPath();
     ctx.moveTo(0, originScreen.y);
@@ -350,7 +346,7 @@ export function drawOriginGuides(ctx, rect, state, worldToScreen, formatNumber) 
     ctx.stroke();
   }
 
-  if (showOrigin && xVisible) {
+  if (xVisible) {
     ctx.strokeStyle = "#198754";
     ctx.beginPath();
     ctx.moveTo(originScreen.x, 0);
@@ -358,7 +354,7 @@ export function drawOriginGuides(ctx, rect, state, worldToScreen, formatNumber) 
     ctx.stroke();
   }
 
-  if (showOrigin && xVisible && yVisible) {
+  if (xVisible && yVisible) {
     ctx.fillStyle = "#0d6efd";
     ctx.beginPath();
     ctx.arc(originScreen.x, originScreen.y, 4, 0, Math.PI * 2);

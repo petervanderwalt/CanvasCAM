@@ -185,7 +185,7 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
   reportProgress(32, "Unioning vectors");
 
   for (const loop of selectedLoops) {
-    if (config.operation === "engrave") {
+    if (config.operation === "engrave" || config.operation === "chamfer") {
       previewContours.push(loop.points.map(clonePoint));
     }
     sourceLoops.push(loop);
@@ -231,14 +231,20 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
     "profile-outside": "Profile Outside",
     "profile-inside": "Profile Inside",
     engrave: "Engrave",
+    chamfer: "Chamfer",
     pocket: "Pocket",
     vcarve: "V-Carve",
   }[config.operation];
 
   const label = options.label || `${operationLabel} (${selectedLoops.length} vector${selectedLoops.length === 1 ? "" : "s"})`;
+  const chamferWidth = config.operation === "chamfer" && Number.isFinite(config.cutterAngle)
+    ? 2 * cutDepth * Math.tan((config.cutterAngle * Math.PI) / 360)
+    : null;
   const cardMeta = config.operation === "vcarve"
     ? `${operationLabel} - T${config.toolNumber} - ${formatNumber(config.cutterAngle)}deg - ${formatNumber(cutDepth)}mm max depth - single pass`
-    : `${operationLabel} - T${config.toolNumber} - ${config.toolDiameter.toFixed(1)}mm - ${cutDepth.toFixed(2)}mm deep - ${passDepth.toFixed(2)}mm/pass - ${passDepths.length} passes`;
+    : config.operation === "chamfer"
+      ? `${operationLabel} - T${config.toolNumber} - ${formatNumber(config.cutterAngle)}deg - ${formatNumber(cutDepth)}mm deep - ${passDepth.toFixed(2)}mm/pass - ${passDepths.length} passes${Number.isFinite(chamferWidth) ? ` - ${formatNumber(chamferWidth)}mm top width` : ""}`
+      : `${operationLabel} - T${config.toolNumber} - ${config.toolDiameter.toFixed(1)}mm - ${cutDepth.toFixed(2)}mm deep - ${passDepth.toFixed(2)}mm/pass - ${passDepths.length} passes`;
 
   reportProgress(96, "Finalizing toolpath");
 
@@ -496,7 +502,7 @@ function buildToolChangeComment(toolpath, toolNumber) {
   const namedTool = (toolpath.libraryToolName || "").trim();
   if (namedTool) {
     parts.push(namedTool);
-  } else if (toolpath.operation === "vcarve" && Number.isFinite(toolpath.cutterAngle)) {
+  } else if ((toolpath.operation === "vcarve" || toolpath.operation === "chamfer") && Number.isFinite(toolpath.cutterAngle)) {
     parts.push(`${formatNumber(toolpath.cutterAngle)}deg V-bit`);
   } else if (Number.isFinite(toolpath.toolDiameter)) {
     parts.push(`${formatNumber(toolpath.toolDiameter)}mm tool`);

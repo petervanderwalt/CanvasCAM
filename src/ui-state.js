@@ -8,15 +8,17 @@ export function refreshToolpathFieldVisibility(ui) {
   const operation = ui.toolpathTypeInput.value;
   const isPocket = operation === "pocket";
   const isVCarve = operation === "vcarve";
+  const isChamfer = operation === "chamfer";
   const usesTabs = operation === "profile-outside" || operation === "profile-inside";
   const passDepthGroup = ui.passDepthInput?.closest(".col-6");
 
   ui.overlapField.classList.toggle("d-none", !isPocket);
   ui.cutterAngleField.classList.toggle("d-none", !isVCarve);
-  ui.toolDiameterField.classList.toggle("d-none", isVCarve);
+  ui.toolDiameterField.classList.toggle("d-none", isVCarve || isChamfer);
   ui.cutDepthField?.classList.toggle("d-none", isVCarve);
   ui.tabWidthField.classList.toggle("d-none", !usesTabs);
   ui.tabHeightField.classList.toggle("d-none", !usesTabs);
+  ui.jobSettingsSection?.classList.toggle("d-none", !usesTabs);
   passDepthGroup?.classList.toggle("d-none", isVCarve);
 }
 
@@ -38,7 +40,7 @@ export function refreshSelectionUi({
   ui.toolpathFormMode.textContent = editing
     ? `Editing ${editing.label}.`
     : count > 0
-      ? `${count} vector${count === 1 ? "" : "s"} selected`
+      ? `${count} vector${count === 1 ? "" : "s"} selected: How would you like to cut these?`
       : "";
   refreshOperationUiFn(ui);
   refreshToolpathFieldVisibilityFn(ui);

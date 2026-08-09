@@ -74,10 +74,6 @@
                 <i class="fa-solid fa-minus"></i>
                 <span>Zoom Out</span>
               </button>
-              <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label origin-toggle-btn" title="Toggle origin guides" aria-label="Toggle origin guides">
-                <i class="fa-solid fa-crosshairs"></i>
-                <span>Origin</span>
-              </button>
             </div>
             <div id="vectorActionGroup" class="toolbar-row d-none" aria-label="Vector actions">
               <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label transform-tool-btn" data-transform-tool="move" title="Move vectors" aria-label="Move vectors">
@@ -121,8 +117,8 @@
 
     <aside class="sidebar">
       <div class="sidebar-scroll">
-        <section id="globalSettingsSection" class="sidebar-panel global-settings d-none">
-          <div class="panel-group">
+        <section id="globalSettingsSection" class="sidebar-panel global-settings funky-panel funky-panel-settings d-none">
+          <div class="panel-group compact-form workspace-settings-card">
             <div class="panel-group-title">Workspace Settings</div>
             <div class="mb-3">
               <label class="form-label small mb-1" for="safeZInput">Z Safe</label>
@@ -131,14 +127,14 @@
                 <span class="input-group-text">mm</span>
               </div>
             </div>
-            <div class="form-check">
+            <div class="form-check workspace-settings-check">
               <input id="forcePolylineArcsInput" class="form-check-input" type="checkbox">
               <label class="form-check-label small" for="forcePolylineArcsInput">Force arcs/circles as polylines on export</label>
             </div>
           </div>
         </section>
 
-        <section class="sidebar-panel selection-panel" id="selectionSection">
+        <section class="sidebar-panel selection-panel funky-panel funky-panel-selection" id="selectionSection">
           <div class="sidebar-section-head">
             <div>
               <div class="sidebar-kicker">Step 2</div>
@@ -210,86 +206,95 @@
           <form id="toolpathForm" class="d-none compact-form">
             <div id="toolpathFormMode" class="selection-mode-copy"></div>
 
-              <div class="panel-group mb-3">
-                <div class="panel-group-title">Operation</div>
+            <div class="sidebar-flow-section sidebar-flow-operation mb-3">
               <input id="toolpathTypeInput" type="hidden" value="profile-outside">
               <div class="operation-grid">
                 <button type="button" class="operation-option active" data-operation="profile-outside">
+                  <span class="operation-indicator" aria-hidden="true"></span>
                   <img class="operation-preview-image" src="assets/operations/outside.png" alt="Outside profile toolpath preview">
                   <span class="operation-label">Outside</span>
                 </button>
                 <button type="button" class="operation-option" data-operation="profile-inside">
+                  <span class="operation-indicator" aria-hidden="true"></span>
                   <img class="operation-preview-image" src="assets/operations/inside.png" alt="Inside profile toolpath preview">
                   <span class="operation-label">Inside</span>
                 </button>
                 <button type="button" class="operation-option" data-operation="pocket">
+                  <span class="operation-indicator" aria-hidden="true"></span>
                   <img class="operation-preview-image" src="assets/operations/pocket.png" alt="Pocket toolpath preview">
                   <span class="operation-label">Pocket</span>
                 </button>
                 <button type="button" class="operation-option" data-operation="engrave">
+                  <span class="operation-indicator" aria-hidden="true"></span>
                   <img class="operation-preview-image" src="assets/operations/engrave.png" alt="Engrave toolpath preview">
                   <span class="operation-label">Engrave</span>
                 </button>
+                <button type="button" class="operation-option" data-operation="chamfer">
+                  <span class="operation-indicator" aria-hidden="true"></span>
+                  <img class="operation-preview-image" src="assets/operations/chamfer.png" alt="Chamfer toolpath preview">
+                  <span class="operation-label">Chamfer</span>
+                </button>
                 <button type="button" class="operation-option" data-operation="vcarve">
+                  <span class="operation-indicator" aria-hidden="true"></span>
                   <img class="operation-preview-image" src="assets/operations/vcarve.png" alt="V-Carve toolpath preview">
                   <span class="operation-label">V-Carve</span>
                 </button>
               </div>
             </div>
 
-              <div class="panel-group mb-3">
-                <div class="panel-group-title">Endmill</div>
-                <div class="row g-2 align-items-end mb-2">
-                  <div class="col-9">
-                    <label class="form-label small mb-1" for="myEndmillSelect">My Endmills</label>
+            <div class="sidebar-flow-section sidebar-flow-tool mb-3">
+              <div class="selection-subprompt">With which tool?</div>
+              <div class="row g-2 align-items-end mb-2">
+                <div class="col-9">
+                    <label class="visually-hidden" for="myEndmillSelect">My Endmills</label>
                     <select id="myEndmillSelect" class="form-select form-select-sm">
                       <option value="">Choose a tool slot</option>
                     </select>
-                  </div>
-                  <div class="col-3">
-                    <button id="editMyEndmillsBtn" type="button" class="btn btn-outline-secondary btn-sm w-100" title="Edit My Endmills">
-                      <i class="fa-solid fa-gear"></i>
-                    </button>
-                  </div>
                 </div>
-                <div id="myEndmillSummary" class="my-endmill-summary empty">
-                  <div class="my-endmill-summary-title">No tool slot selected</div>
-                  <div class="my-endmill-summary-meta">Pick a tool from your saved T1 to T12 slots.</div>
-                </div>
-                <div class="d-none">
-                  <button id="toolLibraryToggle" class="tool-library-toggle" type="button" aria-expanded="false"></button>
-                  <button id="toolLibraryClearBtn" class="btn btn-link btn-sm p-0 text-decoration-none d-none" type="button">Clear</button>
-                  <div id="toolLibraryMenu" class="tool-library-menu d-none">
-                    <div id="toolLibrarySummary" class="tool-library-summary d-none">
-                      <img id="toolLibrarySummaryImage" class="tool-library-summary-image" alt="">
-                      <div class="tool-library-summary-copy">
-                        <div id="toolLibrarySummaryName" class="tool-library-summary-name"></div>
-                        <div id="toolLibrarySummaryMeta" class="tool-library-summary-meta"></div>
-                        <a id="toolLibrarySummaryLink" class="tool-library-summary-link" href="#" target="_blank" rel="noreferrer">Store page</a>
-                      </div>
-                    </div>
-                    <div id="toolLibraryList" class="tool-library-list"></div>
-                  </div>
-                  <div id="toolLibraryPreview" class="tool-library-preview empty">
-                    <div id="toolLibraryPreviewName" class="tool-library-preview-name"></div>
-                    <div id="toolLibraryPreviewMeta" class="tool-library-preview-meta"></div>
-                  </div>
-                  <input id="toolNumberInput" class="form-control form-control-sm" type="number" step="1" min="1" value="1">
-                  <div id="toolDiameterField">
-                  <input id="toolDiameterInput" class="form-control form-control-sm" type="number" step="any" value="6">
-                  </div>
-                  <div id="cutterAngleField">
-                    <input id="cutterAngleInput" class="form-control form-control-sm" type="number" step="1" value="90">
-                  </div>
-                  <input id="spindleInput" class="form-control form-control-sm" type="number" step="100" value="18000">
-                  <input id="feedRateInput" class="form-control form-control-sm" type="number" step="1" value="1800">
-                  <input id="plungeRateInput" class="form-control form-control-sm" type="number" step="1" value="600">
-                  <input id="passDepthInput" class="form-control form-control-sm" type="number" step="0.01" value="3">
+                <div class="col-3">
+                  <button id="editMyEndmillsBtn" type="button" class="btn btn-outline-secondary btn-sm w-100" title="Edit My Endmills">
+                    <i class="fa-solid fa-gear"></i>
+                  </button>
                 </div>
               </div>
+              <div id="myEndmillSummary" class="my-endmill-summary empty">
+                <div class="my-endmill-summary-title">No tool slot selected</div>
+                <div class="my-endmill-summary-meta">Pick a tool from your saved T1 to T12 slots.</div>
+              </div>
+              <div class="d-none">
+                <button id="toolLibraryToggle" class="tool-library-toggle" type="button" aria-expanded="false"></button>
+                <button id="toolLibraryClearBtn" class="btn btn-link btn-sm p-0 text-decoration-none d-none" type="button">Clear</button>
+                <div id="toolLibraryMenu" class="tool-library-menu d-none">
+                  <div id="toolLibrarySummary" class="tool-library-summary d-none">
+                    <img id="toolLibrarySummaryImage" class="tool-library-summary-image" alt="">
+                    <div class="tool-library-summary-copy">
+                      <div id="toolLibrarySummaryName" class="tool-library-summary-name"></div>
+                      <div id="toolLibrarySummaryMeta" class="tool-library-summary-meta"></div>
+                      <a id="toolLibrarySummaryLink" class="tool-library-summary-link" href="#" target="_blank" rel="noreferrer">Store page</a>
+                    </div>
+                  </div>
+                  <div id="toolLibraryList" class="tool-library-list"></div>
+                </div>
+                <div id="toolLibraryPreview" class="tool-library-preview empty">
+                  <div id="toolLibraryPreviewName" class="tool-library-preview-name"></div>
+                  <div id="toolLibraryPreviewMeta" class="tool-library-preview-meta"></div>
+                </div>
+                <input id="toolNumberInput" class="form-control form-control-sm" type="number" step="1" min="1" value="1">
+                <div id="toolDiameterField">
+                  <input id="toolDiameterInput" class="form-control form-control-sm" type="number" step="any" value="6">
+                </div>
+                <div id="cutterAngleField">
+                  <input id="cutterAngleInput" class="form-control form-control-sm" type="number" step="1" value="90">
+                </div>
+                <input id="spindleInput" class="form-control form-control-sm" type="number" step="100" value="18000">
+                <input id="feedRateInput" class="form-control form-control-sm" type="number" step="1" value="1800">
+                <input id="plungeRateInput" class="form-control form-control-sm" type="number" step="1" value="600">
+                <input id="passDepthInput" class="form-control form-control-sm" type="number" step="0.01" value="3">
+              </div>
+            </div>
 
-              <div class="panel-group mb-3">
-                <div class="panel-group-title">Cut Depth</div>
+            <div class="sidebar-flow-section sidebar-flow-depth mb-3">
+              <div class="selection-subprompt">How deep should this cut?</div>
                 <div class="row g-2">
                   <div id="cutDepthField" class="col-6">
                   <label class="form-label small mb-1" for="cutDepthInput">Final Depth</label>
@@ -306,10 +311,10 @@
                   </div>
                   </div>
                 </div>
-              </div>
+            </div>
 
-              <div class="panel-group mb-3">
-                <div class="panel-group-title">Job Settings</div>
+            <div id="jobSettingsSection" class="sidebar-flow-section sidebar-flow-job mb-3">
+              <div class="selection-subprompt">Any job settings to adjust?</div>
                 <div class="row g-2 mb-2 align-items-end">
                   <div id="tabWidthField" class="col-6">
                   <label class="form-label small mb-1" for="tabWidthInput">Tab Width</label>
@@ -326,16 +331,16 @@
                   </div>
                   </div>
                 </div>
-              </div>
+            </div>
 
-              <div class="d-grid gap-2 form-actions-sticky">
-                <button id="toolpathSubmitBtn" type="submit" class="btn btn-success btn-sm">Add Toolpath</button>
-                <button id="cancelEditBtn" type="button" class="btn btn-outline-secondary btn-sm d-none">Cancel Edit</button>
-              </div>
+            <div class="d-grid gap-2 form-actions-sticky">
+              <button id="toolpathSubmitBtn" type="submit" class="btn btn-success btn-sm">Add Toolpath</button>
+              <button id="cancelEditBtn" type="button" class="btn btn-outline-secondary btn-sm d-none">Cancel Edit</button>
+            </div>
           </form>
         </section>
 
-        <section class="sidebar-panel toolpaths-panel">
+        <section class="sidebar-panel toolpaths-panel funky-panel funky-panel-toolpaths">
           <div class="sidebar-section-head">
             <div>
               <div class="sidebar-kicker">Step 3</div>
@@ -371,6 +376,7 @@
           <div class="accordion my-endmills-accordion" id="myEndmillsSlots"></div>
         </div>
         <div class="modal-footer">
+          <div id="myEndmillsValidationHint" class="me-auto small text-danger d-none"></div>
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
           <button id="saveMyEndmillsBtn" type="button" class="btn btn-primary">Save My Endmills</button>
         </div>
