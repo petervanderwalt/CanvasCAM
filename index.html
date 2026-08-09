@@ -92,6 +92,10 @@
                 <i class="fa-solid fa-trash"></i>
                 <span>Delete</span>
               </button>
+              <button type="button" id="duplicateVectorsBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-label" title="Duplicate selected vectors (Ctrl+D)" aria-label="Duplicate selected vectors">
+                <i class="fa-regular fa-clone"></i>
+                <span>Duplicate</span>
+              </button>
             </div>
             <div id="cadActionGroup" class="toolbar-row d-none" aria-label="Draw vectors">
               <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label cad-tool-btn" data-cad-tool="line" title="Draw line" aria-label="Draw line">
@@ -110,6 +114,10 @@
                 <i class="fa-regular fa-circle"></i>
                 <span>Circle</span>
               </button>
+              <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label cad-tool-btn" data-cad-tool="arc" title="Draw arc: center, start, end" aria-label="Draw arc">
+                <i class="fa-solid fa-draw-circle"></i>
+                <span>Arc</span>
+              </button>
               <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label cad-tool-btn" data-cad-tool="bezier" title="Draw cubic Bezier" aria-label="Draw cubic Bezier">
                 <i class="fa-solid fa-bezier-curve"></i>
                 <span>Bezier</span>
@@ -122,7 +130,7 @@
                 <i class="fa-solid fa-eraser"></i>
                 <span>Clear Guides</span>
               </button>
-              <button type="button" id="cadSnapBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-label is-active" title="Snap to the 10mm grid and vector endpoints" aria-pressed="true">
+              <button type="button" id="cadSnapBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-label is-active" title="Snap to the 10mm grid, endpoints, corners, and centers" aria-pressed="true">
                 <i class="fa-solid fa-magnet"></i>
                 <span>Snap</span>
               </button>
@@ -465,6 +473,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260809-cad4"></script>
+  <script type="module" src="app.js?v=20260809-cad6"></script>
 </body>
 </html>

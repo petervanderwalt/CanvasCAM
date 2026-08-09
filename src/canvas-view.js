@@ -141,6 +141,27 @@ function drawCadDraft(ctx, draft, worldToScreen) {
     ctx.arc(c.x, c.y, radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+  } else if (draft.tool === "arc") {
+    const [center, start, end] = points;
+    if (!end) {
+      const c = worldToScreen(center);
+      const edge = worldToScreen(start);
+      ctx.moveTo(c.x, c.y);
+      ctx.lineTo(edge.x, edge.y);
+      ctx.stroke();
+    } else {
+      const c = worldToScreen(center);
+      const startScreen = worldToScreen(start);
+      const endScreen = worldToScreen(end);
+      const radius = Math.hypot(startScreen.x - c.x, startScreen.y - c.y);
+      const startAngle = Math.atan2(startScreen.y - c.y, startScreen.x - c.x);
+      let endAngle = Math.atan2(endScreen.y - c.y, endScreen.x - c.x);
+      if (endAngle <= startAngle) {
+        endAngle += Math.PI * 2;
+      }
+      ctx.arc(c.x, c.y, radius, startAngle, endAngle, true);
+      ctx.stroke();
+    }
   } else if (draft.tool === "bezier") {
     const start = worldToScreen(points[0]);
     ctx.moveTo(start.x, start.y);

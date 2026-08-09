@@ -53,6 +53,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     emptyStateDropNote: document.getElementById("emptyStateDropNote"),
     transformToolButtons: Array.from(document.querySelectorAll(".transform-tool-btn")),
     deleteVectorsBtn: document.getElementById("deleteVectorsBtn"),
+    duplicateVectorsBtn: document.getElementById("duplicateVectorsBtn"),
     transformSidebarPanel: document.getElementById("transformSidebarPanel"),
     transformInspector: document.getElementById("transformInspector"),
     transformMoveGroup: document.getElementById("transformMoveGroup"),
@@ -834,6 +835,31 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     await deleteVectorsByEntityIndexes(entityIndexes);
     pushHistorySnapshot(historyBefore);
     updateTransformToolUi();
+  }
+
+  function duplicateSelectedVectors() {
+    const indexes = getSelectedEntityIndexes();
+    if (!indexes.length) {
+      return;
+    }
+    const historyBefore = captureHistorySnapshot();
+    const offset = state.cadSnapEnabled ? 10 : 5;
+    const startIndex = state.entities.length;
+    const copies = indexes.map((index) => translateEntity(deepClone(state.entities[index]), offset, offset));
+    state.entities.push(...copies);
+    rebuildLoopsFromEntities(new Set());
+    state.selectedLoopIds.clear();
+    const copiedIndexes = new Set(copies.map((_, index) => startIndex + index));
+    for (const loop of state.loops) {
+      if (loop.sourceEntityIndexes?.some((index) => copiedIndexes.has(index))) {
+        state.selectedLoopIds.add(loop.id);
+      }
+    }
+    pushHistorySnapshot(historyBefore);
+    refreshSelectionUi();
+    refreshToolpathUi();
+    refreshWorkspaceUi();
+    requestDraw();
   }
 
   async function deleteVectorsByEntityIndexes(entityIndexes) {
@@ -2079,6 +2105,23 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
           }
         }
       }
+      if (loop.bounds) {
+        const { minX, minY, maxX, maxY } = loop.bounds;
+        const candidates = [
+          { x: (minX + maxX) / 2, y: (minY + maxY) / 2 },
+          { x: minX, y: minY },
+          { x: minX, y: maxY },
+          { x: maxX, y: minY },
+          { x: maxX, y: maxY },
+        ];
+        for (const candidate of candidates) {
+          const screen = worldToScreen(candidate);
+          const distance = Math.hypot(screen.x - screenPoint.x, screen.y - screenPoint.y);
+          if (distance <= snapRadius && (!closest || distance < closest.distance)) {
+            closest = { point: candidate, distance };
+          }
+        }
+      }
     }
     if (closest) {
       return closest.point;
@@ -2169,6 +2212,17 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
         radius: Math.hypot(edge.x - center.x, edge.y - center.y),
       };
     }
+    if (tool === "arc") {
+      const [center, start, end] = points;
+      return {
+        type: "ARC",
+        cx: center.x,
+        cy: center.y,
+        radius: Math.hypot(start.x - center.x, start.y - center.y),
+        startAngleDeg: (Math.atan2(start.y - center.y, start.x - center.x) * 180) / Math.PI,
+        endAngleDeg: (Math.atan2(end.y - center.y, end.x - center.x) * 180) / Math.PI,
+      };
+    }
     if (tool === "bezier") {
       return {
         type: "SPLINE",
@@ -2207,7 +2261,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     if ((entity.type === "LINE" && Math.hypot(entity.x2 - entity.x1, entity.y2 - entity.y1) < 0.001) || span < 0.001) {
       return;
     }
-    if (entity.type === "CIRCLE" && entity.radius < 0.001) {
+    if ((entity.type === "CIRCLE" || entity.type === "ARC") && entity.radius < 0.001) {
       return;
     }
     const historyBefore = captureHistorySnapshot();
@@ -2235,7 +2289,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
     state.cadDraft.points.push(snapped);
     state.cadDraft.preview = snapped;
-    const pointsRequired = state.cadTool === "bezier" ? 4 : state.cadTool === "polyline" ? Number.POSITIVE_INFINITY : 2;
+    const pointsRequired = state.cadTool === "bezier" ? 4 : state.cadTool === "arc" ? 3 : state.cadTool === "polyline" ? Number.POSITIVE_INFINITY : 2;
     if (state.cadDraft.points.length >= pointsRequired) {
       commitCadDraft();
     } else {
@@ -3609,6 +3663,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   ui.deleteVectorsBtn.addEventListener("click", () => {
     deleteSelectedVectors();
   });
+  ui.duplicateVectorsBtn.addEventListener("click", duplicateSelectedVectors);
   for (const option of ui.operationOptions) {
     option.addEventListener("click", () => {
       ui.toolpathTypeInput.value = option.dataset.operation;
@@ -3722,7 +3777,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     ui.cadSnapBtn.classList.toggle("is-active", state.cadSnapEnabled);
     ui.cadSnapBtn.setAttribute("aria-pressed", String(state.cadSnapEnabled));
     ui.cadSnapBtn.title = state.cadSnapEnabled
-      ? "Snap to the 10mm grid and vector endpoints"
+      ? "Snap to the 10mm grid, endpoints, corners, and centers"
       : "Snapping is off";
   });
   ui.cadCornerRadiusInput.addEventListener("input", () => {
@@ -4073,6 +4128,11 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       if (!typing && event.key.toLowerCase() === "y") {
         event.preventDefault();
         redoHistory();
+        return;
+      }
+      if (!typing && event.key.toLowerCase() === "d" && state.selectedLoopIds.size > 0) {
+        event.preventDefault();
+        duplicateSelectedVectors();
         return;
       }
     }
