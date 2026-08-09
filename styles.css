@@ -506,6 +506,40 @@ body {
   box-shadow: 0 3px 0 rgba(17, 17, 17, 0.9);
 }
 
+.cad-radius-control {
+  min-height: 2.1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.08rem 0.48rem;
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.65rem;
+  background: #fff8d8;
+  box-shadow: 0 4px 0 rgba(17, 17, 17, 0.9);
+  color: var(--funky-ink);
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.cad-radius-control input {
+  width: 3.3rem;
+  min-width: 0;
+  border: 0;
+  border-radius: 0.3rem;
+  background: #fffdf4;
+  color: var(--funky-ink);
+  font: inherit;
+  font-weight: 800;
+  outline: 0;
+}
+
+.cad-radius-control em {
+  font-style: normal;
+  font-size: 0.64rem;
+  opacity: 0.72;
+}
+
 .transform-tool-btn.is-active {
   background: var(--funky-peach);
   border-color: var(--funky-ink);
@@ -1268,6 +1302,72 @@ body {
   font-size: 0.76rem;
   font-weight: 800;
 }
+
+#bitmapTraceModal .modal-content {
+  border: 4px solid var(--funky-ink);
+  border-radius: 1.25rem;
+  background: linear-gradient(180deg, #ffe998 0%, #fff7d6 100%);
+  box-shadow: 0 10px 0 rgba(17, 17, 17, 0.96);
+  overflow: hidden;
+}
+
+#bitmapTraceModal .modal-header,
+#bitmapTraceModal .modal-footer {
+  border-color: rgba(17, 17, 17, 0.18);
+  background: rgba(255, 248, 216, 0.78);
+}
+
+#bitmapTraceModal .modal-title {
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-weight: 900;
+  color: var(--funky-ink);
+}
+
+#bitmapTraceModal .modal-body {
+  background: rgba(255, 252, 239, 0.92);
+}
+
+#bitmapTraceModal .btn {
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.78rem;
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-weight: 900;
+  box-shadow: 0 4px 0 rgba(17, 17, 17, 0.92);
+}
+
+#bitmapTraceModal #traceBitmapBtn {
+  background: #9cf13a;
+  color: var(--funky-ink);
+}
+
+#bitmapTraceModal .btn-close {
+  position: relative;
+  width: 2.35rem;
+  height: 2.35rem;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.8rem;
+  background: var(--funky-blue);
+  background-image: none;
+  box-shadow: 0 4px 0 rgba(17, 17, 17, 0.92);
+  opacity: 1;
+}
+
+#bitmapTraceModal .btn-close::before,
+#bitmapTraceModal .btn-close::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.95rem;
+  height: 0.16rem;
+  border-radius: 999px;
+  background: var(--funky-ink);
+}
+
+#bitmapTraceModal .btn-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+#bitmapTraceModal .btn-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
 
 .tool-library-label-row {
   display: flex;

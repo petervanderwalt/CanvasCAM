@@ -18,6 +18,8 @@ export function drawScene({
 
   drawOriginGuides(ctx, rect, state, worldToScreen, formatNumber);
 
+  drawConstructionGuides(ctx, rect, state, worldToScreen);
+
   for (const loop of state.loops) {
     const isSelected = state.selectedLoopIds.has(loop.id);
     const isPreviewed = state.marqueePreviewLoopIds.has(loop.id) && !isSelected;
@@ -75,9 +77,109 @@ export function drawScene({
     drawTransformOverlay(ctx, transformOverlay);
   }
 
+  if (state.cadDraft) {
+    drawCadDraft(ctx, state.cadDraft, worldToScreen);
+  }
+
   if (state.marquee?.active) {
     drawMarqueeRect(ctx, state.marquee.current, state.marquee.start);
   }
+}
+
+function drawConstructionGuides(ctx, rect, state, worldToScreen) {
+  const guides = state.entities.filter((entity) => entity.type === "GUIDE");
+  if (!guides.length) {
+    return;
+  }
+  ctx.save();
+  ctx.strokeStyle = "rgba(0, 166, 190, 0.82)";
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([7, 6]);
+  for (const guide of guides) {
+    const a = worldToScreen(guide.start);
+    const b = worldToScreen(guide.end);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const length = Math.hypot(dx, dy);
+    if (length <= 0.001) {
+      continue;
+    }
+    const span = Math.max(rect.width, rect.height) * 2;
+    ctx.beginPath();
+    ctx.moveTo(a.x - (dx / length) * span, a.y - (dy / length) * span);
+    ctx.lineTo(a.x + (dx / length) * span, a.y + (dy / length) * span);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawCadDraft(ctx, draft, worldToScreen) {
+  const points = [...draft.points];
+  if (draft.preview) {
+    points.push(draft.preview);
+  }
+  if (points.length < 2) {
+    return;
+  }
+  ctx.save();
+  ctx.strokeStyle = "#0d6efd";
+  ctx.fillStyle = "rgba(13, 110, 253, 0.08)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([7, 5]);
+  ctx.beginPath();
+  if (draft.tool === "rectangle") {
+    const [a, b] = points;
+    const topLeft = worldToScreen({ x: Math.min(a.x, b.x), y: Math.max(a.y, b.y) });
+    const bottomRight = worldToScreen({ x: Math.max(a.x, b.x), y: Math.min(a.y, b.y) });
+    ctx.rect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
+    ctx.fill();
+    ctx.stroke();
+  } else if (draft.tool === "circle") {
+    const [center, edge] = points;
+    const c = worldToScreen(center);
+    const radius = Math.hypot(edge.x - center.x, edge.y - center.y) * Math.abs(worldToScreen({ x: center.x + 1, y: center.y }).x - c.x);
+    ctx.arc(c.x, c.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (draft.tool === "bezier") {
+    const start = worldToScreen(points[0]);
+    ctx.moveTo(start.x, start.y);
+    if (points.length >= 4) {
+      const c1 = worldToScreen(points[1]);
+      const c2 = worldToScreen(points[2]);
+      const end = worldToScreen(points[3]);
+      ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, end.x, end.y);
+    } else {
+      for (const point of points.slice(1)) {
+        const screen = worldToScreen(point);
+        ctx.lineTo(screen.x, screen.y);
+      }
+    }
+    ctx.stroke();
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath();
+    for (const point of points) {
+      const screen = worldToScreen(point);
+      ctx.moveTo(screen.x - 3, screen.y);
+      ctx.arc(screen.x, screen.y, 3, 0, Math.PI * 2);
+    }
+    ctx.stroke();
+  } else if (draft.tool === "polyline") {
+    const start = worldToScreen(points[0]);
+    ctx.moveTo(start.x, start.y);
+    for (const point of points.slice(1)) {
+      const screen = worldToScreen(point);
+      ctx.lineTo(screen.x, screen.y);
+    }
+    ctx.stroke();
+  } else {
+    const a = worldToScreen(points[0]);
+    const b = worldToScreen(points[1]);
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawWorldGrid(ctx, rect, state, worldToScreen) {
@@ -504,6 +606,10 @@ function angleLiesOnCounterClockwiseSweep(start, end, target) {
 }
 
 export function updateCanvasCursor({ canvas, state, screenPoint, findTabHit, findLoopHit, transformCursor = "" }) {
+  if (state.cadTool) {
+    canvas.style.cursor = "crosshair";
+    return;
+  }
   if (state.geometryTransform) {
     canvas.style.cursor = transformCursor || "grabbing";
     return;

@@ -93,6 +93,45 @@
                 <span>Delete</span>
               </button>
             </div>
+            <div id="cadActionGroup" class="toolbar-row d-none" aria-label="Draw vectors">
+              <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label cad-tool-btn" data-cad-tool="line" title="Draw line" aria-label="Draw line">
+                <i class="fa-solid fa-slash"></i>
+                <span>Line</span>
+              </button>
+              <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label cad-tool-btn" data-cad-tool="polyline" title="Draw polyline; double-click or Enter to finish" aria-label="Draw polyline">
+                <i class="fa-solid fa-draw-polygon"></i>
+                <span>Polyline</span>
+              </button>
+              <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label cad-tool-btn" data-cad-tool="rectangle" title="Draw rectangle" aria-label="Draw rectangle">
+                <i class="fa-regular fa-square"></i>
+                <span>Rectangle</span>
+              </button>
+              <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label cad-tool-btn" data-cad-tool="circle" title="Draw circle" aria-label="Draw circle">
+                <i class="fa-regular fa-circle"></i>
+                <span>Circle</span>
+              </button>
+              <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label cad-tool-btn" data-cad-tool="bezier" title="Draw cubic Bezier" aria-label="Draw cubic Bezier">
+                <i class="fa-solid fa-bezier-curve"></i>
+                <span>Bezier</span>
+              </button>
+              <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-label cad-tool-btn" data-cad-tool="guide" title="Create construction guide" aria-label="Create construction guide">
+                <i class="fa-solid fa-ruler"></i>
+                <span>Guide</span>
+              </button>
+              <button type="button" id="clearGuidesBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-label d-none" title="Remove all construction guides" aria-label="Remove all construction guides">
+                <i class="fa-solid fa-eraser"></i>
+                <span>Clear Guides</span>
+              </button>
+              <button type="button" id="cadSnapBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-label is-active" title="Snap to the 10mm grid and vector endpoints" aria-pressed="true">
+                <i class="fa-solid fa-magnet"></i>
+                <span>Snap</span>
+              </button>
+              <label class="cad-radius-control" for="cadCornerRadiusInput" title="Corner radius for new rectangles">
+                <span>Radius</span>
+                <input id="cadCornerRadiusInput" type="number" min="0" step="0.1" value="0">
+                <em>mm</em>
+              </label>
+            </div>
           </div>
           <div class="canvas-ruler-corner" aria-hidden="true"></div>
           <canvas id="topRulerCanvas" class="canvas-ruler canvas-ruler-top" aria-hidden="true"></canvas>
@@ -103,7 +142,7 @@
               <div class="empty-state-card">
                 <div class="empty-state-icon"><i class="fa-regular fa-file-lines"></i></div>
                 <div class="empty-state-actions">
-                  <button id="browseVectorBtn" type="button" class="btn btn-success btn-lg">Open DXF/SVG File</button>
+                  <button id="browseVectorBtn" type="button" class="btn btn-success btn-lg">Open DXF/SVG/Bitmap</button>
                 </div>
                 <p id="emptyStateDropNote" class="empty-state-drop-note">or drag DXF/SVG here</p>
                 <button id="loadSampleBtn" type="button" class="btn btn-link btn-sm sample-link">Try Sample Vector</button>
@@ -383,19 +422,49 @@
       </div>
     </div>
   </div>
+  <div id="bitmapTraceModal" class="modal fade" tabindex="-1" aria-labelledby="bitmapTraceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title fs-5" id="bitmapTraceModalLabel">Trace Bitmap</h2>
+            <div id="bitmapTraceFileName" class="small text-muted"></div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body compact-form">
+          <p class="small mb-3">Dark pixels become editable vector paths. Start with a clean, high-contrast image.</p>
+          <label class="form-label small mb-1" for="traceThresholdInput">Black point</label>
+          <input id="traceThresholdInput" class="form-range" type="range" min="0" max="255" step="1" value="160">
+          <div class="d-flex justify-content-between small text-muted mb-3"><span>More detail</span><strong id="traceThresholdValue">160</strong><span>Cleaner trace</span></div>
+          <label class="form-label small mb-1" for="traceDetailInput">Minimum feature size</label>
+          <select id="traceDetailInput" class="form-select form-select-sm">
+            <option value="2">Fine</option>
+            <option value="6" selected>Balanced</option>
+            <option value="14">Clean</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="traceBitmapBtn" type="button" class="btn btn-primary">Trace to Vectors</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="toastContainer" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
   <div id="workerBadge" class="worker-badge d-none" aria-live="polite">
     <div class="worker-spinner spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
     <span id="workerPercent" class="worker-percent">0%</span>
   </div>
-  <input id="fileInput" type="file" accept=".dxf,.svg,image/svg+xml" hidden>
+  <input id="fileInput" type="file" accept=".dxf,.svg,image/svg+xml,image/png,image/jpeg,image/webp,image/bmp" hidden>
 
   <script src="clipperjs/clipper_unminified.js"></script>
+  <script src="vendor/imagetracer_v1.2.6.js"></script>
   <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260730-vcarve12"></script>
+  <script type="module" src="app.js?v=20260809-cad4"></script>
 </body>
 </html>

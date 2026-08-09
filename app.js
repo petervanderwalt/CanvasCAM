@@ -25,6 +25,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   let navigationDetailTimerId = null;
   let workerProgressAnimationFrame = null;
   let myEndmillsModalInstance = null;
+  let bitmapTraceModalInstance = null;
 
   const ui = {
     projectTitle: document.getElementById("projectTitle"),
@@ -41,6 +42,11 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     toastContainer: document.getElementById("toastContainer"),
     canvasWrap: document.getElementById("canvasWrap"),
     vectorActionGroup: document.getElementById("vectorActionGroup"),
+    cadActionGroup: document.getElementById("cadActionGroup"),
+    cadToolButtons: Array.from(document.querySelectorAll(".cad-tool-btn")),
+    cadSnapBtn: document.getElementById("cadSnapBtn"),
+    cadCornerRadiusInput: document.getElementById("cadCornerRadiusInput"),
+    clearGuidesBtn: document.getElementById("clearGuidesBtn"),
     topRulerCanvas,
     leftRulerCanvas,
     canvasEmptyState: document.getElementById("canvasEmptyState"),
@@ -78,6 +84,12 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     myEndmillsSlots: document.getElementById("myEndmillsSlots"),
     myEndmillsValidationHint: document.getElementById("myEndmillsValidationHint"),
     saveMyEndmillsBtn: document.getElementById("saveMyEndmillsBtn"),
+    bitmapTraceModal: document.getElementById("bitmapTraceModal"),
+    bitmapTraceFileName: document.getElementById("bitmapTraceFileName"),
+    traceThresholdInput: document.getElementById("traceThresholdInput"),
+    traceThresholdValue: document.getElementById("traceThresholdValue"),
+    traceDetailInput: document.getElementById("traceDetailInput"),
+    traceBitmapBtn: document.getElementById("traceBitmapBtn"),
     operationOptions: Array.from(document.querySelectorAll(".operation-option")),
     toolLibraryToggle: document.getElementById("toolLibraryToggle"),
     toolLibraryMenu: document.getElementById("toolLibraryMenu"),
@@ -156,6 +168,11 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     dragImportActive: false,
     isNavigatingView: false,
     transformTool: null,
+    cadTool: null,
+    cadDraft: null,
+    cadSnapEnabled: true,
+    cadCornerRadius: 0,
+    pendingBitmapFile: null,
     geometryTransform: null,
     transformingGeometry: false,
     transformSizeLastEdited: "width",
@@ -282,6 +299,14 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       }
       for (const index of loop.sourceEntityIndexes || []) {
         indexes.add(index);
+      }
+    }
+    for (const guide of state.entities.filter((entity) => entity.type === "GUIDE")) {
+      const guideHit = nearestPointOnInfiniteLine(world, guide.start, guide.end);
+      const screen = worldToScreen(guideHit);
+      const distance = Math.hypot(screen.x - screenPoint.x, screen.y - screenPoint.y);
+      if (distance <= snapRadius && (!closest || distance < closest.distance)) {
+        closest = { point: guideHit, distance };
       }
     }
     return Array.from(indexes).sort((a, b) => a - b);
@@ -1592,6 +1617,33 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     return myEndmillsModalInstance;
   }
 
+  function getBitmapTraceModalInstance() {
+    if (!ui.bitmapTraceModal) {
+      return null;
+    }
+    if (!bitmapTraceModalInstance) {
+      if (window.bootstrap?.Modal) {
+        bitmapTraceModalInstance = window.bootstrap.Modal.getOrCreateInstance(ui.bitmapTraceModal, {
+          backdrop: "static",
+        });
+      } else {
+        bitmapTraceModalInstance = {
+          show() {
+            ui.bitmapTraceModal.classList.add("show");
+            ui.bitmapTraceModal.style.display = "block";
+            document.body.classList.add("modal-open");
+          },
+          hide() {
+            ui.bitmapTraceModal.classList.remove("show");
+            ui.bitmapTraceModal.style.display = "none";
+            document.body.classList.remove("modal-open");
+          },
+        };
+      }
+    }
+    return bitmapTraceModalInstance;
+  }
+
   function buildToolLibraryMetaLine(tool) {
     const vendor = tool?.vendorDisplayName || tool?.vendor || "";
     const description = buildToolLibraryDescription(tool);
@@ -1798,7 +1850,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
     ui.projectTitle.textContent = state.fileName || "Untitled Project";
     updateDockStatus();
-    ui.canvasEmptyState.classList.toggle("d-none", hasGeometry);
+    ui.canvasEmptyState.classList.toggle("d-none", hasGeometry || Boolean(state.cadTool));
     ui.canvasWrap.classList.toggle("is-drop-target", state.dragImportActive);
     if (ui.emptyStateDropNote) {
       ui.emptyStateDropNote.textContent = state.dragImportActive
@@ -1806,6 +1858,8 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
         : "or drag DXF/SVG here";
     }
     ui.vectorActionGroup.classList.toggle("d-none", !hasSelection);
+    ui.cadActionGroup.classList.toggle("d-none", false);
+    ui.clearGuidesBtn.classList.toggle("d-none", !state.entities.some((entity) => entity.type === "GUIDE"));
 
     setWorkflowStep("import", hasGeometry ? "complete" : "active");
     if (!hasGeometry) {
@@ -2002,6 +2056,226 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     state.camera.zoom = Math.max(0.05, zoom);
     state.camera.panX = -((bounds.minX + bounds.maxX) / 2);
     state.camera.panY = -((bounds.minY + bounds.maxY) / 2);
+  }
+
+  function snapCadPoint(screenPoint) {
+    const world = screenToWorld(screenPoint);
+    if (!state.cadSnapEnabled) {
+      return world;
+    }
+
+    const snapRadius = 12;
+    let closest = null;
+    for (const loop of state.loops) {
+      for (const segment of loop.segments || []) {
+        for (const candidate of [segment.start, segment.end]) {
+          if (!candidate) {
+            continue;
+          }
+          const screen = worldToScreen(candidate);
+          const distance = Math.hypot(screen.x - screenPoint.x, screen.y - screenPoint.y);
+          if (distance <= snapRadius && (!closest || distance < closest.distance)) {
+            closest = { point: { x: candidate.x, y: candidate.y }, distance };
+          }
+        }
+      }
+    }
+    if (closest) {
+      return closest.point;
+    }
+
+    const grid = 10;
+    return {
+      x: Math.round(world.x / grid) * grid,
+      y: Math.round(world.y / grid) * grid,
+    };
+  }
+
+  function nearestPointOnInfiniteLine(point, start, end) {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared <= 1e-9) {
+      return { x: start.x, y: start.y };
+    }
+    const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared;
+    return { x: start.x + dx * t, y: start.y + dy * t };
+  }
+
+  function createCadEntity(tool, draft) {
+    const { points } = draft;
+    if (tool === "line") {
+      return {
+        type: "LINE",
+        x1: points[0].x,
+        y1: points[0].y,
+        x2: points[1].x,
+        y2: points[1].y,
+      };
+    }
+    if (tool === "polyline") {
+      return {
+        type: "LWPOLYLINE",
+        closed: false,
+        vertices: points.map((point) => ({ x: point.x, y: point.y, bulge: 0 })),
+      };
+    }
+    if (tool === "rectangle") {
+      const [a, b] = points;
+      const minX = Math.min(a.x, b.x);
+      const maxX = Math.max(a.x, b.x);
+      const minY = Math.min(a.y, b.y);
+      const maxY = Math.max(a.y, b.y);
+      const radius = Math.min(
+        Math.max(0, state.cadCornerRadius),
+        (maxX - minX) / 2,
+        (maxY - minY) / 2
+      );
+      if (radius > 0.001) {
+        const bulge = Math.tan(Math.PI / 8);
+        return {
+          type: "LWPOLYLINE",
+          closed: true,
+          __cadCornerRadius: radius,
+          vertices: [
+            { x: minX + radius, y: minY, bulge: 0 },
+            { x: maxX - radius, y: minY, bulge },
+            { x: maxX, y: minY + radius, bulge: 0 },
+            { x: maxX, y: maxY - radius, bulge },
+            { x: maxX - radius, y: maxY, bulge: 0 },
+            { x: minX + radius, y: maxY, bulge },
+            { x: minX, y: maxY - radius, bulge: 0 },
+            { x: minX, y: minY + radius, bulge },
+          ],
+        };
+      }
+      return {
+        type: "LWPOLYLINE",
+        closed: true,
+        vertices: [
+          { x: minX, y: minY, bulge: 0 },
+          { x: maxX, y: minY, bulge: 0 },
+          { x: maxX, y: maxY, bulge: 0 },
+          { x: minX, y: maxY, bulge: 0 },
+        ],
+      };
+    }
+    if (tool === "circle") {
+      const [center, edge] = points;
+      return {
+        type: "CIRCLE",
+        cx: center.x,
+        cy: center.y,
+        radius: Math.hypot(edge.x - center.x, edge.y - center.y),
+      };
+    }
+    if (tool === "bezier") {
+      return {
+        type: "SPLINE",
+        degree: 3,
+        knots: [0, 0, 0, 0, 1, 1, 1, 1],
+        controlPoints: points.map((point) => ({ x: point.x, y: point.y, w: 1 })),
+      };
+    }
+    if (tool === "guide") {
+      return {
+        type: "GUIDE",
+        start: { x: points[0].x, y: points[0].y },
+        end: { x: points[1].x, y: points[1].y },
+      };
+    }
+    return null;
+  }
+
+  function selectEntityIndex(index) {
+    state.selectedLoopIds.clear();
+    for (const loop of state.loops) {
+      if (loop.sourceEntityIndexes?.includes(index)) {
+        state.selectedLoopIds.add(loop.id);
+      }
+    }
+  }
+
+  function commitCadDraft() {
+    const entity = createCadEntity(state.cadTool, state.cadDraft);
+    if (!entity) {
+      return;
+    }
+    const span = entity.type === "GUIDE"
+      ? Math.hypot(entity.end.x - entity.start.x, entity.end.y - entity.start.y)
+      : 1;
+    if ((entity.type === "LINE" && Math.hypot(entity.x2 - entity.x1, entity.y2 - entity.y1) < 0.001) || span < 0.001) {
+      return;
+    }
+    if (entity.type === "CIRCLE" && entity.radius < 0.001) {
+      return;
+    }
+    const historyBefore = captureHistorySnapshot();
+    const index = state.entities.length;
+    state.entities.push(entity);
+    rebuildLoopsFromEntities(new Set());
+    if (entity.type !== "GUIDE") {
+      selectEntityIndex(index);
+    }
+    state.cadDraft = null;
+    pushHistorySnapshot(historyBefore);
+    refreshSelectionUi();
+    refreshToolpathUi();
+    refreshWorkspaceUi();
+    requestDraw();
+  }
+
+  function handleCadPointerDown(screenPoint) {
+    const snapped = snapCadPoint(screenPoint);
+    if (!state.cadDraft) {
+      state.cadDraft = { tool: state.cadTool, points: [snapped], preview: snapped };
+      requestDraw();
+      return true;
+    }
+
+    state.cadDraft.points.push(snapped);
+    state.cadDraft.preview = snapped;
+    const pointsRequired = state.cadTool === "bezier" ? 4 : state.cadTool === "polyline" ? Number.POSITIVE_INFINITY : 2;
+    if (state.cadDraft.points.length >= pointsRequired) {
+      commitCadDraft();
+    } else {
+      requestDraw();
+    }
+    return true;
+  }
+
+  function updateCadDraft(screenPoint) {
+    if (!state.cadDraft) {
+      return;
+    }
+    state.cadDraft.preview = snapCadPoint(screenPoint);
+    requestDraw();
+  }
+
+  function setCadTool(nextTool) {
+    state.cadTool = state.cadTool === nextTool ? null : nextTool;
+    state.cadDraft = null;
+    state.transformTool = null;
+    for (const button of ui.cadToolButtons) {
+      const active = button.dataset.cadTool === state.cadTool;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    }
+    refreshWorkspaceUi();
+    refreshSidebarMode();
+    updateCanvasCursor();
+    requestDraw();
+  }
+
+  function clearConstructionGuides() {
+    if (!state.entities.some((entity) => entity.type === "GUIDE")) {
+      return;
+    }
+    const historyBefore = captureHistorySnapshot();
+    state.entities = state.entities.filter((entity) => entity.type !== "GUIDE");
+    pushHistorySnapshot(historyBefore);
+    refreshWorkspaceUi();
+    requestDraw();
   }
 
   function matrixForTranslation(dx, dy) {
@@ -2833,12 +3107,105 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     if (!file) {
       return;
     }
+    if (file.type.startsWith("image/") || /\.(png|jpe?g|webp|bmp)$/i.test(file.name)) {
+      openBitmapTraceDialog(file);
+      return;
+    }
     const text = await file.text();
     if (/\.svg$/i.test(file.name) || /^\s*<svg[\s>]/i.test(text)) {
       loadSvgText(text, file.name);
       return;
     }
     loadDxfText(text, file.name);
+  }
+
+  function openBitmapTraceDialog(file) {
+    if (!window.ImageTracer) {
+      showToast("Bitmap tracing is unavailable because the local tracer could not load.", "danger");
+      return;
+    }
+    state.pendingBitmapFile = file;
+    ui.bitmapTraceFileName.textContent = file.name;
+    ui.traceThresholdValue.textContent = ui.traceThresholdInput.value;
+    getBitmapTraceModalInstance()?.show();
+  }
+
+  async function tracePendingBitmap() {
+    const file = state.pendingBitmapFile;
+    if (!file || !window.ImageTracer) {
+      return;
+    }
+    const threshold = Number.parseInt(ui.traceThresholdInput.value, 10) || 160;
+    const pathOmit = Number.parseInt(ui.traceDetailInput.value, 10) || 6;
+    ui.traceBitmapBtn.disabled = true;
+    ui.traceBitmapBtn.textContent = "Tracing...";
+    startWorkerJob("trace", { label: "Tracing bitmap", percent: 10, priority: 2 });
+    try {
+      const bitmap = await loadBitmap(file);
+      updateWorkerJob("trace", { label: "Preparing bitmap", percent: 35, priority: 2 });
+      const maxDimension = 1800;
+      const scale = Math.min(1, maxDimension / Math.max(bitmap.naturalWidth, bitmap.naturalHeight));
+      const width = Math.max(1, Math.round(bitmap.naturalWidth * scale));
+      const height = Math.max(1, Math.round(bitmap.naturalHeight * scale));
+      const traceCanvas = document.createElement("canvas");
+      traceCanvas.width = width;
+      traceCanvas.height = height;
+      const traceCtx = traceCanvas.getContext("2d", { willReadFrequently: true });
+      traceCtx.drawImage(bitmap, 0, 0, width, height);
+      const imageData = traceCtx.getImageData(0, 0, width, height);
+      for (let offset = 0; offset < imageData.data.length; offset += 4) {
+        const alpha = imageData.data[offset + 3];
+        const luminance = imageData.data[offset] * 0.2126 + imageData.data[offset + 1] * 0.7152 + imageData.data[offset + 2] * 0.0722;
+        const dark = alpha > 20 && luminance < threshold;
+        const value = dark ? 0 : 255;
+        imageData.data[offset] = value;
+        imageData.data[offset + 1] = value;
+        imageData.data[offset + 2] = value;
+        imageData.data[offset + 3] = 255;
+      }
+      updateWorkerJob("trace", { label: "Vectorizing contours", percent: 62, priority: 2 });
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+      const svg = window.ImageTracer.imagedataToSVG(imageData, {
+        numberofcolors: 2,
+        colorquantcycles: 1,
+        ltres: 1,
+        qtres: 1,
+        pathomit: pathOmit,
+        rightangleenhance: true,
+        scale: 1,
+      });
+      updateWorkerJob("trace", { label: "Importing vectors", percent: 88, priority: 2 });
+      const entities = parseSvgFile(svg);
+      if (!entities.length) {
+        throw new Error("No vector contours were found. Increase the black point or use a clearer image.");
+      }
+      loadImportedEntities(entities, `${file.name.replace(/\.[^.]+$/, "")}.svg`, "Traced bitmap");
+      getBitmapTraceModalInstance()?.hide();
+      state.pendingBitmapFile = null;
+      showToast(`Traced ${entities.length} vector paths from ${file.name}.`, "success");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Bitmap tracing failed.", "danger");
+    } finally {
+      finishWorkerJob("trace");
+      ui.traceBitmapBtn.disabled = false;
+      ui.traceBitmapBtn.textContent = "Trace to Vectors";
+    }
+  }
+
+  function loadBitmap(file) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      const url = URL.createObjectURL(file);
+      image.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(image);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("The bitmap could not be read."));
+      };
+      image.src = url;
+    });
   }
 
   async function loadBundledSample() {
@@ -2874,6 +3241,10 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   }
 
   function findLoopHit(point) {
+    if (loopPathsDirty) {
+      rebuildLoopPaths();
+      loopPathsDirty = false;
+    }
     for (let i = state.loops.length - 1; i >= 0; i -= 1) {
       const loop = state.loops[i];
       if (loop.closed !== false) {
@@ -3312,6 +3683,13 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       getMyEndmillsModalInstance()?.hide();
     });
   });
+  ui.bitmapTraceModal?.querySelectorAll("[data-bs-dismiss='modal']").forEach((button) => {
+    button.addEventListener("click", () => getBitmapTraceModalInstance()?.hide());
+  });
+  ui.traceThresholdInput.addEventListener("input", () => {
+    ui.traceThresholdValue.textContent = ui.traceThresholdInput.value;
+  });
+  ui.traceBitmapBtn.addEventListener("click", tracePendingBitmap);
   ui.toolLibraryToggle.addEventListener("click", () => {
     if (ui.toolLibraryMenu.classList.contains("d-none")) {
       openToolLibraryMenu();
@@ -3334,6 +3712,21 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       return;
     }
     closeToolLibraryMenu();
+  });
+  ui.cadToolButtons.forEach((button) => {
+    button.addEventListener("click", () => setCadTool(button.dataset.cadTool || null));
+  });
+  ui.clearGuidesBtn.addEventListener("click", clearConstructionGuides);
+  ui.cadSnapBtn.addEventListener("click", () => {
+    state.cadSnapEnabled = !state.cadSnapEnabled;
+    ui.cadSnapBtn.classList.toggle("is-active", state.cadSnapEnabled);
+    ui.cadSnapBtn.setAttribute("aria-pressed", String(state.cadSnapEnabled));
+    ui.cadSnapBtn.title = state.cadSnapEnabled
+      ? "Snap to the 10mm grid and vector endpoints"
+      : "Snapping is off";
+  });
+  ui.cadCornerRadiusInput.addEventListener("input", () => {
+    state.cadCornerRadius = Math.max(0, Number.parseFloat(ui.cadCornerRadiusInput.value) || 0);
   });
   ui.transformAspectLockBtn.addEventListener("click", () => {
     state.transformAspectLocked = !state.transformAspectLocked;
@@ -3598,6 +3991,11 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
   canvas.addEventListener("mousedown", (event) => {
     const point = { x: event.offsetX, y: event.offsetY };
+    if (event.button === 0 && state.cadTool && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+      handleCadPointerDown(point);
+      updateCanvasCursor(point);
+      return;
+    }
     const transformHit = findTransformHit(point);
     if (event.button === 0 && transformHit && beginGeometryTransform(transformHit.type, point, transformHit)) {
       updateCanvasCursor(point);
@@ -3685,6 +4083,21 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       updateTransformToolUi();
       return;
     }
+    if (event.key === "Escape" && state.cadTool) {
+      event.preventDefault();
+      if (state.cadDraft) {
+        state.cadDraft = null;
+        requestDraw();
+      } else {
+        setCadTool(null);
+      }
+      return;
+    }
+    if (event.key === "Enter" && state.cadTool === "polyline" && state.cadDraft?.points.length >= 2) {
+      event.preventDefault();
+      commitCadDraft();
+      return;
+    }
     if (event.key === "Delete" && state.selectedLoopIds.size > 0) {
       const typing = isTypingTarget(event.target);
       if (!typing) {
@@ -3729,6 +4142,11 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     }
     if (state.geometryTransform) {
       updateGeometryTransform(point);
+      return;
+    }
+    if (state.cadTool && state.cadDraft) {
+      updateCadDraft(point);
+      updateCanvasCursor(point);
       return;
     }
     if (state.dragPan) {
@@ -3833,6 +4251,15 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       updateCanvasCursor(point);
     }
     event.preventDefault();
+  });
+
+  canvas.addEventListener("dblclick", (event) => {
+    if (state.cadTool !== "polyline" || !state.cadDraft || state.cadDraft.points.length < 2) {
+      return;
+    }
+    event.preventDefault();
+    commitCadDraft();
+    updateCanvasCursor({ x: event.offsetX, y: event.offsetY });
   });
 
   window.__camCanvasDebug = {
