@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260810-ribbon-pastels2">
+  <link rel="stylesheet" href="styles.css?v=20260810-grid-snap1">
 </head>
 <body>
   <div class="workspace-shell">
@@ -93,7 +93,7 @@
                 <button type="button" id="zoomFitBtn" class="btn ribbon-command" title="Reset view"><i class="fa-solid fa-arrows-to-dot"></i><span>Reset View</span></button>
                 <button type="button" id="zoomInBtn" class="btn ribbon-command" title="Zoom in"><i class="fa-solid fa-plus"></i><span>Zoom In</span></button>
                 <button type="button" id="zoomOutBtn" class="btn ribbon-command" title="Zoom out"><i class="fa-solid fa-minus"></i><span>Zoom Out</span></button>
-                <button type="button" id="cadSnapBtn" class="btn ribbon-command is-active" title="Snap to the 10mm grid, endpoints, corners, and centers" aria-pressed="true"><i class="fa-solid fa-magnet"></i><span>Snap</span></button>
+                <button type="button" id="cadSnapBtn" class="btn ribbon-command is-active" title="Configure grid and snapping" aria-pressed="true"><i class="fa-solid fa-magnet"></i><span>Snap</span></button>
               </div>
               <span class="ribbon-group-label">Canvas</span>
             </div>
@@ -513,6 +513,55 @@
       </div>
     </div>
   </div>
+  <div id="gridSettingsModal" class="modal fade" tabindex="-1" aria-labelledby="gridSettingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title fs-5" id="gridSettingsModalLabel">Grid &amp; Snap</h2>
+            <div class="small text-muted">Set the canvas grid and drawing snap spacing.</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body compact-form">
+          <div class="grid-settings-stack">
+            <div class="form-check workspace-settings-check">
+              <input id="gridVisibleInput" class="form-check-input" type="checkbox" checked>
+              <label class="form-check-label" for="gridVisibleInput">Show grid</label>
+            </div>
+            <div>
+              <div class="grid-settings-label">Grid style</div>
+              <div class="grid-settings-choice-list" role="radiogroup" aria-label="Grid style">
+                <label class="grid-settings-choice">
+                  <input type="radio" name="gridStyle" value="lines" checked>
+                  <span>Lines</span>
+                </label>
+                <label class="grid-settings-choice">
+                  <input type="radio" name="gridStyle" value="dots">
+                  <span>Dots</span>
+                </label>
+              </div>
+            </div>
+            <div class="form-check workspace-settings-check">
+              <input id="snapEnabledInput" class="form-check-input" type="checkbox" checked>
+              <label class="form-check-label" for="snapEnabledInput">Enable drawing snap</label>
+            </div>
+            <div>
+              <label class="form-label small mb-1" for="gridSpacingInput">Snap spacing</label>
+              <div class="input-group input-group-sm">
+                <input id="gridSpacingInput" class="form-control form-control-sm" type="number" min="0.1" step="0.1" value="10">
+                <span class="input-group-text">mm</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="applyGridSettingsBtn" type="button" class="btn btn-primary">Apply Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="toastContainer" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
   <div id="workerBadge" class="worker-badge d-none" aria-live="polite">
     <div class="worker-spinner spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
@@ -527,6 +576,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-ribbon-command-state2"></script>
+  <script type="module" src="app.js?v=20260810-grid-snap1"></script>
 </body>
 </html>

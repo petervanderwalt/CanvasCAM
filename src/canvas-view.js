@@ -234,18 +234,26 @@ function drawWorldGrid(ctx, rect, state, worldToScreen) {
   const maxY = (rect.height / 2) / zoom - state.camera.panY;
   const minY = (-rect.height / 2) / zoom - state.camera.panY;
 
-  const minorStep = 10;
-  const majorStep = 50;
+  const minorStep = Math.max(Number.parseFloat(state.gridSpacing) || 10, 0.1);
+  const majorStep = minorStep * 5;
 
   ctx.save();
   ctx.fillStyle = "#fbfcfd";
   ctx.fillRect(0, 0, rect.width, rect.height);
+  if (!state.gridVisible) {
+    ctx.restore();
+    return;
+  }
   ctx.lineWidth = 1;
 
-  drawGridAxisSet(ctx, rect, worldToScreen, minX, maxX, minorStep, "x", "rgba(176, 186, 198, 0.22)");
-  drawGridAxisSet(ctx, rect, worldToScreen, minY, maxY, minorStep, "y", "rgba(176, 186, 198, 0.22)");
-  drawGridAxisSet(ctx, rect, worldToScreen, minX, maxX, majorStep, "x", "rgba(122, 138, 156, 0.46)");
-  drawGridAxisSet(ctx, rect, worldToScreen, minY, maxY, majorStep, "y", "rgba(122, 138, 156, 0.46)");
+  if (state.gridStyle === "dots") {
+    drawGridDots(ctx, rect, worldToScreen, minX, maxX, minY, maxY, minorStep, majorStep);
+  } else {
+    drawGridAxisSet(ctx, rect, worldToScreen, minX, maxX, minorStep, "x", "rgba(176, 186, 198, 0.22)");
+    drawGridAxisSet(ctx, rect, worldToScreen, minY, maxY, minorStep, "y", "rgba(176, 186, 198, 0.22)");
+    drawGridAxisSet(ctx, rect, worldToScreen, minX, maxX, majorStep, "x", "rgba(122, 138, 156, 0.46)");
+    drawGridAxisSet(ctx, rect, worldToScreen, minY, maxY, majorStep, "y", "rgba(122, 138, 156, 0.46)");
+  }
 
   ctx.restore();
 }
@@ -256,6 +264,9 @@ function drawGridAxisSet(ctx, rect, worldToScreen, min, max, step, axis, strokeS
   }
   const epsilon = step * 1e-6;
   const start = Math.floor(min / step) * step;
+  if (Math.ceil((max - start) / step) > 1400) {
+    return;
+  }
   ctx.strokeStyle = strokeStyle;
   for (let value = start; value <= max + epsilon; value += step) {
     const snapped = Math.abs(value) < epsilon ? 0 : value;
@@ -272,6 +283,27 @@ function drawGridAxisSet(ctx, rect, worldToScreen, min, max, step, axis, strokeS
       ctx.moveTo(0, screen);
       ctx.lineTo(rect.width, screen);
       ctx.stroke();
+    }
+  }
+}
+
+function drawGridDots(ctx, rect, worldToScreen, minX, maxX, minY, maxY, minorStep, majorStep) {
+  const startX = Math.floor(minX / minorStep) * minorStep;
+  const startY = Math.floor(minY / minorStep) * minorStep;
+  const countX = Math.ceil((maxX - startX) / minorStep) + 1;
+  const countY = Math.ceil((maxY - startY) / minorStep) + 1;
+  const step = countX * countY > 12000 ? majorStep : minorStep;
+  const epsilon = step * 1e-6;
+  const majorEpsilon = majorStep * 1e-6;
+
+  for (let x = Math.floor(minX / step) * step; x <= maxX + epsilon; x += step) {
+    for (let y = Math.floor(minY / step) * step; y <= maxY + epsilon; y += step) {
+      const isMajor = Math.abs((x / majorStep) - Math.round(x / majorStep)) < majorEpsilon
+        && Math.abs((y / majorStep) - Math.round(y / majorStep)) < majorEpsilon;
+      const screen = worldToScreen({ x, y });
+      ctx.fillStyle = isMajor ? "rgba(122, 138, 156, 0.65)" : "rgba(176, 186, 198, 0.42)";
+      const size = isMajor ? 2 : 1;
+      ctx.fillRect(Math.round(screen.x) - size / 2, Math.round(screen.y) - size / 2, size, size);
     }
   }
 }

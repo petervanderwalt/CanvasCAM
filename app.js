@@ -29,6 +29,7 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
   let bitmapTraceModalInstance = null;
   let booleanModalInstance = null;
   let workspaceSettingsModalInstance = null;
+  let gridSettingsModalInstance = null;
   let workspaceSettingsOriginal = null;
 
   const ui = {
@@ -56,6 +57,12 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
     cadEditModeBtn: document.getElementById("cadEditModeBtn"),
     cadToolButtons: Array.from(document.querySelectorAll(".cad-tool-btn")),
     cadSnapBtn: document.getElementById("cadSnapBtn"),
+    gridSettingsModal: document.getElementById("gridSettingsModal"),
+    gridVisibleInput: document.getElementById("gridVisibleInput"),
+    gridStyleInputs: Array.from(document.querySelectorAll("input[name='gridStyle']")),
+    snapEnabledInput: document.getElementById("snapEnabledInput"),
+    gridSpacingInput: document.getElementById("gridSpacingInput"),
+    applyGridSettingsBtn: document.getElementById("applyGridSettingsBtn"),
     clearGuidesBtn: document.getElementById("clearGuidesBtn"),
     cadInspector: document.getElementById("cadInspector"),
     cadInspectorTitle: document.getElementById("cadInspectorTitle"),
@@ -207,6 +214,9 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
     cadDraft: null,
     cadTextPlacement: null,
     cadSnapEnabled: true,
+    gridVisible: true,
+    gridStyle: "lines",
+    gridSpacing: 10,
     cadInspectorDismissed: false,
     pendingBitmapFile: null,
     booleanPreviewContours: null,
@@ -904,7 +914,7 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
       return;
     }
     const historyBefore = captureHistorySnapshot();
-    const offset = state.cadSnapEnabled ? 10 : 5;
+    const offset = state.cadSnapEnabled ? getGridSpacing() : 5;
     const startIndex = state.entities.length;
     const copies = indexes.map((index) => translateEntity(deepClone(state.entities[index]), offset, offset));
     state.entities.push(...copies);
@@ -983,6 +993,77 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
       }
     }
     return workspaceSettingsModalInstance;
+  }
+
+  function getGridSettingsModalInstance() {
+    if (!ui.gridSettingsModal) {
+      return null;
+    }
+    if (!gridSettingsModalInstance) {
+      if (window.bootstrap?.Modal) {
+        gridSettingsModalInstance = window.bootstrap.Modal.getOrCreateInstance(ui.gridSettingsModal, {
+          backdrop: "static",
+        });
+      } else {
+        gridSettingsModalInstance = {
+          show() {
+            ui.gridSettingsModal.classList.add("show");
+            ui.gridSettingsModal.style.display = "block";
+            ui.gridSettingsModal.removeAttribute("aria-hidden");
+            ui.gridSettingsModal.setAttribute("aria-modal", "true");
+            document.body.classList.add("modal-open");
+          },
+          hide() {
+            ui.gridSettingsModal.classList.remove("show");
+            ui.gridSettingsModal.style.display = "none";
+            ui.gridSettingsModal.setAttribute("aria-hidden", "true");
+            ui.gridSettingsModal.removeAttribute("aria-modal");
+            document.body.classList.remove("modal-open");
+          },
+        };
+      }
+    }
+    return gridSettingsModalInstance;
+  }
+
+  function getGridSpacing() {
+    const spacing = Number.parseFloat(state.gridSpacing);
+    return Number.isFinite(spacing) && spacing >= 0.1 ? spacing : 10;
+  }
+
+  function updateCadSnapUi() {
+    const spacing = getGridSpacing();
+    ui.cadSnapBtn.classList.toggle("is-active", state.cadSnapEnabled);
+    ui.cadSnapBtn.setAttribute("aria-pressed", String(state.cadSnapEnabled));
+    ui.cadSnapBtn.title = state.cadSnapEnabled
+      ? `Snap to ${formatNumber(spacing)}mm grid, endpoints, corners, and centers`
+      : "Snapping is off";
+  }
+
+  function openGridSettings() {
+    ui.gridVisibleInput.checked = state.gridVisible;
+    ui.snapEnabledInput.checked = state.cadSnapEnabled;
+    ui.gridSpacingInput.value = formatNumber(getGridSpacing());
+    for (const input of ui.gridStyleInputs) {
+      input.checked = input.value === state.gridStyle;
+    }
+    getGridSettingsModalInstance()?.show();
+  }
+
+  function applyGridSettings() {
+    const spacing = Number.parseFloat(ui.gridSpacingInput.value);
+    if (!Number.isFinite(spacing) || spacing < 0.1) {
+      showToast("Enter a snap spacing of at least 0.1 mm.", "warning");
+      ui.gridSpacingInput.focus();
+      return;
+    }
+    state.gridVisible = ui.gridVisibleInput.checked;
+    state.cadSnapEnabled = ui.snapEnabledInput.checked;
+    state.gridStyle = ui.gridStyleInputs.find((input) => input.checked)?.value === "dots" ? "dots" : "lines";
+    state.gridSpacing = spacing;
+    updateCadSnapUi();
+    requestDraw();
+    getGridSettingsModalInstance()?.hide();
   }
 
   function restoreWorkspaceSettings() {
@@ -2355,7 +2436,7 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
       return closest.point;
     }
 
-    const grid = 10;
+    const grid = getGridSpacing();
     return {
       x: Math.round(world.x / grid) * grid,
       y: Math.round(world.y / grid) * grid,
@@ -4400,13 +4481,9 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
   });
   ui.clearGuidesBtn.addEventListener("click", clearConstructionGuides);
   ui.cadSnapBtn.addEventListener("click", () => {
-    state.cadSnapEnabled = !state.cadSnapEnabled;
-    ui.cadSnapBtn.classList.toggle("is-active", state.cadSnapEnabled);
-    ui.cadSnapBtn.setAttribute("aria-pressed", String(state.cadSnapEnabled));
-    ui.cadSnapBtn.title = state.cadSnapEnabled
-      ? "Snap to the 10mm grid, endpoints, corners, and centers"
-      : "Snapping is off";
+    openGridSettings();
   });
+  ui.applyGridSettingsBtn.addEventListener("click", applyGridSettings);
   ui.cadInspectorCloseBtn.addEventListener("click", () => {
     state.cadInspectorDismissed = true;
     refreshCadInspector();
@@ -5091,6 +5168,7 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
   refreshToolpathUi();
   updateTransformToolUi();
   syncAutoTabHeight();
+  updateCadSnapUi();
   syncSelectedMyEndmillForOperation({ preserve: true });
   loadToolLibraries().catch((error) => {
     showToast(error instanceof Error ? error.message : "Failed to load tool library.", "danger");

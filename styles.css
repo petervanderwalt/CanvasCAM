@@ -2433,6 +2433,124 @@ body {
   color: var(--funky-ink);
 }
 
+#gridSettingsModal .modal-dialog {
+  max-width: min(31rem, calc(100vw - 2rem));
+}
+
+#gridSettingsModal .modal-content {
+  border: 4px solid var(--funky-ink);
+  border-radius: 1.25rem;
+  overflow: hidden;
+  background: linear-gradient(180deg, #d8ccff 0%, #f0ecff 100%);
+  box-shadow: 0 10px 0 rgba(17, 17, 17, 0.96);
+}
+
+#gridSettingsModal .modal-header,
+#gridSettingsModal .modal-footer {
+  border-color: rgba(17, 17, 17, 0.18);
+  background: rgba(255, 248, 216, 0.8);
+}
+
+#gridSettingsModal .modal-title {
+  color: var(--funky-ink);
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-weight: 900;
+}
+
+#gridSettingsModal .modal-header .text-muted {
+  color: rgba(17, 17, 17, 0.68) !important;
+  font-weight: 700;
+}
+
+#gridSettingsModal .modal-body {
+  padding: 1rem 1.1rem 1.15rem;
+  background: rgba(255, 252, 239, 0.92);
+}
+
+#gridSettingsModal .btn-close {
+  position: relative;
+  width: 2.35rem;
+  height: 2.35rem;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.8rem;
+  background: var(--funky-blue);
+  box-shadow: 0 3px 0 rgba(17, 17, 17, 0.92);
+  opacity: 1;
+}
+
+#gridSettingsModal .btn-close::before,
+#gridSettingsModal .btn-close::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.95rem;
+  height: 0.16rem;
+  border-radius: 999px;
+  background: var(--funky-ink);
+}
+
+#gridSettingsModal .btn-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+#gridSettingsModal .btn-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
+
+#gridSettingsModal .modal-footer .btn {
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.78rem;
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-weight: 900;
+  box-shadow: 0 4px 0 rgba(17, 17, 17, 0.92);
+}
+
+#gridSettingsModal .btn-outline-secondary {
+  background: #fff8d8;
+  color: var(--funky-ink);
+}
+
+#applyGridSettingsBtn {
+  background: #9cf13a;
+  color: var(--funky-ink);
+}
+
+.grid-settings-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.grid-settings-label {
+  margin-bottom: 0.4rem;
+  color: var(--funky-ink);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.grid-settings-choice-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.grid-settings-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.65rem;
+  padding: 0.45rem 0.65rem;
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.78rem;
+  background: #fff8d8;
+  box-shadow: 0 3px 0 rgba(17, 17, 17, 0.92);
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.grid-settings-choice:has(input:checked) {
+  background: #adc4ff;
+}
+
 #booleanModal .modal-footer .btn-outline-secondary {
   background: #fff8d8;
   color: var(--funky-ink);
