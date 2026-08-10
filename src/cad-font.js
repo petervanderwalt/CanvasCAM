@@ -52,6 +52,20 @@ export const FONT_OPTIONS = [
   { id: "black-ops-one", name: "Black Ops One", kind: "outline", family: "Black Ops One", asset: "assets/fonts/BlackOpsOne-Regular.ttf" },
   { id: "stardos-stencil", name: "Stardos Stencil", kind: "outline", family: "Stardos Stencil", asset: "assets/fonts/StardosStencil-Bold.ttf" },
   { id: "lobster", name: "Lobster", kind: "outline", family: "Lobster", asset: "assets/fonts/Lobster-Regular.ttf" },
+  { id: "archivo-black", name: "Archivo Black", kind: "outline", family: "Archivo Black", asset: "assets/fonts/ArchivoBlack-Regular.ttf" },
+  { id: "audiowide", name: "Audiowide", kind: "outline", family: "Audiowide", asset: "assets/fonts/Audiowide-Regular.ttf" },
+  { id: "bangers", name: "Bangers", kind: "outline", family: "Bangers", asset: "assets/fonts/Bangers-Regular.ttf" },
+  { id: "barlow-condensed", name: "Barlow Condensed", kind: "outline", family: "Barlow Condensed", asset: "assets/fonts/BarlowCondensed-Regular.ttf" },
+  { id: "dm-serif-display", name: "DM Serif Display", kind: "outline", family: "DM Serif Display", asset: "assets/fonts/DMSerifDisplay-Regular.ttf" },
+  { id: "fjalla-one", name: "Fjalla One", kind: "outline", family: "Fjalla One", asset: "assets/fonts/FjallaOne-Regular.ttf" },
+  { id: "fredericka-the-great", name: "Fredericka the Great", kind: "outline", family: "Fredericka the Great", asset: "assets/fonts/FrederickatheGreat-Regular.ttf" },
+  { id: "graduate", name: "Graduate", kind: "outline", family: "Graduate", asset: "assets/fonts/Graduate-Regular.ttf" },
+  { id: "lilita-one", name: "Lilita One", kind: "outline", family: "Lilita One", asset: "assets/fonts/LilitaOne-Regular.ttf" },
+  { id: "pacifico", name: "Pacifico", kind: "outline", family: "Pacifico", asset: "assets/fonts/Pacifico-Regular.ttf" },
+  { id: "press-start-2p", name: "Press Start 2P", kind: "outline", family: "Press Start 2P", asset: "assets/fonts/PressStart2P-Regular.ttf" },
+  { id: "rubik-mono-one", name: "Rubik Mono One", kind: "outline", family: "Rubik Mono One", asset: "assets/fonts/RubikMonoOne-Regular.ttf" },
+  { id: "russo-one", name: "Russo One", kind: "outline", family: "Russo One", asset: "assets/fonts/RussoOne-Regular.ttf" },
+  { id: "saira-stencil-one", name: "Saira Stencil One", kind: "outline", family: "Saira Stencil One", asset: "assets/fonts/SairaStencilOne-Regular.ttf" },
 ];
 
 const outlineFontCache = new Map();

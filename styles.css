@@ -75,6 +75,21 @@
   src: url("assets/fonts/Lobster-Regular.ttf") format("truetype");
 }
 
+@font-face { font-family: "Archivo Black"; src: url("assets/fonts/ArchivoBlack-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Audiowide"; src: url("assets/fonts/Audiowide-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Bangers"; src: url("assets/fonts/Bangers-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Barlow Condensed"; src: url("assets/fonts/BarlowCondensed-Regular.ttf") format("truetype"); }
+@font-face { font-family: "DM Serif Display"; src: url("assets/fonts/DMSerifDisplay-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Fjalla One"; src: url("assets/fonts/FjallaOne-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Fredericka the Great"; src: url("assets/fonts/FrederickatheGreat-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Graduate"; src: url("assets/fonts/Graduate-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Lilita One"; src: url("assets/fonts/LilitaOne-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Pacifico"; src: url("assets/fonts/Pacifico-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Press Start 2P"; src: url("assets/fonts/PressStart2P-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Rubik Mono One"; src: url("assets/fonts/RubikMonoOne-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Russo One"; src: url("assets/fonts/RussoOne-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Saira Stencil One"; src: url("assets/fonts/SairaStencilOne-Regular.ttf") format("truetype"); }
+
 html,
 body {
   height: 100%;
@@ -549,6 +564,20 @@ body {
 .cad-text-font-select option.font-black-ops-one { font-family: "Black Ops One", sans-serif; }
 .cad-text-font-select option.font-stardos-stencil { font-family: "Stardos Stencil", serif; }
 .cad-text-font-select option.font-lobster { font-family: "Lobster", cursive; }
+.cad-text-font-select option.font-archivo-black { font-family: "Archivo Black", sans-serif; }
+.cad-text-font-select option.font-audiowide { font-family: "Audiowide", sans-serif; }
+.cad-text-font-select option.font-bangers { font-family: "Bangers", sans-serif; }
+.cad-text-font-select option.font-barlow-condensed { font-family: "Barlow Condensed", sans-serif; }
+.cad-text-font-select option.font-dm-serif-display { font-family: "DM Serif Display", serif; }
+.cad-text-font-select option.font-fjalla-one { font-family: "Fjalla One", sans-serif; }
+.cad-text-font-select option.font-fredericka-the-great { font-family: "Fredericka the Great", cursive; }
+.cad-text-font-select option.font-graduate { font-family: "Graduate", serif; }
+.cad-text-font-select option.font-lilita-one { font-family: "Lilita One", sans-serif; }
+.cad-text-font-select option.font-pacifico { font-family: "Pacifico", cursive; }
+.cad-text-font-select option.font-press-start-2p { font-family: "Press Start 2P", monospace; }
+.cad-text-font-select option.font-rubik-mono-one { font-family: "Rubik Mono One", sans-serif; }
+.cad-text-font-select option.font-russo-one { font-family: "Russo One", sans-serif; }
+.cad-text-font-select option.font-saira-stencil-one { font-family: "Saira Stencil One", sans-serif; }
 
 .font-picker {
   position: relative;
@@ -1648,11 +1677,6 @@ body {
 
 .my-endmill-summary.empty {
   background: #fffdf4;
-}
-
-.my-endmill-summary.is-recommended {
-  border-color: rgba(22, 163, 74, 0.28);
-  background: #f3fbf5;
 }
 
 .my-endmill-summary-title {

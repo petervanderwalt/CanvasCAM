@@ -10,7 +10,7 @@ import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
 import * as CanvasView from "./src/canvas-view.js?v=20260810-grid-snap1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
-import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
+import * as CadFont from "./src/cad-font.js?v=20260810-font-library2";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
 (function () {
@@ -1948,7 +1948,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       option.value = String(slot.slot);
       const recommended = myEndmillSlotSupportsOperation(slot, operation);
       const badge = getToolTypeBadgeLabel(slot.toolType);
-      option.textContent = `${recommended ? "Recommended · " : ""}[${badge}] T${slot.slot} - ${slot.name}`;
+      option.textContent = `T${slot.slot} - ${recommended ? "Recommended - " : ""}[${badge}] ${slot.name}`;
       if (recommended) {
         option.classList.add("is-recommended");
         option.style.color = "#15803d";
