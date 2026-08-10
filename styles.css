@@ -915,6 +915,27 @@ body {
   margin-top: 0.62rem;
 }
 
+.modal-drag-handle {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.modal-drag-handle.is-dragging {
+  cursor: grabbing;
+}
+
+.modal-drag-handle :is(button, input, select, textarea, a, label) {
+  cursor: auto;
+  touch-action: auto;
+}
+
+.modal-dialog.is-drag-positioned {
+  position: fixed;
+  margin: 0;
+  transform: none !important;
+}
+
 .transform-tool-btn.is-active {
   background: var(--funky-peach);
   border-color: var(--funky-ink);

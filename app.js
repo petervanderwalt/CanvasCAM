@@ -1020,6 +1020,52 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     return booleanModalInstance;
   }
 
+  function enableDraggableModals() {
+    for (const modal of document.querySelectorAll(".modal")) {
+      const dialog = modal.querySelector(":scope > .modal-dialog");
+      const header = dialog?.querySelector(":scope > .modal-content > .modal-header");
+      if (!dialog || !header || header.dataset.dragEnabled) {
+        continue;
+      }
+      header.dataset.dragEnabled = "true";
+      header.classList.add("modal-drag-handle");
+      header.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.target.closest("button, input, select, textarea, a, label")) {
+          return;
+        }
+        const rect = dialog.getBoundingClientRect();
+        const offset = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+        const clampPosition = (left, top) => ({
+          left: Math.max(8, Math.min(left, Math.max(8, window.innerWidth - rect.width - 8))),
+          top: Math.max(8, Math.min(top, Math.max(8, window.innerHeight - rect.height - 8))),
+        });
+        const position = clampPosition(rect.left, rect.top);
+        dialog.classList.add("is-drag-positioned");
+        dialog.style.left = `${position.left}px`;
+        dialog.style.top = `${position.top}px`;
+        dialog.style.width = `${rect.width}px`;
+        dialog.style.maxWidth = `calc(100vw - 1rem)`;
+        header.setPointerCapture?.(event.pointerId);
+        header.classList.add("is-dragging");
+        const move = (moveEvent) => {
+          const next = clampPosition(moveEvent.clientX - offset.x, moveEvent.clientY - offset.y);
+          dialog.style.left = `${next.left}px`;
+          dialog.style.top = `${next.top}px`;
+        };
+        const finish = () => {
+          header.classList.remove("is-dragging");
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", finish);
+          window.removeEventListener("pointercancel", finish);
+        };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", finish, { once: true });
+        window.addEventListener("pointercancel", finish, { once: true });
+        event.preventDefault();
+      });
+    }
+  }
+
   function getWorkspaceSettingsModalInstance() {
     if (!ui.workspaceSettingsModal) {
       return null;
@@ -5141,6 +5187,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       hideObjectTreeMenu();
     }
   });
+  enableDraggableModals();
   ui.applyGridSettingsBtn.addEventListener("click", applyGridSettings);
   ui.confirmationAcceptBtn.addEventListener("click", () => resolveConfirmation(true));
   ui.confirmationCancelBtn.addEventListener("click", () => resolveConfirmation(false));
