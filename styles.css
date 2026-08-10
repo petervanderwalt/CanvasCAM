@@ -959,18 +959,12 @@ body {
   transform: translateY(-4.5rem);
 }
 
-.empty-state-icon {
-  width: 4rem;
-  height: 4rem;
-  display: grid;
-  place-items: center;
-  margin: 0 auto 1rem;
-  border-radius: 1rem;
-  border: 3px solid var(--funky-ink);
-  background: var(--funky-blue);
+.empty-state-question {
+  margin: 0 0 1rem;
   color: var(--funky-ink);
-  font-size: 1.4rem;
-  box-shadow: 0 4px 0 rgba(17, 17, 17, 0.94);
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-size: clamp(1.1rem, 2vw, 1.45rem);
+  font-weight: 900;
 }
 
 .sample-link {
