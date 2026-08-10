@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260810-export-step1">
+  <link rel="stylesheet" href="styles.css?v=20260810-layered-imports1">
 </head>
 <body>
   <div class="workspace-shell">
@@ -48,6 +48,10 @@
         </nav>
 
         <div class="header-actions">
+          <button id="newCanvasBtn" type="button" class="btn btn-outline-secondary btn-sm" title="Start a new empty canvas">
+            <i class="fa-regular fa-file"></i>
+            <span>New</span>
+          </button>
           <button id="openFileBtn" type="button" class="btn btn-outline-primary btn-sm">
             <i class="fa-solid fa-folder-open"></i>
             <span>Open File</span>
@@ -155,6 +159,7 @@
                 <div class="empty-state-icon"><i class="fa-regular fa-file-lines"></i></div>
                 <div class="empty-state-actions">
                   <button id="browseVectorBtn" type="button" class="btn btn-success btn-lg">Open DXF/SVG/Bitmap</button>
+                  <button id="newEmptyCanvasBtn" type="button" class="btn btn-outline-secondary btn-lg">New Empty Canvas</button>
                 </div>
                 <p id="emptyStateDropNote" class="empty-state-drop-note">or drag DXF/SVG here</p>
                 <button id="loadSampleBtn" type="button" class="btn btn-link btn-sm sample-link">Try Sample Vector</button>
@@ -477,6 +482,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-origin-label1"></script>
+  <script type="module" src="app.js?v=20260810-layered-imports1"></script>
 </body>
 </html>

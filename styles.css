@@ -764,6 +764,19 @@ body {
   box-shadow: 0 5px 0 rgba(17, 17, 17, 0.94);
 }
 
+.empty-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+#newEmptyCanvasBtn {
+  background: var(--funky-blue);
+  border-color: var(--funky-ink);
+  color: var(--funky-ink);
+}
+
 #browseVectorBtn {
   background: #9cf13a;
   border-color: var(--funky-ink);

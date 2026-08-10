@@ -31,6 +31,8 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     projectTitle: document.getElementById("projectTitle"),
     loadSampleBtn: document.getElementById("loadSampleBtn"),
     browseVectorBtn: document.getElementById("browseVectorBtn"),
+    newEmptyCanvasBtn: document.getElementById("newEmptyCanvasBtn"),
+    newCanvasBtn: document.getElementById("newCanvasBtn"),
     openFileBtn: document.getElementById("openFileBtn"),
     fileInput: document.getElementById("fileInput"),
     zoomFitBtn: document.getElementById("zoomFitBtn"),
@@ -149,6 +151,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
   const state = {
     fileName: "",
+    emptyCanvasStarted: false,
     entities: [],
     loops: [],
     selectedLoopIds: new Set(),
@@ -1904,7 +1907,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
     ui.projectTitle.textContent = state.fileName || "Untitled Project";
     updateDockStatus();
-    ui.canvasEmptyState.classList.toggle("d-none", hasGeometry || Boolean(state.cadTool));
+    ui.canvasEmptyState.classList.toggle("d-none", hasGeometry || state.emptyCanvasStarted || Boolean(state.cadTool));
     ui.canvasWrap.classList.toggle("is-drop-target", state.dragImportActive);
     if (ui.emptyStateDropNote) {
       ui.emptyStateDropNote.textContent = state.dragImportActive
@@ -3279,36 +3282,77 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   }
 
   function loadImportedEntities(entities, name, sourceLabel) {
-    const historyBefore = state.entities.length || state.toolpaths.length ? captureHistorySnapshot() : null;
-    state.fileName = name;
+    if (!entities.length) {
+      showToast(`No usable vectors found in ${name}.`, "warning");
+      return;
+    }
+    const hasExistingGeometry = state.entities.length > 0;
+    const historyBefore = hasExistingGeometry || state.toolpaths.length ? captureHistorySnapshot() : null;
+    if (!hasExistingGeometry) {
+      state.fileName = name;
+    }
     const rawBounds = boundsOfEntities(entities);
     const shiftX = rawBounds ? -rawBounds.minX : 0;
     const shiftY = rawBounds ? (sourceLabel === "SVG" ? rawBounds.maxY : -rawBounds.minY) : 0;
 
     state.importTranslation = { x: shiftX, y: shiftY };
-    state.entities = entities.map((entity) => {
+    const importedEntities = entities.map((entity) => {
       const translated = translateEntity(entity, shiftX, sourceLabel === "SVG" ? 0 : shiftY);
       if (sourceLabel !== "SVG") {
         return translated;
       }
-      return mirrorEntityY(translated, rawBounds.maxY);
+      return mirrorEntityY(translated, rawBounds?.maxY || 0);
     });
-    state.loops = buildLoops(state.entities);
+    state.entities.push(...importedEntities);
+    state.emptyCanvasStarted = false;
+    rebuildLoopsFromEntities(new Set());
     state.selectedLoopIds.clear();
-    state.toolpaths = [];
-    state.activeToolpathId = null;
     state.addTabsMode = false;
     state.dragImportActive = false;
     state.geometryTransform = null;
     state.transformingGeometry = false;
     clearToolpathEditing();
     clearDraftToolpath();
-    state.bounds = mergeBounds(state.loops.map((loop) => loop.bounds));
     fitCameraToBounds(state.bounds);
     loopPathsDirty = true;
     refreshSelectionUi();
     refreshToolpathUi();
     refreshWorkspaceUi();
+    draw();
+    pushHistorySnapshot(historyBefore);
+    if (hasExistingGeometry) {
+      showToast(`Added ${name} to the canvas.`, "success");
+    }
+  }
+
+  function startNewEmptyCanvas() {
+    const hasWork = state.entities.length > 0 || state.toolpaths.length > 0;
+    if (hasWork && !window.confirm("Start a new canvas? This clears the current vectors and toolpaths.")) {
+      return;
+    }
+    const historyBefore = hasWork ? captureHistorySnapshot() : null;
+    state.fileName = "";
+    state.entities = [];
+    state.loops = [];
+    state.selectedLoopIds.clear();
+    state.toolpaths = [];
+    state.activeToolpathId = null;
+    state.addTabsMode = false;
+    state.cadTool = null;
+    state.cadDraft = null;
+    state.geometryTransform = null;
+    state.transformingGeometry = false;
+    state.transformTool = null;
+    state.bounds = null;
+    state.emptyCanvasStarted = true;
+    state.camera = { zoom: 1, panX: 0, panY: 0 };
+    clearToolpathEditing();
+    clearDraftToolpath();
+    loopPathsDirty = true;
+    refreshSelectionUi();
+    refreshToolpathUi();
+    refreshWorkspaceUi();
+    updateCanvasCursor();
     draw();
     pushHistorySnapshot(historyBefore);
   }
@@ -3815,6 +3859,8 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
   ui.loadSampleBtn.addEventListener("click", loadBundledSample);
   ui.browseVectorBtn.addEventListener("click", openFilePicker);
+  ui.newEmptyCanvasBtn.addEventListener("click", startNewEmptyCanvas);
+  ui.newCanvasBtn.addEventListener("click", startNewEmptyCanvas);
   ui.openFileBtn.addEventListener("click", openFilePicker);
   ui.toggleSettingsBtn.addEventListener("click", () => {
     ui.globalSettingsSection.classList.toggle("d-none");
