@@ -3846,7 +3846,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
   }
 
-  function traceImageData(imageData, settings) {
+  function traceImageData(imageData, settings, flipY = false) {
     const bitmap = new Potrace.Bitmap(imageData.width, imageData.height);
     for (let index = 0, pixel = 0; index < imageData.data.length; index += 4, pixel += 1) {
       const alpha = imageData.data[index + 3] / 255;
@@ -3859,10 +3859,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       bitmap.data[pixel] = settings.blackOnWhite ? Number(isDark) : Number(!isDark);
     }
     const pathList = Potrace.traceBitmap(bitmap, settings);
-    return buildPotraceSvg(pathList, imageData.width, imageData.height);
+    return buildPotraceSvg(pathList, imageData.width, imageData.height, flipY);
   }
 
-  function buildPotraceSvg(pathList, width, height) {
+  function buildPotraceSvg(pathList, width, height, flipY) {
     const paths = Potrace.getPaths(pathList);
     const pathData = paths.map((segments) => {
       if (!segments.length) {
@@ -3882,7 +3882,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (!pathData) {
       throw new Error("No vector contours were found. Raise the brightness threshold or use a clearer image.");
     }
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><path d="${pathData}" fill="#000000" fill-rule="evenodd"/></svg>`;
+    const path = `<path d="${pathData}" fill="#000000" fill-rule="evenodd"/>`;
+    const content = flipY ? `<g transform="translate(0 ${height}) scale(1 -1)">${path}</g>` : path;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">${content}</svg>`;
   }
 
   async function tracePendingBitmap() {
@@ -3898,7 +3900,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       const imageData = await rasterizeBitmap(file, 1800);
       updateWorkerJob("trace", { label: "Vectorizing contours", percent: 62, priority: 2 });
       await new Promise((resolve) => window.setTimeout(resolve, 0));
-      const svg = await traceImageData(imageData, getTraceSettings());
+      const svg = await traceImageData(imageData, getTraceSettings(), true);
       updateWorkerJob("trace", { label: "Importing vectors", percent: 88, priority: 2 });
       const entities = parseSvgFile(svg);
       if (!entities.length) {
