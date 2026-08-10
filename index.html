@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260810-layered-imports1">
+  <link rel="stylesheet" href="styles.css?v=20260810-cad-edit1">
 </head>
 <body>
   <div class="workspace-shell">
@@ -85,6 +85,9 @@
             <div class="canvas-tool-rail" aria-label="Canvas tools">
               <button type="button" id="selectModeBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon is-active" title="Select vectors" aria-label="Select vectors" aria-pressed="true">
                 <i class="fa-solid fa-arrow-pointer"></i>
+              </button>
+              <button type="button" id="cadEditModeBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Edit CAD shapes" aria-label="Edit CAD shapes" aria-pressed="false">
+                <i class="fa-solid fa-pen-to-square"></i>
               </button>
               <div id="cadActionGroup" class="tool-rail-group d-none" aria-label="Draw vectors">
                 <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon cad-tool-btn" data-cad-tool="line" title="Draw line" aria-label="Draw line">
@@ -482,6 +485,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-layered-imports1"></script>
+  <script type="module" src="app.js?v=20260810-cad-edit1"></script>
 </body>
 </html>

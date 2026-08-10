@@ -48,6 +48,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     vectorActionGroup: document.getElementById("vectorActionGroup"),
     cadActionGroup: document.getElementById("cadActionGroup"),
     selectModeBtn: document.getElementById("selectModeBtn"),
+    cadEditModeBtn: document.getElementById("cadEditModeBtn"),
     cadToolButtons: Array.from(document.querySelectorAll(".cad-tool-btn")),
     cadSnapBtn: document.getElementById("cadSnapBtn"),
     clearGuidesBtn: document.getElementById("clearGuidesBtn"),
@@ -185,6 +186,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     dragImportActive: false,
     isNavigatingView: false,
     transformTool: null,
+    cadEditMode: false,
     cadTool: null,
     cadDraft: null,
     cadSnapEnabled: true,
@@ -803,9 +805,11 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   }
 
   function updateSelectModeUi() {
-    const active = !state.cadTool && !state.transformTool && !state.geometryTransform;
+    const active = !state.cadEditMode && !state.cadTool && !state.transformTool && !state.geometryTransform;
     ui.selectModeBtn.classList.toggle("is-active", active);
     ui.selectModeBtn.setAttribute("aria-pressed", String(active));
+    ui.cadEditModeBtn.classList.toggle("is-active", state.cadEditMode);
+    ui.cadEditModeBtn.setAttribute("aria-pressed", String(state.cadEditMode));
   }
 
   function refreshTransformInspector() {
@@ -837,6 +841,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   function refreshSidebarMode() {
     const editing = getEditingToolpath();
     const count = state.selectedLoopIds.size;
+    const editingCad = state.cadEditMode;
     const showTransform = Boolean(state.transformTool) && count > 0;
     ui.selectionCount.textContent = String(count);
     ui.selectionHeading.textContent = showTransform
@@ -845,9 +850,9 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
         scale: "Resize Vectors",
         rotate: "Rotate Vectors",
       }[state.transformTool] || "Transform Vectors"
-      : editing ? "Edit Toolpath" : "Assign Toolpaths";
-    ui.selectionEmpty.classList.toggle("d-none", showTransform || count > 0 || Boolean(editing));
-    ui.toolpathForm.classList.toggle("d-none", showTransform || (count === 0 && !editing));
+      : editingCad ? "Edit CAD Shape" : editing ? "Edit Toolpath" : "Assign Toolpaths";
+    ui.selectionEmpty.classList.toggle("d-none", editingCad || showTransform || count > 0 || Boolean(editing));
+    ui.toolpathForm.classList.toggle("d-none", editingCad || showTransform || (count === 0 && !editing));
     ui.transformSidebarPanel.classList.toggle("d-none", !showTransform);
     refreshTransformInspector();
   }
@@ -2317,6 +2322,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   function refreshCadInspector() {
     const selected = getSelectedCadEntity();
     const show = Boolean(selected)
+      && state.cadEditMode
       && !state.cadInspectorDismissed
       && !state.cadTool
       && !state.transformTool
@@ -2462,6 +2468,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
   function setCadTool(nextTool) {
     state.cadTool = state.cadTool === nextTool ? null : nextTool;
+    state.cadEditMode = false;
     state.cadDraft = null;
     state.transformTool = null;
     for (const button of ui.cadToolButtons) {
@@ -2477,6 +2484,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   }
 
   function setSelectMode() {
+    state.cadEditMode = false;
     state.cadTool = null;
     state.cadDraft = null;
     state.transformTool = null;
@@ -2487,6 +2495,30 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     }
     updateTransformToolUi();
     refreshWorkspaceUi();
+    updateCanvasCursor();
+    requestDraw();
+  }
+
+  function setCadEditMode() {
+    state.cadEditMode = !state.cadEditMode;
+    state.cadTool = null;
+    state.cadDraft = null;
+    state.transformTool = null;
+    state.addTabsMode = false;
+    state.cadInspectorDismissed = false;
+    clearToolpathEditing();
+    clearDraftToolpath();
+    if (state.cadEditMode) {
+      state.selectedLoopIds.clear();
+      state.hoveredLoopId = null;
+    }
+    for (const button of ui.cadToolButtons) {
+      button.classList.remove("is-active");
+      button.setAttribute("aria-pressed", "false");
+    }
+    updateTransformToolUi();
+    refreshWorkspaceUi();
+    refreshCadInspector();
     updateCanvasCursor();
     requestDraw();
   }
@@ -3509,13 +3541,16 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     draw();
   }
 
-  function findLoopHit(point) {
+  function findLoopHit(point, predicate = null) {
     if (loopPathsDirty) {
       rebuildLoopPaths();
       loopPathsDirty = false;
     }
     for (let i = state.loops.length - 1; i >= 0; i -= 1) {
       const loop = state.loops[i];
+      if (predicate && !predicate(loop)) {
+        continue;
+      }
       if (loop.closed !== false) {
         if (ctx.isPointInPath(loop.path2d, point.x, point.y)) {
           return loop;
@@ -3531,6 +3566,31 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       }
     }
     return null;
+  }
+
+  function isCadLoop(loop) {
+    return (loop.sourceEntityIndexes || []).some((index) => {
+      const entity = state.entities[index];
+      return entity?.__cadShape && entity.__cadShape !== "guide";
+    });
+  }
+
+  function findCadLoopHit(point) {
+    return findLoopHit(point, isCadLoop);
+  }
+
+  function pickCadLoopAtScreenPoint(point) {
+    const hit = findCadLoopHit(point);
+    state.selectedLoopIds.clear();
+    if (hit) {
+      state.selectedLoopIds.add(hit.id);
+      state.cadInspectorDismissed = false;
+    }
+    updateTransformToolUi();
+    refreshWorkspaceUi();
+    refreshCadInspector();
+    updateCanvasCursor(point);
+    requestDraw();
   }
 
   function normalizeScreenRect(a, b) {
@@ -3813,7 +3873,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       state,
       screenPoint,
       findTabHit,
-      findLoopHit,
+      findLoopHit: state.cadEditMode ? findCadLoopHit : findLoopHit,
       transformCursor: transformHit?.cursor || "",
     });
   }
@@ -3874,9 +3934,11 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   ui.undoBtn.addEventListener("click", undoHistory);
   ui.redoBtn.addEventListener("click", redoHistory);
   ui.selectModeBtn.addEventListener("click", setSelectMode);
+  ui.cadEditModeBtn.addEventListener("click", setCadEditMode);
   ui.transformToolButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const requestedTool = button.dataset.transformTool || null;
+      state.cadEditMode = false;
       state.cadTool = null;
       state.cadDraft = null;
       for (const cadButton of ui.cadToolButtons) {
@@ -4282,6 +4344,10 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       updateCanvasCursor(point);
       return;
     }
+    if (event.button === 0 && state.cadEditMode) {
+      pickCadLoopAtScreenPoint(point);
+      return;
+    }
     const transformHit = findTransformHit(point);
     if (event.button === 0 && transformHit && beginGeometryTransform(transformHit.type, point, transformHit)) {
       updateCanvasCursor(point);
@@ -4470,7 +4536,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     state.hoveredTab = findTabHit(point);
     state.hoveredLoopId = state.addTabsMode || Boolean(state.transformTool)
       ? null
-      : findLoopHit(point)?.id || null;
+      : (state.cadEditMode ? findCadLoopHit(point) : findLoopHit(point))?.id || null;
     updateHoveredTabCandidate(point);
     updateCanvasCursor(point);
     requestDraw();

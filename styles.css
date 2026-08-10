@@ -518,6 +518,10 @@ body {
   background: #a9bfff;
 }
 
+#cadEditModeBtn.is-active {
+  background: var(--funky-peach);
+}
+
 .canvas-tool-btn-label {
   font-size: 0.78rem;
   font-weight: 900;
