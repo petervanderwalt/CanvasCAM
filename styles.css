@@ -25,13 +25,13 @@
   --funky-cream: #fff8d8;
   --funky-lavender: #cbc4ff;
   --ribbon-file: #b8d6ff;
-  --ribbon-file-soft: #eef5ff;
+  --ribbon-file-soft: #dbe9ff;
   --ribbon-draw: #c9f1bd;
-  --ribbon-draw-soft: #eefbe9;
+  --ribbon-draw-soft: #dff3d6;
   --ribbon-edit: #ffcaa4;
-  --ribbon-edit-soft: #fff0e5;
+  --ribbon-edit-soft: #ffe1ce;
   --ribbon-view: #d8ccff;
-  --ribbon-view-soft: #f3efff;
+  --ribbon-view-soft: #e6ddff;
   --funky-shadow: 0 6px 0 rgba(17, 17, 17, 0.96);
 }
 
@@ -292,10 +292,10 @@ body {
   border-radius: 0;
 }
 
-.ribbon-panel[data-ribbon-panel="file"] { background: linear-gradient(90deg, var(--ribbon-file-soft), rgba(255, 255, 255, 0.86)); }
-.ribbon-panel[data-ribbon-panel="cad"] { background: linear-gradient(90deg, var(--ribbon-draw-soft), rgba(255, 255, 255, 0.86)); }
-.ribbon-panel[data-ribbon-panel="edit"] { background: linear-gradient(90deg, var(--ribbon-edit-soft), rgba(255, 255, 255, 0.86)); }
-.ribbon-panel[data-ribbon-panel="view"] { background: linear-gradient(90deg, var(--ribbon-view-soft), rgba(255, 255, 255, 0.86)); }
+.ribbon-panel[data-ribbon-panel="file"] { background: var(--ribbon-file-soft); }
+.ribbon-panel[data-ribbon-panel="cad"] { background: var(--ribbon-draw-soft); }
+.ribbon-panel[data-ribbon-panel="edit"] { background: var(--ribbon-edit-soft); }
+.ribbon-panel[data-ribbon-panel="view"] { background: var(--ribbon-view-soft); }
 
 .ribbon-panel.is-active {
   display: flex;
