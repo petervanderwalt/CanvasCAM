@@ -8,7 +8,7 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260730-vcarve12";
 import * as Paths from "./src/paths.js?v=20260730-vcarve12";
 import * as CamOps from "./src/cam-ops.js?v=20260730-vcarve12";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260730-vcarve12";
+import * as CanvasView from "./src/canvas-view.js?v=20260810-origin-label1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 
 (function () {

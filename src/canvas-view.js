@@ -484,7 +484,9 @@ export function drawOriginGuides(ctx, rect, state, worldToScreen, formatNumber) 
     ctx.fill();
     ctx.fillStyle = "#0f172a";
     ctx.font = "12px sans-serif";
-    ctx.fillText("X0, Y0", originScreen.x + 8, originScreen.y - 8);
+    ctx.textAlign = "right";
+    ctx.textBaseline = "top";
+    ctx.fillText("X0, Y0", originScreen.x - 8, originScreen.y + 8);
   }
 
   ctx.restore();
