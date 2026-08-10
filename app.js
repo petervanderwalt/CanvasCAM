@@ -60,6 +60,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     cadEditModeBtn: document.getElementById("cadEditModeBtn"),
     cadToolButtons: Array.from(document.querySelectorAll(".cad-tool-btn")),
     cadSnapBtn: document.getElementById("cadSnapBtn"),
+    objectTreeToggleBtn: document.getElementById("objectTreeToggleBtn"),
+    objectTreePanel: document.getElementById("objectTreePanel"),
+    objectTreeCloseBtn: document.getElementById("objectTreeCloseBtn"),
+    objectTreeContent: document.getElementById("objectTreeContent"),
+    objectTreeMenu: document.getElementById("objectTreeMenu"),
     gridSettingsModal: document.getElementById("gridSettingsModal"),
     gridVisibleInput: document.getElementById("gridVisibleInput"),
     gridStyleInputs: Array.from(document.querySelectorAll("input[name='gridStyle']")),
@@ -249,6 +254,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     gridVisible: true,
     gridStyle: "lines",
     gridSpacing: 10,
+    objectTreeOpen: false,
+    objectTreeCollapsedKeys: new Set(),
+    objectTreeMenuEntityIndex: null,
     cadInspectorDismissed: false,
     pendingBitmapFile: null,
     traceSourceImageData: null,
@@ -957,7 +965,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const historyBefore = captureHistorySnapshot();
     const offset = state.cadSnapEnabled ? getGridSpacing() : 5;
     const startIndex = state.entities.length;
-    const copies = indexes.map((index) => translateEntity(deepClone(state.entities[index]), offset, offset));
+    const copies = indexes.map((index) => {
+      const copy = translateEntity(deepClone(state.entities[index]), offset, offset);
+      copy.__treeId = crypto.randomUUID();
+      copy.__treeHidden = false;
+      return copy;
+    });
     state.entities.push(...copies);
     rebuildLoopsFromEntities(new Set());
     state.selectedLoopIds.clear();
@@ -1205,12 +1218,13 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const selectedIndexes = new Set(getSelectedEntityIndexes());
     const selectedSignatures = selectedLoopSignatures();
     const snapshots = snapshotToolpathsForRebuild();
-    const resultEntities = result.map((points) => ({
+    const resultEntities = result.map((points) => assignObjectTreeMetadata({
       type: "LWPOLYLINE",
       closed: true,
       vertices: points.slice(0, -1).map((point) => ({ x: point.x, y: point.y, bulge: 0 })),
       __booleanResult: true,
-    }));
+      layer: "Boolean results",
+    }, { id: "cad", name: "CAD", source: "CAD" }));
     state.entities = state.entities.filter((_, index) => !selectedIndexes.has(index));
     const insertedStart = state.entities.length;
     state.entities.push(...resultEntities);
@@ -2297,7 +2311,223 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     ui.vectorActionGroup.classList.remove("d-none");
     ui.cadActionGroup.classList.toggle("d-none", false);
     ui.clearGuidesBtn.classList.toggle("d-none", !state.entities.some((entity) => entity.type === "GUIDE"));
+    refreshObjectTree();
 
+  }
+
+  function ensureObjectTreeMetadata() {
+    for (const entity of state.entities) {
+      if (!entity.__treeId) {
+        entity.__treeId = crypto.randomUUID();
+      }
+      if (!entity.__treeDocumentId) {
+        entity.__treeDocumentId = entity.__cadShape ? "cad" : "legacy-import";
+        entity.__treeDocumentName = entity.__cadShape ? "CAD" : (state.fileName || "Imported vectors");
+        entity.__treeSource = entity.__cadShape ? "CAD" : "Import";
+      }
+    }
+  }
+
+  function assignObjectTreeMetadata(entity, documentInfo) {
+    entity.__treeId = crypto.randomUUID();
+    entity.__treeDocumentId = documentInfo.id;
+    entity.__treeDocumentName = documentInfo.name;
+    entity.__treeSource = documentInfo.source;
+    entity.__treeHidden = false;
+    return entity;
+  }
+
+  function objectTreeEntityLabel(entity, index) {
+    if (entity.type === "CAD_TEXT") {
+      return `Text: ${(entity.text || "Untitled").slice(0, 32)}`;
+    }
+    if (entity.__cadShape) {
+      return cadShapeLabel(entity.__cadShape);
+    }
+    const type = entity.type || "Vector";
+    const handle = entity.handle ? ` ${entity.handle}` : "";
+    return `${type}${handle || ` ${index + 1}`}`;
+  }
+
+  function createObjectTreeRow({ label, depth = 0, expanded = null, selected = false, hidden = false, entityIndexes = [], key = "" }) {
+    const row = document.createElement("div");
+    row.className = "object-tree-row";
+    row.style.setProperty("--tree-depth", String(depth));
+    row.classList.toggle("is-selected", selected);
+    row.classList.toggle("is-hidden", hidden);
+    if (expanded !== null) {
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "object-tree-expander";
+      toggle.dataset.treeToggle = key;
+      toggle.setAttribute("aria-label", expanded ? "Collapse" : "Expand");
+      toggle.innerHTML = `<i class="fa-solid fa-chevron-${expanded ? "down" : "right"}"></i>`;
+      row.append(toggle);
+    } else {
+      const spacer = document.createElement("span");
+      spacer.className = "object-tree-expander-spacer";
+      row.append(spacer);
+    }
+    const labelButton = document.createElement("button");
+    labelButton.type = "button";
+    labelButton.className = "object-tree-label";
+    labelButton.textContent = label;
+    labelButton.dataset.treeSelect = entityIndexes.join(",");
+    row.append(labelButton);
+    if (entityIndexes.length) {
+      const visibility = document.createElement("button");
+      visibility.type = "button";
+      visibility.className = "object-tree-visibility";
+      visibility.dataset.treeVisibility = entityIndexes.join(",");
+      visibility.setAttribute("aria-label", hidden ? "Show" : "Hide");
+      visibility.innerHTML = `<i class="fa-solid fa-eye${hidden ? "-slash" : ""}"></i>`;
+      row.append(visibility);
+    }
+    return row;
+  }
+
+  function refreshObjectTree() {
+    if (!ui.objectTreeContent) {
+      return;
+    }
+    ensureObjectTreeMetadata();
+    ui.objectTreePanel.classList.toggle("d-none", !state.objectTreeOpen);
+    ui.objectTreeToggleBtn.classList.toggle("is-active", state.objectTreeOpen);
+    ui.objectTreeToggleBtn.setAttribute("aria-pressed", String(state.objectTreeOpen));
+    if (!state.objectTreeOpen) {
+      return;
+    }
+    const selectedIndexes = new Set(getSelectedEntityIndexes());
+    const documents = new Map();
+    state.entities.forEach((entity, index) => {
+      const id = entity.__treeDocumentId;
+      if (!documents.has(id)) {
+        documents.set(id, { id, name: entity.__treeDocumentName || "Untitled", source: entity.__treeSource || "Import", entries: [] });
+      }
+      documents.get(id).entries.push({ entity, index });
+    });
+    ui.objectTreeContent.replaceChildren();
+    if (!documents.size) {
+      const empty = document.createElement("div");
+      empty.className = "object-tree-empty";
+      empty.textContent = "No objects yet.";
+      ui.objectTreeContent.append(empty);
+      return;
+    }
+    for (const documentInfo of documents.values()) {
+      const documentKey = `document:${documentInfo.id}`;
+      const documentExpanded = !state.objectTreeCollapsedKeys.has(documentKey);
+      const documentIndexes = documentInfo.entries.map(({ index }) => index);
+      const documentHidden = documentInfo.entries.every(({ entity }) => entity.__treeHidden);
+      ui.objectTreeContent.append(createObjectTreeRow({
+        label: documentInfo.name,
+        depth: 0,
+        expanded: documentExpanded,
+        hidden: documentHidden,
+        entityIndexes: documentIndexes,
+        key: documentKey,
+      }));
+      if (!documentExpanded) {
+        continue;
+      }
+      const layers = new Map();
+      for (const entry of documentInfo.entries) {
+        const layer = documentInfo.source === "CAD" ? "CAD items" : (entry.entity.layer || "Layer 0");
+        if (!layers.has(layer)) {
+          layers.set(layer, []);
+        }
+        layers.get(layer).push(entry);
+      }
+      for (const [layer, entries] of layers) {
+        const layerKey = `${documentKey}:layer:${layer}`;
+        const layerExpanded = !state.objectTreeCollapsedKeys.has(layerKey);
+        const layerIndexes = entries.map(({ index }) => index);
+        const layerHidden = entries.every(({ entity }) => entity.__treeHidden);
+        ui.objectTreeContent.append(createObjectTreeRow({
+          label: layer,
+          depth: 1,
+          expanded: layerExpanded,
+          hidden: layerHidden,
+          entityIndexes: layerIndexes,
+          key: layerKey,
+        }));
+        if (!layerExpanded) {
+          continue;
+        }
+        for (const { entity, index } of entries) {
+          ui.objectTreeContent.append(createObjectTreeRow({
+            label: objectTreeEntityLabel(entity, index),
+            depth: 2,
+            selected: selectedIndexes.has(index),
+            hidden: Boolean(entity.__treeHidden),
+            entityIndexes: [index],
+          }));
+        }
+      }
+    }
+  }
+
+  function selectObjectTreeEntities(indexes, append = false) {
+    const targetIndexes = indexes.filter((index) => Number.isInteger(index) && state.entities[index]);
+    if (!targetIndexes.length) {
+      return;
+    }
+    clearToolpathEditing();
+    const matchingLoopIds = state.loops
+      .filter((loop) => loop.sourceEntityIndexes?.some((index) => targetIndexes.includes(index)))
+      .map((loop) => loop.id);
+    if (!append) {
+      state.selectedLoopIds.clear();
+    }
+    const shouldRemove = append && matchingLoopIds.every((id) => state.selectedLoopIds.has(id));
+    matchingLoopIds.forEach((id) => state.selectedLoopIds[shouldRemove ? "delete" : "add"](id));
+    state.cadInspectorDismissed = false;
+    refreshSelectionUi();
+    refreshToolpathUi();
+    requestDraw();
+  }
+
+  function toggleObjectTreeVisibility(indexes) {
+    const entries = indexes.map((index) => state.entities[index]).filter(Boolean);
+    if (!entries.length) {
+      return;
+    }
+    const historyBefore = captureHistorySnapshot();
+    const shouldHide = entries.some((entity) => !entity.__treeHidden);
+    entries.forEach((entity) => { entity.__treeHidden = shouldHide; });
+    pushHistorySnapshot(historyBefore);
+    refreshObjectTree();
+    requestDraw();
+  }
+
+  function showObjectTreeMenu(event, entityIndex) {
+    const entity = state.entities[entityIndex];
+    if (!entity) {
+      return;
+    }
+    event.preventDefault();
+    selectObjectTreeEntities([entityIndex], event.ctrlKey || event.metaKey);
+    state.objectTreeMenuEntityIndex = entityIndex;
+    ui.objectTreeMenu.classList.remove("d-none");
+    ui.objectTreeMenu.style.left = `${Math.min(window.innerWidth - 168, event.clientX)}px`;
+    ui.objectTreeMenu.style.top = `${Math.min(window.innerHeight - 170, event.clientY)}px`;
+    ui.objectTreeMenu.querySelector('[data-tree-action="edit"]').classList.toggle("d-none", !entity.__cadShape || entity.__cadShape === "guide");
+  }
+
+  function hideObjectTreeMenu() {
+    state.objectTreeMenuEntityIndex = null;
+    ui.objectTreeMenu.classList.add("d-none");
+  }
+
+  function activateObjectTreeTransform(tool) {
+    state.cadEditMode = false;
+    state.cadTool = null;
+    state.cadDraft = null;
+    state.transformTool = tool;
+    updateTransformToolUi();
+    refreshSidebarMode();
+    updateCanvasCursor();
+    requestDraw();
   }
 
   function resizeCanvas() {
@@ -2774,7 +3004,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     const historyBefore = captureHistorySnapshot();
     const index = state.entities.length;
-    state.entities.push(entity);
+    state.entities.push(assignObjectTreeMetadata(entity, { id: "cad", name: "CAD", source: "CAD" }));
     rebuildLoopsFromEntities(new Set());
     if (entity.type !== "GUIDE") {
       selectEntityIndex(index);
@@ -2823,7 +3053,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const historyBefore = captureHistorySnapshot();
     const index = state.entities.length;
     try {
-      state.entities.push(await createCadTextEntity(state.cadTextPlacement, text, height, fontId));
+      state.entities.push(assignObjectTreeMetadata(
+        await createCadTextEntity(state.cadTextPlacement, text, height, fontId),
+        { id: "cad", name: "CAD", source: "CAD" }
+      ));
     } catch (error) {
       showToast(error?.message || "Could not create vector text.", "danger");
       return;
@@ -3738,6 +3971,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (!hasExistingGeometry) {
       state.fileName = name;
     }
+    const documentInfo = { id: crypto.randomUUID(), name, source: sourceLabel };
     const rawBounds = boundsOfEntities(entities);
     const shiftX = rawBounds ? -rawBounds.minX : 0;
     const shiftY = rawBounds ? (sourceLabel === "SVG" ? rawBounds.maxY : -rawBounds.minY) : 0;
@@ -3745,10 +3979,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.importTranslation = { x: shiftX, y: shiftY };
     const importedEntities = entities.map((entity) => {
       const translated = translateEntity(entity, shiftX, sourceLabel === "SVG" ? 0 : shiftY);
-      if (sourceLabel !== "SVG") {
-        return translated;
-      }
-      return mirrorEntityY(translated, rawBounds?.maxY || 0);
+      const positioned = sourceLabel !== "SVG"
+        ? translated
+        : mirrorEntityY(translated, rawBounds?.maxY || 0);
+      return assignObjectTreeMetadata(positioned, documentInfo);
     });
     state.entities.push(...importedEntities);
     state.emptyCanvasStarted = false;
@@ -4154,6 +4388,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     for (let i = state.loops.length - 1; i >= 0; i -= 1) {
       const loop = state.loops[i];
+      if (loop.sourceEntityIndexes?.length && loop.sourceEntityIndexes.every((index) => state.entities[index]?.__treeHidden)) {
+        continue;
+      }
       if (predicate && !predicate(loop)) {
         continue;
       }
@@ -4759,6 +4996,96 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   ui.clearGuidesBtn.addEventListener("click", clearConstructionGuides);
   ui.cadSnapBtn.addEventListener("click", () => {
     openGridSettings();
+  });
+  ui.objectTreeToggleBtn.addEventListener("click", () => {
+    state.objectTreeOpen = !state.objectTreeOpen;
+    refreshObjectTree();
+  });
+  ui.objectTreeCloseBtn.addEventListener("click", () => {
+    state.objectTreeOpen = false;
+    hideObjectTreeMenu();
+    refreshObjectTree();
+  });
+  ui.objectTreeContent.addEventListener("click", (event) => {
+    const target = event.target.closest("button");
+    if (!target) {
+      return;
+    }
+    if (target.dataset.treeToggle) {
+      const key = target.dataset.treeToggle;
+      if (state.objectTreeCollapsedKeys.has(key)) {
+        state.objectTreeCollapsedKeys.delete(key);
+      } else {
+        state.objectTreeCollapsedKeys.add(key);
+      }
+      refreshObjectTree();
+      return;
+    }
+    const indexes = (target.dataset.treeVisibility || target.dataset.treeSelect || "")
+      .split(",")
+      .filter(Boolean)
+      .map((value) => Number.parseInt(value, 10));
+    if (target.dataset.treeVisibility) {
+      toggleObjectTreeVisibility(indexes);
+      return;
+    }
+    if (target.dataset.treeSelect) {
+      selectObjectTreeEntities(indexes, event.ctrlKey || event.metaKey);
+    }
+  });
+  ui.objectTreeContent.addEventListener("contextmenu", (event) => {
+    const label = event.target.closest("[data-tree-select]");
+    if (!label) {
+      return;
+    }
+    event.preventDefault();
+    const indexes = label.dataset.treeSelect.split(",").filter(Boolean).map((value) => Number.parseInt(value, 10));
+    if (indexes.length === 1) {
+      showObjectTreeMenu(event, indexes[0]);
+    }
+  });
+  ui.objectTreeContent.addEventListener("mouseover", (event) => {
+    const label = event.target.closest("[data-tree-select]");
+    const indexes = label?.dataset.treeSelect?.split(",").filter(Boolean).map((value) => Number.parseInt(value, 10)) || [];
+    if (indexes.length !== 1) {
+      return;
+    }
+    const loop = state.loops.find((candidate) => candidate.sourceEntityIndexes?.includes(indexes[0]));
+    if (loop && !state.selectedLoopIds.has(loop.id)) {
+      state.hoveredLoopId = loop.id;
+      requestDraw();
+    }
+  });
+  ui.objectTreeContent.addEventListener("mouseleave", () => {
+    if (state.hoveredLoopId) {
+      state.hoveredLoopId = null;
+      requestDraw();
+    }
+  });
+  ui.objectTreeMenu.addEventListener("click", async (event) => {
+    const action = event.target.closest("[data-tree-action]")?.dataset.treeAction;
+    const entityIndex = state.objectTreeMenuEntityIndex;
+    if (!action || entityIndex == null) {
+      return;
+    }
+    hideObjectTreeMenu();
+    if (action === "delete") {
+      await deleteSelectedVectors();
+    } else if (action === "edit") {
+      state.cadEditMode = true;
+      state.transformTool = null;
+      updateSelectModeUi();
+      refreshSidebarMode();
+      refreshCadInspector();
+      requestDraw();
+    } else {
+      activateObjectTreeTransform(action === "resize" ? "scale" : "move");
+    }
+  });
+  document.addEventListener("mousedown", (event) => {
+    if (!ui.objectTreeMenu.contains(event.target)) {
+      hideObjectTreeMenu();
+    }
   });
   ui.applyGridSettingsBtn.addEventListener("click", applyGridSettings);
   ui.confirmationAcceptBtn.addEventListener("click", () => resolveConfirmation(true));

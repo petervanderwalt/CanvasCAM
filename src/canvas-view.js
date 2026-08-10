@@ -21,6 +21,9 @@ export function drawScene({
   drawConstructionGuides(ctx, rect, state, worldToScreen);
 
   for (const loop of state.loops) {
+    if (loop.sourceEntityIndexes?.length && loop.sourceEntityIndexes.every((index) => state.entities[index]?.__treeHidden)) {
+      continue;
+    }
     const isSelected = state.selectedLoopIds.has(loop.id);
     const isPreviewed = state.marqueePreviewLoopIds.has(loop.id) && !isSelected;
     const isHovered = state.hoveredLoopId === loop.id && !isSelected && !isPreviewed;
