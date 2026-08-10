@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260810-text-tool1">
+  <link rel="stylesheet" href="styles.css?v=20260810-font-text2">
 </head>
 <body>
   <div class="workspace-shell">
@@ -145,6 +145,12 @@
             </div>
             <label class="cad-text-field" for="cadTextInput">Text</label>
             <input id="cadTextInput" type="text" maxlength="80" value="TEXT" autocomplete="off">
+            <label class="cad-text-field" for="cadTextFontSelect">Font</label>
+            <select id="cadTextFontSelect" class="cad-text-font-select">
+              <option value="single-line" class="font-single-line">Single Line Engraving</option>
+              <option value="space-mono" class="font-space-mono">Space Mono</option>
+              <option value="bungee" class="font-bungee">Bungee</option>
+            </select>
             <label class="cad-text-field" for="cadTextHeightInput">Height</label>
             <div class="cad-text-height-row"><input id="cadTextHeightInput" type="number" min="0.1" step="0.1" value="20"><span>mm</span></div>
             <button id="cadTextAddBtn" type="button" class="btn btn-success cad-inspector-apply">Add Text</button>
@@ -482,6 +488,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-text-tool3"></script>
+  <script type="module" src="app.js?v=20260810-font-text3"></script>
 </body>
 </html>

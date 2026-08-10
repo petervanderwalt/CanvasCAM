@@ -687,7 +687,8 @@ export function buildLoops(entities) {
     if (entity.type === "CAD_TEXT") {
       for (const stroke of entity.strokes || []) {
         if (stroke.length >= 2) {
-          loops.push(buildOpenChain([polylineSegmentFromPoints(stroke, entity, entityIndex)]));
+          const segment = polylineSegmentFromPoints(stroke, entity, entityIndex);
+          loops.push(entity.__cadTextMode === "outline" ? buildLoopFromChain([segment]) : buildOpenChain([segment]));
         }
       }
       continue;

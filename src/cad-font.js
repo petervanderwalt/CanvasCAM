@@ -1,3 +1,5 @@
+import { parse as parseOpenType } from "../vendor/opentype.module.js?v=1.3.4";
+
 const GLYPHS = {
   A: [[[0, 0], [2, 6], [4, 0]], [[0.75, 3], [3.25, 3]]],
   B: [[[0, 0], [0, 6], [2.8, 6], [4, 5], [4, 3.5], [2.8, 3], [0, 3]], [[2.8, 3], [4, 2.5], [4, 1], [2.8, 0], [0, 0]]],
@@ -40,6 +42,14 @@ const GLYPHS = {
   "/": [[[0, 0], [4, 6]]],
 };
 
+export const FONT_OPTIONS = [
+  { id: "single-line", name: "Single Line Engraving", kind: "stroke", family: "CadEngraving" },
+  { id: "space-mono", name: "Space Mono", kind: "outline", family: "Space Mono", asset: "assets/fonts/SpaceMono-Regular.ttf" },
+  { id: "bungee", name: "Bungee", kind: "outline", family: "Bungee", asset: "assets/fonts/Bungee-Regular.ttf" },
+];
+
+const outlineFontCache = new Map();
+
 export function createStrokeText(text, origin, height) {
   const scale = Math.max(0.1, height) / 6;
   let cursor = origin.x;
@@ -59,4 +69,75 @@ export function createStrokeText(text, origin, height) {
     cursor += scale * 5;
   }
   return strokes;
+}
+
+export async function loadOutlineFont(fontId) {
+  const option = FONT_OPTIONS.find((candidate) => candidate.id === fontId);
+  if (!option?.asset) {
+    throw new Error("The selected outline font is unavailable.");
+  }
+  if (outlineFontCache.has(fontId)) {
+    return outlineFontCache.get(fontId);
+  }
+  const response = await fetch(option.asset);
+  if (!response.ok) {
+    throw new Error(`Could not load ${option.name}.`);
+  }
+  const font = parseOpenType(await response.arrayBuffer());
+  outlineFontCache.set(fontId, font);
+  return font;
+}
+
+export function createOutlineText(font, text, origin, height) {
+  const path = font.getPath(text, 0, 0, height);
+  const contours = [];
+  let contour = null;
+  let cursor = null;
+  let start = null;
+
+  const appendPoint = (x, y) => {
+    const point = { x: origin.x + x, y: origin.y - y };
+    if (!contour || !cursor || Math.hypot(point.x - cursor.x, point.y - cursor.y) > 1e-6) {
+      contour.push(point);
+      cursor = point;
+    }
+  };
+  const closeContour = () => {
+    if (contour?.length > 1 && start) {
+      appendPoint(start.x - origin.x, origin.y - start.y);
+      contours.push(contour);
+    }
+    contour = null;
+    cursor = null;
+    start = null;
+  };
+
+  for (const command of path.commands) {
+    if (command.type === "M") {
+      closeContour();
+      contour = [];
+      appendPoint(command.x, command.y);
+      start = cursor;
+    } else if (command.type === "L") {
+      appendPoint(command.x, command.y);
+    } else if (command.type === "Q" && cursor) {
+      const from = { x: cursor.x - origin.x, y: origin.y - cursor.y };
+      for (let step = 1; step <= 8; step += 1) {
+        const t = step / 8;
+        const mt = 1 - t;
+        appendPoint(mt * mt * from.x + 2 * mt * t * command.x1 + t * t * command.x, mt * mt * from.y + 2 * mt * t * command.y1 + t * t * command.y);
+      }
+    } else if (command.type === "C" && cursor) {
+      const from = { x: cursor.x - origin.x, y: origin.y - cursor.y };
+      for (let step = 1; step <= 12; step += 1) {
+        const t = step / 12;
+        const mt = 1 - t;
+        appendPoint(mt ** 3 * from.x + 3 * mt ** 2 * t * command.x1 + 3 * mt * t ** 2 * command.x2 + t ** 3 * command.x, mt ** 3 * from.y + 3 * mt ** 2 * t * command.y1 + 3 * mt * t ** 2 * command.y2 + t ** 3 * command.y);
+      }
+    } else if (command.type === "Z") {
+      closeContour();
+    }
+  }
+  closeContour();
+  return contours;
 }

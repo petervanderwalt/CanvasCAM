@@ -10,7 +10,7 @@ import * as CamOps from "./src/cam-ops.js?v=20260730-vcarve12";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
 import * as CanvasView from "./src/canvas-view.js?v=20260810-solid-draft1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
-import * as CadFont from "./src/cad-font.js?v=20260810-text1";
+import * as CadFont from "./src/cad-font.js?v=20260810-fonts2";
 
 (function () {
 
@@ -66,6 +66,7 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text1";
     applyCadInspectorBtn: document.getElementById("applyCadInspectorBtn"),
     cadTextPanel: document.getElementById("cadTextPanel"),
     cadTextInput: document.getElementById("cadTextInput"),
+    cadTextFontSelect: document.getElementById("cadTextFontSelect"),
     cadTextHeightInput: document.getElementById("cadTextHeightInput"),
     cadTextAddBtn: document.getElementById("cadTextAddBtn"),
     cadTextCancelBtn: document.getElementById("cadTextCancelBtn"),
@@ -2270,13 +2271,20 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text1";
     return null;
   }
 
-  function createCadTextEntity(origin, text, height) {
+  async function createCadTextEntity(origin, text, height, fontId) {
+    const fontOption = CadFont.FONT_OPTIONS.find((option) => option.id === fontId) || CadFont.FONT_OPTIONS[0];
+    const outlineFont = fontOption.kind === "outline" ? await CadFont.loadOutlineFont(fontOption.id) : null;
     return {
       type: "CAD_TEXT",
       __cadShape: "text",
       text,
       height,
-      strokes: CadFont.createStrokeText(text, origin, height),
+      fontId: fontOption.id,
+      fontName: fontOption.name,
+      __cadTextMode: fontOption.kind,
+      strokes: outlineFont
+        ? CadFont.createOutlineText(outlineFont, text, origin, height)
+        : CadFont.createStrokeText(text, origin, height),
     };
   }
 
@@ -2445,11 +2453,17 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text1";
     ui.cadTextPanel.classList.add("d-none");
   }
 
-  function commitCadText() {
+  function updateCadTextFontPreview() {
+    const option = CadFont.FONT_OPTIONS.find((candidate) => candidate.id === ui.cadTextFontSelect.value);
+    ui.cadTextFontSelect.style.fontFamily = option?.family || "sans-serif";
+  }
+
+  async function commitCadText() {
     if (!state.cadTextPlacement) {
       return;
     }
     const text = ui.cadTextInput.value.trim();
+    const fontId = ui.cadTextFontSelect.value;
     const height = Number.parseFloat(ui.cadTextHeightInput.value);
     if (!text) {
       showToast("Enter text to add.", "warning");
@@ -2462,7 +2476,12 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text1";
     }
     const historyBefore = captureHistorySnapshot();
     const index = state.entities.length;
-    state.entities.push(createCadTextEntity(state.cadTextPlacement, text, height));
+    try {
+      state.entities.push(await createCadTextEntity(state.cadTextPlacement, text, height, fontId));
+    } catch (error) {
+      showToast(error?.message || "Could not create vector text.", "danger");
+      return;
+    }
     rebuildLoopsFromEntities(new Set());
     selectEntityIndex(index);
     hideCadTextPanel();
@@ -4133,6 +4152,8 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text1";
   });
   ui.cadTextAddBtn.addEventListener("click", commitCadText);
   ui.cadTextCancelBtn.addEventListener("click", hideCadTextPanel);
+  ui.cadTextFontSelect.addEventListener("change", updateCadTextFontPreview);
+  updateCadTextFontPreview();
   ui.applyCadInspectorBtn.addEventListener("click", applyCadInspectorChanges);
   ui.transformAspectLockBtn.addEventListener("click", () => {
     state.transformAspectLocked = !state.transformAspectLocked;
