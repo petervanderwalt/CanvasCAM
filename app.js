@@ -1045,9 +1045,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
         }
         const rect = content.getBoundingClientRect();
         const offset = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+        // Keep a title-bar-sized recovery handle on screen, without limiting
+        // the dialog itself to the canvas or its original centered position.
+        const visibleHandle = 56;
         const clampPosition = (left, top) => ({
-          left: Math.max(8, Math.min(left, Math.max(8, window.innerWidth - rect.width - 8))),
-          top: Math.max(8, Math.min(top, Math.max(8, window.innerHeight - rect.height - 8))),
+          left: Math.max(visibleHandle - rect.width, Math.min(left, window.innerWidth - visibleHandle)),
+          top: Math.max(8, Math.min(top, window.innerHeight - visibleHandle)),
         });
         const position = clampPosition(rect.left, rect.top);
         dialog.classList.add("is-drag-positioned");
