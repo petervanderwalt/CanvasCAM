@@ -2,7 +2,7 @@ import {
   MARQUEE_DRAG_THRESHOLD,
   TAB_DELETE_HOLD_MS,
   TAB_DELETE_MOVE_THRESHOLD,
-} from "./src/constants.js?v=20260730-vcarve12";
+} from "./src/constants.js?v=20260810-marquee1";
 import { parseDxf as parseDxfFile } from "./src/dxf.js?v=20260730-vcarve12";
 import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260730-vcarve12";
 import * as Paths from "./src/paths.js?v=20260810-text1";
