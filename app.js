@@ -8,7 +8,7 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpat
 import * as Paths from "./src/paths.js?v=20260810-text1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260810-grid-snap1";
+import * as CanvasView from "./src/canvas-view.js?v=20260810-expand-vectors1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library100";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
@@ -29,6 +29,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   let myEndmillsModalInstance = null;
   let bitmapTraceModalInstance = null;
   let booleanModalInstance = null;
+  let expandModalInstance = null;
   let workspaceSettingsModalInstance = null;
   let gridSettingsModalInstance = null;
   let confirmationModalInstance = null;
@@ -111,10 +112,15 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     deleteVectorsBtn: document.getElementById("deleteVectorsBtn"),
     duplicateVectorsBtn: document.getElementById("duplicateVectorsBtn"),
     booleanVectorsBtn: document.getElementById("booleanVectorsBtn"),
+    expandVectorsBtn: document.getElementById("expandVectorsBtn"),
     booleanModal: document.getElementById("booleanModal"),
     booleanModalSummary: document.getElementById("booleanModalSummary"),
     booleanOperationInputs: Array.from(document.querySelectorAll("input[name='booleanOperation']")),
     applyBooleanBtn: document.getElementById("applyBooleanBtn"),
+    expandModal: document.getElementById("expandModal"),
+    expandModalSummary: document.getElementById("expandModalSummary"),
+    expandAmountInput: document.getElementById("expandAmountInput"),
+    applyExpandBtn: document.getElementById("applyExpandBtn"),
     transformSidebarPanel: document.getElementById("transformSidebarPanel"),
     transformInspector: document.getElementById("transformInspector"),
     transformMoveGroup: document.getElementById("transformMoveGroup"),
@@ -272,6 +278,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     tracePreviewToken: 0,
     tracePreviewSvg: "",
     booleanPreviewContours: null,
+    expandPreviewContours: null,
     booleanOperation: "union",
     geometryTransform: null,
     transformingGeometry: false,
@@ -876,6 +883,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     ui.deleteVectorsBtn.disabled = !hasSelection;
     const booleanEligible = loopsFromSelection().filter((loop) => loop.closed !== false && loop.points?.length >= 4).length >= 2;
     ui.booleanVectorsBtn.disabled = !booleanEligible;
+    ui.expandVectorsBtn.disabled = getBooleanEligibleLoops().length === 0;
     updateSelectModeUi();
     refreshSidebarMode();
   }
@@ -1024,6 +1032,33 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       }
     }
     return booleanModalInstance;
+  }
+
+  function getExpandModalInstance() {
+    if (!ui.expandModal) {
+      return null;
+    }
+    if (!expandModalInstance) {
+      if (window.bootstrap?.Modal) {
+        expandModalInstance = window.bootstrap.Modal.getOrCreateInstance(ui.expandModal, { backdrop: "static" });
+      } else {
+        expandModalInstance = {
+          show() {
+            ui.expandModal.classList.add("show");
+            ui.expandModal.style.display = "block";
+            ui.expandModal.removeAttribute("aria-hidden");
+            document.body.classList.add("modal-open");
+          },
+          hide() {
+            ui.expandModal.classList.remove("show");
+            ui.expandModal.style.display = "none";
+            ui.expandModal.setAttribute("aria-hidden", "true");
+            document.body.classList.remove("modal-open");
+          },
+        };
+      }
+    }
+    return expandModalInstance;
   }
 
   function enableDraggableModals() {
@@ -1397,6 +1432,66 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     draw();
     const label = state.booleanOperation === "xor" ? "XOR" : state.booleanOperation[0].toUpperCase() + state.booleanOperation.slice(1);
     showToast(`${label} created ${resultLoops.length} vector${resultLoops.length === 1 ? "" : "s"}.${discardedToolpaths ? ` ${discardedToolpaths} mixed toolpath${discardedToolpaths === 1 ? " was" : "s were"} removed.` : ""}`, "success");
+  }
+
+  function refreshExpandPreview() {
+    const amount = Number.parseFloat(ui.expandAmountInput.value);
+    const union = Number.isFinite(amount) && amount > 0
+      ? CamOps.compositePocketSeedPaths(getBooleanEligibleLoops())
+      : [];
+    const preview = union.length ? CamOps.offsetCompositePolygons(union, amount) : [];
+    state.expandPreviewContours = preview;
+    ui.applyExpandBtn.disabled = preview.length === 0;
+    requestDraw();
+  }
+
+  function openExpandDialog() {
+    const loops = getBooleanEligibleLoops();
+    if (!loops.length) {
+      showToast("Select at least one closed vector to expand.", "warning");
+      return;
+    }
+    ui.expandModalSummary.textContent = `${loops.length} closed vector${loops.length === 1 ? "" : "s"} selected. They will be unioned before expanding.`;
+    refreshExpandPreview();
+    getExpandModalInstance()?.show();
+    ui.expandAmountInput.focus();
+    ui.expandAmountInput.select();
+  }
+
+  function applyExpandOperation() {
+    const result = state.expandPreviewContours || [];
+    if (!result.length) {
+      showToast("Enter an expansion greater than zero.", "warning");
+      return;
+    }
+
+    const historyBefore = captureHistorySnapshot();
+    const insertedStart = state.entities.length;
+    const resultEntities = result.map((points) => assignObjectTreeMetadata({
+      type: "LWPOLYLINE",
+      closed: true,
+      vertices: points.slice(0, -1).map((point) => ({ x: point.x, y: point.y, bulge: 0 })),
+      __expandedResult: true,
+      layer: "Expanded vectors",
+    }, { id: "cad", name: "CAD", source: "CAD" }));
+    state.entities.push(...resultEntities);
+    state.selectionFrameAngles.clear();
+    clearToolpathEditing();
+    clearDraftToolpath();
+    state.activeToolpathId = null;
+    rebuildLoopsFromEntities(new Set());
+
+    const resultIndexes = new Set(resultEntities.map((_, index) => insertedStart + index));
+    const resultLoops = state.loops.filter((loop) => loop.sourceEntityIndexes?.some((index) => resultIndexes.has(index)));
+    state.selectedLoopIds = new Set(resultLoops.map((loop) => loop.id));
+    state.expandPreviewContours = null;
+    getExpandModalInstance()?.hide();
+    pushHistorySnapshot(historyBefore);
+    refreshSelectionUi();
+    refreshToolpathUi();
+    refreshWorkspaceUi();
+    draw();
+    showToast(`Created ${resultLoops.length} expanded vector${resultLoops.length === 1 ? "" : "s"}.`, "success");
   }
 
   async function deleteVectorsByEntityIndexes(entityIndexes) {
@@ -5091,6 +5186,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   });
   ui.duplicateVectorsBtn.addEventListener("click", duplicateSelectedVectors);
   ui.booleanVectorsBtn.addEventListener("click", openBooleanDialog);
+  ui.expandVectorsBtn.addEventListener("click", openExpandDialog);
   ui.booleanOperationInputs.forEach((input) => {
     input.addEventListener("change", () => {
       if (!input.checked) {
@@ -5113,6 +5209,19 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   });
   ui.booleanModal?.addEventListener("hidden.bs.modal", () => {
     state.booleanPreviewContours = null;
+    requestDraw();
+  });
+  ui.expandAmountInput?.addEventListener("input", refreshExpandPreview);
+  ui.applyExpandBtn?.addEventListener("click", applyExpandOperation);
+  ui.expandModal?.querySelectorAll("[data-bs-dismiss='modal']").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.expandPreviewContours = null;
+      requestDraw();
+      getExpandModalInstance()?.hide();
+    });
+  });
+  ui.expandModal?.addEventListener("hidden.bs.modal", () => {
+    state.expandPreviewContours = null;
     requestDraw();
   });
   for (const option of ui.operationOptions) {
