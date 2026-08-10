@@ -1114,7 +1114,10 @@ body {
   box-shadow: 0 3px 0 rgba(17, 17, 17, 0.92);
 }
 
-#editMyEndmillsBtn,
+#editMyEndmillsBtn {
+  color: var(--funky-ink);
+}
+
 .compact-form .btn {
   font-weight: 800;
 }
