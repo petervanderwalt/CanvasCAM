@@ -4413,6 +4413,16 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
     );
   }
 
+  // A marquee begins as a mouse drag. Prevent the browser from converting it into
+  // a native HTML drag, which otherwise stops canvas mousemove updates mid-drag.
+  ui.canvasWrap.addEventListener("dragstart", (event) => {
+    if (!dragEventHasFiles(event)) {
+      event.preventDefault();
+    }
+  });
+
+  ui.canvasWrap.addEventListener("selectstart", (event) => event.preventDefault());
+
   ["dragenter", "dragover"].forEach((eventName) => {
     ui.canvasWrap.addEventListener(eventName, (event) => {
       if (!dragEventHasFiles(event)) {
