@@ -808,8 +808,6 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
       const active = button.dataset.transformTool === state.transformTool;
       button.disabled = !hasSelection;
       button.classList.toggle("is-active", active);
-      button.classList.toggle("btn-primary", active);
-      button.classList.toggle("btn-light", !active);
     }
     ui.vectorActionGroup.classList.remove("d-none");
     ui.duplicateVectorsBtn.disabled = !hasSelection;
