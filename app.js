@@ -28,9 +28,10 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
   let myEndmillsModalInstance = null;
   let bitmapTraceModalInstance = null;
   let booleanModalInstance = null;
+  let workspaceSettingsModalInstance = null;
+  let workspaceSettingsOriginal = null;
 
   const ui = {
-    projectTitle: document.getElementById("projectTitle"),
     loadSampleBtn: document.getElementById("loadSampleBtn"),
     browseVectorBtn: document.getElementById("browseVectorBtn"),
     newEmptyCanvasBtn: document.getElementById("newEmptyCanvasBtn"),
@@ -106,7 +107,8 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
     toolpathForm: document.getElementById("toolpathForm"),
     toolpathFormMode: document.getElementById("toolpathFormMode"),
     toggleSettingsBtn: document.getElementById("toggleSettingsBtn"),
-    globalSettingsSection: document.getElementById("globalSettingsSection"),
+    workspaceSettingsModal: document.getElementById("workspaceSettingsModal"),
+    applyWorkspaceSettingsBtn: document.getElementById("applyWorkspaceSettingsBtn"),
     toolpathTypeInput: document.getElementById("toolpathTypeInput"),
     myEndmillSelect: document.getElementById("myEndmillSelect"),
     myEndmillSummary: document.getElementById("myEndmillSummary"),
@@ -948,6 +950,49 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
       }
     }
     return booleanModalInstance;
+  }
+
+  function getWorkspaceSettingsModalInstance() {
+    if (!ui.workspaceSettingsModal) {
+      return null;
+    }
+    if (!workspaceSettingsModalInstance) {
+      if (window.bootstrap?.Modal) {
+        workspaceSettingsModalInstance = window.bootstrap.Modal.getOrCreateInstance(ui.workspaceSettingsModal, {
+          backdrop: "static",
+        });
+      } else {
+        workspaceSettingsModalInstance = {
+          show() {
+            ui.workspaceSettingsModal.classList.add("show");
+            ui.workspaceSettingsModal.style.display = "block";
+            ui.workspaceSettingsModal.removeAttribute("aria-hidden");
+            ui.workspaceSettingsModal.setAttribute("aria-modal", "true");
+            document.body.classList.add("modal-open");
+          },
+          hide() {
+            ui.workspaceSettingsModal.classList.remove("show");
+            ui.workspaceSettingsModal.style.display = "none";
+            ui.workspaceSettingsModal.setAttribute("aria-hidden", "true");
+            ui.workspaceSettingsModal.removeAttribute("aria-modal");
+            document.body.classList.remove("modal-open");
+          },
+        };
+      }
+    }
+    return workspaceSettingsModalInstance;
+  }
+
+  function restoreWorkspaceSettings() {
+    if (!workspaceSettingsOriginal) {
+      return;
+    }
+    ui.safeZInput.value = workspaceSettingsOriginal.safeZ;
+    ui.forcePolylineArcsInput.checked = workspaceSettingsOriginal.forcePolylineArcs;
+    workspaceSettingsOriginal = null;
+    rebuildDraftToolpath();
+    refreshToolpathUi();
+    requestDraw();
   }
 
   function refreshBooleanPreview() {
@@ -2067,7 +2112,6 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
       state.transformTool = null;
     }
 
-    ui.projectTitle.textContent = state.fileName || "Untitled Project";
     updateDockStatus();
     ui.canvasEmptyState.classList.toggle("d-none", hasGeometry || state.emptyCanvasStarted || Boolean(state.cadTool));
     ui.canvasWrap.classList.toggle("is-drop-target", state.dragImportActive);
@@ -4175,8 +4219,21 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
   ui.newCanvasBtn.addEventListener("click", startNewEmptyCanvas);
   ui.openFileBtn.addEventListener("click", openFilePicker);
   ui.toggleSettingsBtn.addEventListener("click", () => {
-    ui.globalSettingsSection.classList.toggle("d-none");
+    workspaceSettingsOriginal = {
+      safeZ: ui.safeZInput.value,
+      forcePolylineArcs: ui.forcePolylineArcsInput.checked,
+    };
+    getWorkspaceSettingsModalInstance()?.show();
   });
+  ui.applyWorkspaceSettingsBtn.addEventListener("click", () => {
+    workspaceSettingsOriginal = null;
+    getWorkspaceSettingsModalInstance()?.hide();
+    showToast("Workspace settings applied.", "success", { duration: 1800 });
+  });
+  ui.workspaceSettingsModal?.querySelectorAll("[data-bs-dismiss='modal']").forEach((button) => {
+    button.addEventListener("click", restoreWorkspaceSettings);
+  });
+  ui.workspaceSettingsModal?.addEventListener("hidden.bs.modal", restoreWorkspaceSettings);
   ui.zoomInBtn.addEventListener("click", () => {
     adjustZoom(1.2);
   });

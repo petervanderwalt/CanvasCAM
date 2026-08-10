@@ -16,19 +16,12 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260810-ribbon4">
+  <link rel="stylesheet" href="styles.css?v=20260810-settings-modal1">
 </head>
 <body>
   <div class="workspace-shell">
     <div class="workspace-main">
       <header class="workspace-header">
-        <div class="brand-block">
-          <div class="brand-mark">CC</div>
-          <div class="brand-copy">
-            <div class="brand-name">CAM Canvas</div>
-            <div class="project-title" id="projectTitle">Untitled Project</div>
-          </div>
-        </div>
         <nav class="ribbon-tabs" aria-label="Workspace commands">
           <button type="button" class="ribbon-tab" data-ribbon-tab="file">File</button>
           <button type="button" class="ribbon-tab is-active" data-ribbon-tab="cad">CAD</button>
@@ -157,8 +150,8 @@
               <div class="empty-state-card">
                 <div class="empty-state-icon"><i class="fa-regular fa-file-lines"></i></div>
                 <div class="empty-state-actions">
-                  <button id="browseVectorBtn" type="button" class="btn btn-success btn-lg">Open DXF/SVG/Bitmap</button>
                   <button id="newEmptyCanvasBtn" type="button" class="btn btn-outline-secondary btn-lg">New Empty Canvas</button>
+                  <button id="browseVectorBtn" type="button" class="btn btn-success btn-lg">Open DXF/SVG/Bitmap</button>
                 </div>
                 <p id="emptyStateDropNote" class="empty-state-drop-note">or drag DXF/SVG here</p>
                 <button id="loadSampleBtn" type="button" class="btn btn-link btn-sm sample-link">Try Sample Vector</button>
@@ -172,23 +165,6 @@
 
     <aside class="sidebar">
       <div class="sidebar-scroll">
-        <section id="globalSettingsSection" class="sidebar-panel global-settings funky-panel funky-panel-settings d-none">
-          <div class="panel-group compact-form workspace-settings-card">
-            <div class="panel-group-title">Workspace Settings</div>
-            <div class="mb-3">
-              <label class="form-label small mb-1" for="safeZInput">Z Safe</label>
-              <div class="input-group input-group-sm">
-                <input id="safeZInput" class="form-control form-control-sm" type="number" step="0.01" value="6">
-                <span class="input-group-text">mm</span>
-              </div>
-            </div>
-            <div class="form-check workspace-settings-check">
-              <input id="forcePolylineArcsInput" class="form-check-input" type="checkbox">
-              <label class="form-check-label small" for="forcePolylineArcsInput">Force arcs/circles as polylines on export</label>
-            </div>
-          </div>
-        </section>
-
         <section class="sidebar-panel selection-panel funky-panel funky-panel-selection" id="selectionSection">
           <div class="sidebar-section-head">
             <div>
@@ -505,6 +481,38 @@
       </div>
     </div>
   </div>
+  <div id="workspaceSettingsModal" class="modal fade" tabindex="-1" aria-labelledby="workspaceSettingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title fs-5" id="workspaceSettingsModalLabel">Workspace Settings</h2>
+            <div class="small text-muted">Set shared export and clearance options.</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body compact-form">
+          <div id="globalSettingsSection" class="workspace-settings-card">
+            <div class="mb-3">
+              <label class="form-label small mb-1" for="safeZInput">Z Safe</label>
+              <div class="input-group input-group-sm">
+                <input id="safeZInput" class="form-control form-control-sm" type="number" step="0.01" value="6">
+                <span class="input-group-text">mm</span>
+              </div>
+            </div>
+            <div class="form-check workspace-settings-check">
+              <input id="forcePolylineArcsInput" class="form-check-input" type="checkbox">
+              <label class="form-check-label small" for="forcePolylineArcsInput">Force arcs/circles as polylines on export</label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="applyWorkspaceSettingsBtn" type="button" class="btn btn-primary">Apply Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="toastContainer" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
   <div id="workerBadge" class="worker-badge d-none" aria-live="polite">
     <div class="worker-spinner spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
@@ -519,6 +527,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-ribbon2"></script>
+  <script type="module" src="app.js?v=20260810-settings-modal2"></script>
 </body>
 </html>

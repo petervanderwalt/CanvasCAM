@@ -190,7 +190,7 @@ body {
 
 /* Desktop ribbon replaces the previous single-purpose header and canvas rail. */
 .workspace-header {
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto;
   gap: 0 1rem;
   padding: 0.42rem 0.72rem 0.28rem;
@@ -200,6 +200,7 @@ body {
 }
 
 .ribbon-tabs {
+  grid-column: 1 / -1;
   display: flex;
   align-items: end;
   align-self: stretch;
@@ -922,6 +923,8 @@ body {
   background: linear-gradient(180deg, rgba(255, 248, 216, 0.98), rgba(255, 229, 142, 0.95));
   text-align: center;
   box-shadow: 0 8px 0 rgba(17, 17, 17, 0.96);
+  /* The canvas starts below the ribbon; offset the welcome card toward the viewport center. */
+  transform: translateY(-4.5rem);
 }
 
 .empty-state-icon {
@@ -2306,6 +2309,87 @@ body {
   font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
   font-weight: 900;
   box-shadow: 0 4px 0 rgba(17, 17, 17, 0.92);
+}
+
+#workspaceSettingsModal .modal-dialog {
+  max-width: min(31rem, calc(100vw - 2rem));
+}
+
+#workspaceSettingsModal .modal-content {
+  border: 4px solid var(--funky-ink);
+  border-radius: 1.25rem;
+  overflow: hidden;
+  background: linear-gradient(180deg, #adc4ff 0%, #e8edff 100%);
+  box-shadow: 0 10px 0 rgba(17, 17, 17, 0.96);
+}
+
+#workspaceSettingsModal .modal-header,
+#workspaceSettingsModal .modal-footer {
+  border-color: rgba(17, 17, 17, 0.18);
+  background: rgba(255, 248, 216, 0.8);
+}
+
+#workspaceSettingsModal .modal-title {
+  color: var(--funky-ink);
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-weight: 900;
+}
+
+#workspaceSettingsModal .modal-header .text-muted {
+  color: rgba(17, 17, 17, 0.68) !important;
+  font-weight: 700;
+}
+
+#workspaceSettingsModal .modal-body {
+  padding: 1rem 1.1rem 1.15rem;
+  background: rgba(255, 252, 239, 0.92);
+}
+
+#workspaceSettingsModal .btn-close {
+  position: relative;
+  width: 2.35rem;
+  height: 2.35rem;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.8rem;
+  background: var(--funky-blue);
+  background-image: none;
+  box-shadow: 0 4px 0 rgba(17, 17, 17, 0.92);
+  opacity: 1;
+}
+
+#workspaceSettingsModal .btn-close::before,
+#workspaceSettingsModal .btn-close::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.95rem;
+  height: 0.16rem;
+  border-radius: 999px;
+  background: var(--funky-ink);
+}
+
+#workspaceSettingsModal .btn-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+#workspaceSettingsModal .btn-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
+
+#workspaceSettingsModal .modal-footer .btn {
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.78rem;
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-weight: 900;
+  box-shadow: 0 4px 0 rgba(17, 17, 17, 0.92);
+}
+
+#workspaceSettingsModal .btn-outline-secondary {
+  background: #fff8d8;
+  color: var(--funky-ink);
+}
+
+#applyWorkspaceSettingsBtn {
+  background: #9cf13a;
+  color: var(--funky-ink);
 }
 
 #booleanModal .modal-footer .btn-outline-secondary {
