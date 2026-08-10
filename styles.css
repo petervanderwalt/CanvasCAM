@@ -243,11 +243,27 @@ body {
   position: absolute;
   top: calc(var(--ruler-size) + 0.65rem);
   left: calc(var(--ruler-size) + 0.65rem);
-  z-index: 5;
+  z-index: 10;
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.42rem;
+}
+
+.canvas-tool-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.38rem;
+}
+
+.tool-rail-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.38rem;
+  padding-top: 0.42rem;
+  border-top: 2px solid rgba(17, 17, 17, 0.52);
 }
 
 .canvas-ruler-corner {
@@ -477,6 +493,22 @@ body {
   background: #fff8d8;
   box-shadow: 0 4px 0 rgba(17, 17, 17, 0.9);
   transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.canvas-tool-btn-icon {
+  width: 2.45rem;
+  min-width: 2.45rem;
+  height: 2.45rem;
+  min-height: 2.45rem;
+  padding: 0;
+}
+
+.canvas-tool-btn-icon i {
+  font-size: 0.92rem;
+}
+
+#selectModeBtn.is-active {
+  background: #a9bfff;
 }
 
 .canvas-tool-btn-label {

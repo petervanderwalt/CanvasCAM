@@ -43,6 +43,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     canvasWrap: document.getElementById("canvasWrap"),
     vectorActionGroup: document.getElementById("vectorActionGroup"),
     cadActionGroup: document.getElementById("cadActionGroup"),
+    selectModeBtn: document.getElementById("selectModeBtn"),
     cadToolButtons: Array.from(document.querySelectorAll(".cad-tool-btn")),
     cadSnapBtn: document.getElementById("cadSnapBtn"),
     clearGuidesBtn: document.getElementById("clearGuidesBtn"),
@@ -784,7 +785,14 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       button.classList.toggle("btn-light", !active);
     }
     ui.vectorActionGroup.classList.toggle("d-none", state.selectedLoopIds.size === 0);
+    updateSelectModeUi();
     refreshSidebarMode();
+  }
+
+  function updateSelectModeUi() {
+    const active = !state.cadTool && !state.transformTool && !state.geometryTransform;
+    ui.selectModeBtn.classList.toggle("is-active", active);
+    ui.selectModeBtn.setAttribute("aria-pressed", String(active));
   }
 
   function refreshTransformInspector() {
@@ -2448,8 +2456,24 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       button.classList.toggle("is-active", active);
       button.setAttribute("aria-pressed", String(active));
     }
+    updateSelectModeUi();
     refreshWorkspaceUi();
     refreshSidebarMode();
+    updateCanvasCursor();
+    requestDraw();
+  }
+
+  function setSelectMode() {
+    state.cadTool = null;
+    state.cadDraft = null;
+    state.transformTool = null;
+    state.addTabsMode = false;
+    for (const button of ui.cadToolButtons) {
+      button.classList.remove("is-active");
+      button.setAttribute("aria-pressed", "false");
+    }
+    updateTransformToolUi();
+    refreshWorkspaceUi();
     updateCanvasCursor();
     requestDraw();
   }
@@ -3791,9 +3815,16 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   ui.zoomOutBtn.addEventListener("click", () => {
     adjustZoom(1 / 1.2);
   });
+  ui.selectModeBtn.addEventListener("click", setSelectMode);
   ui.transformToolButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const requestedTool = button.dataset.transformTool || null;
+      state.cadTool = null;
+      state.cadDraft = null;
+      for (const cadButton of ui.cadToolButtons) {
+        cadButton.classList.remove("is-active");
+        cadButton.setAttribute("aria-pressed", "false");
+      }
       state.transformTool = state.transformTool === requestedTool ? null : requestedTool;
       updateTransformToolUi();
       updateCanvasCursor();
