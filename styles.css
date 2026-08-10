@@ -293,12 +293,8 @@ body {
 
 .ribbon-command-grid {
   display: grid;
-  grid-template-columns: repeat(4, max-content);
+  grid-template-columns: repeat(12, max-content);
   gap: 0.25rem;
-}
-
-#cadActionGroup .ribbon-command-grid {
-  grid-template-columns: repeat(8, max-content);
 }
 
 .ribbon-command {
