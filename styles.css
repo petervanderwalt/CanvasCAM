@@ -191,7 +191,7 @@ body {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto;
   gap: 0 1rem;
-  padding: 0.42rem 0.72rem 0.28rem;
+  padding: 0.42rem 0 0.28rem;
   border-bottom: 3px solid var(--funky-ink);
   background: linear-gradient(180deg, #f6f8fc 0%, #e9edf5 100%);
   box-shadow: 0 3px 0 rgba(17, 17, 17, 0.88);
