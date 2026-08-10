@@ -61,6 +61,9 @@
               <button type="button" id="undoBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
                 <i class="fa-solid fa-rotate-left"></i>
               </button>
+              <button type="button" id="cadSnapBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon is-active" title="Snap to the 10mm grid, endpoints, corners, and centers" aria-label="Toggle snapping" aria-pressed="true">
+                <i class="fa-solid fa-magnet"></i>
+              </button>
               <button type="button" id="redoBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Redo (Ctrl+Y)" aria-label="Redo" disabled>
                 <i class="fa-solid fa-rotate-right"></i>
               </button>
@@ -96,9 +99,6 @@
                 </button>
                 <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon cad-tool-btn" data-cad-tool="guide" title="Create construction guide" aria-label="Create construction guide">
                   <i class="fa-solid fa-ruler"></i>
-                </button>
-                <button type="button" id="cadSnapBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon is-active" title="Snap to the 10mm grid, endpoints, corners, and centers" aria-label="Toggle snapping" aria-pressed="true">
-                  <i class="fa-solid fa-magnet"></i>
                 </button>
                 <button type="button" id="clearGuidesBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon d-none" title="Remove all construction guides" aria-label="Remove all construction guides">
                   <i class="fa-solid fa-eraser"></i>
