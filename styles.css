@@ -192,7 +192,7 @@ body {
 .workspace-header {
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: auto auto;
-  gap: 0.32rem 1rem;
+  gap: 0 1rem;
   padding: 0.42rem 0.72rem 0.28rem;
   border-bottom: 3px solid var(--funky-ink);
   background: linear-gradient(180deg, #f6f8fc 0%, #e9edf5 100%);
@@ -206,9 +206,12 @@ body {
   gap: 0.22rem;
   min-width: 0;
   overflow-x: auto;
+  position: relative;
+  z-index: 2;
 }
 
 .ribbon-tab {
+  position: relative;
   min-height: 2.05rem;
   padding: 0.35rem 0.9rem;
   border: 2px solid transparent;
@@ -232,7 +235,18 @@ body {
   border-color: var(--funky-ink);
   background: var(--funky-blue);
   color: var(--funky-ink);
-  box-shadow: inset 0 -3px 0 #f6f8fc;
+  margin-bottom: -2px;
+  box-shadow: none;
+}
+
+.ribbon-tab.is-active::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: -3px;
+  left: 2px;
+  height: 5px;
+  background: #fffdf4;
 }
 
 .ribbon-panels {
