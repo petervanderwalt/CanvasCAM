@@ -1063,7 +1063,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const spacing = getGridSpacing();
     ui.cadSnapBtn.setAttribute("aria-pressed", String(state.cadSnapEnabled));
     ui.cadSnapBtn.title = state.cadSnapEnabled
-      ? `Snap to ${formatNumber(spacing)}mm grid, endpoints, corners, and centers`
+      ? `Snap drawing points to the ${formatNumber(spacing)}mm grid`
       : "Snapping is off";
   }
 
@@ -2425,49 +2425,15 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (!state.cadSnapEnabled) {
       return world;
     }
-
-    const snapRadius = 12;
-    let closest = null;
-    for (const loop of state.loops) {
-      for (const segment of loop.segments || []) {
-        for (const candidate of [segment.start, segment.end]) {
-          if (!candidate) {
-            continue;
-          }
-          const screen = worldToScreen(candidate);
-          const distance = Math.hypot(screen.x - screenPoint.x, screen.y - screenPoint.y);
-          if (distance <= snapRadius && (!closest || distance < closest.distance)) {
-            closest = { point: { x: candidate.x, y: candidate.y }, distance };
-          }
-        }
-      }
-      if (loop.bounds) {
-        const { minX, minY, maxX, maxY } = loop.bounds;
-        const candidates = [
-          { x: (minX + maxX) / 2, y: (minY + maxY) / 2 },
-          { x: minX, y: minY },
-          { x: minX, y: maxY },
-          { x: maxX, y: minY },
-          { x: maxX, y: maxY },
-        ];
-        for (const candidate of candidates) {
-          const screen = worldToScreen(candidate);
-          const distance = Math.hypot(screen.x - screenPoint.x, screen.y - screenPoint.y);
-          if (distance <= snapRadius && (!closest || distance < closest.distance)) {
-            closest = { point: candidate, distance };
-          }
-        }
-      }
-    }
-    if (closest) {
-      return closest.point;
-    }
-
     const grid = getGridSpacing();
     return {
-      x: Math.round(world.x / grid) * grid,
-      y: Math.round(world.y / grid) * grid,
+      x: normalizeGridCoordinate(Math.round(world.x / grid) * grid, grid),
+      y: normalizeGridCoordinate(Math.round(world.y / grid) * grid, grid),
     };
+  }
+
+  function normalizeGridCoordinate(value, grid) {
+    return Math.abs(value) < grid * 1e-9 ? 0 : Number.parseFloat(value.toFixed(8));
   }
 
   function nearestPointOnInfiniteLine(point, start, end) {
