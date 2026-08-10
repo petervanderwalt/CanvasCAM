@@ -1827,6 +1827,13 @@ body {
   display: block;
 }
 
+.trace-preview svg path {
+  fill: none;
+  stroke: #1c2636;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
 .trace-preview-empty {
   max-width: 16rem;
   padding: 1rem;
