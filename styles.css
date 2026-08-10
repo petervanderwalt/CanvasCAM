@@ -230,6 +230,23 @@ body {
   display: contents;
 }
 
+/* Group dividers stay inside the grid gaps without consuming another tool slot. */
+.tool-rail-group > :first-child {
+  position: relative;
+}
+
+.tool-rail-group > :first-child::before {
+  content: "";
+  position: absolute;
+  top: -0.31rem;
+  left: 50%;
+  width: 1.65rem;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.65);
+}
+
 .canvas-ruler-corner {
   position: absolute;
   top: 0;
