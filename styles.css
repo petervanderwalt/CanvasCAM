@@ -203,6 +203,7 @@ body {
   align-items: end;
   align-self: stretch;
   gap: 0.22rem;
+  padding-left: 0.42rem;
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
