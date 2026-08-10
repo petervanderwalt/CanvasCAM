@@ -85,7 +85,6 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     applyTransformSizeBtn: document.getElementById("applyTransformSizeBtn"),
     transformAspectLockBtn: document.getElementById("transformAspectLockBtn"),
     transformAspectLockIcon: document.getElementById("transformAspectLockIcon"),
-    workflowSteps: Array.from(document.querySelectorAll(".workflow-step")),
     selectionCount: document.getElementById("selectionCount"),
     selectionHeading: document.getElementById("selectionHeading"),
     selectionEmpty: document.getElementById("selectionEmpty"),
@@ -275,15 +274,6 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     ui.toastContainer.appendChild(toast);
     const duration = options.duration ?? 4200;
     window.setTimeout(removeToast, duration);
-  }
-
-  function setWorkflowStep(stepName, status) {
-    const step = ui.workflowSteps.find((candidate) => candidate.dataset.step === stepName);
-    if (!step) {
-      return;
-    }
-    step.classList.toggle("is-active", status === "active");
-    step.classList.toggle("is-complete", status === "complete");
   }
 
   function loopSignature(loop) {
@@ -1902,10 +1892,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
 
   function refreshWorkspaceUi() {
     const hasGeometry = state.loops.length > 0;
-    const hasToolpaths = state.toolpaths.length > 0;
-    const hasDraft = Boolean(state.draftToolpath);
     const hasSelection = state.selectedLoopIds.size > 0;
-    const isEditing = Boolean(state.editingToolpathId);
     if (!hasSelection && state.transformTool) {
       state.transformTool = null;
     }
@@ -1923,17 +1910,6 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     ui.cadActionGroup.classList.toggle("d-none", false);
     ui.clearGuidesBtn.classList.toggle("d-none", !state.entities.some((entity) => entity.type === "GUIDE"));
 
-    setWorkflowStep("import", hasGeometry ? "complete" : "active");
-    if (!hasGeometry) {
-      setWorkflowStep("toolpath", "");
-      setWorkflowStep("export", "");
-      return;
-    }
-    setWorkflowStep("toolpath", hasToolpaths ? "complete" : "active");
-    setWorkflowStep("export", hasToolpaths ? "active" : "");
-    if (hasDraft || hasSelection || isEditing) {
-      setWorkflowStep("toolpath", "active");
-    }
   }
 
   function resizeCanvas() {

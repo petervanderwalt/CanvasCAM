@@ -58,7 +58,7 @@ body {
 
 .workspace-header {
   display: grid;
-  grid-template-columns: minmax(220px, auto) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.85rem;
   padding: 0.55rem 0.9rem;
@@ -103,87 +103,6 @@ body {
   color: var(--funky-ink);
   line-height: 1.1;
   font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
-}
-
-.workflow-stepper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  min-width: 0;
-  padding: 0.12rem 0 0.32rem;
-  overflow-x: auto;
-  overflow-y: visible;
-  scrollbar-width: thin;
-}
-
-.workflow-step {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.72rem;
-  border-radius: 999px;
-  border: 2px solid rgba(17, 17, 17, 0.62);
-  background: #fff8d8;
-  color: rgba(17, 17, 17, 0.65);
-  transition: 120ms ease;
-  box-shadow: 0 3px 0 rgba(17, 17, 17, 0.72);
-}
-
-.workflow-step.is-active,
-.workflow-step.is-complete {
-  border-color: rgba(17, 17, 17, 0.7);
-  color: var(--funky-ink);
-}
-
-.workflow-step.is-active {
-  background: var(--funky-blue);
-}
-
-.workflow-step.is-complete {
-  background: #b8ff78;
-}
-
-.workflow-step[data-step="export"],
-.workflow-step[data-step="export"].is-active,
-.workflow-step[data-step="export"].is-complete {
-  background: var(--funky-peach);
-  color: var(--funky-ink);
-}
-
-.step-index {
-  width: 1.35rem;
-  height: 1.35rem;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  border: 2px solid rgba(17, 17, 17, 0.72);
-  background: #fffdf4;
-  color: var(--funky-ink);
-  font-size: 0.68rem;
-  font-weight: 900;
-}
-
-.workflow-step.is-active .step-index {
-  background: var(--accent-blue);
-  color: #fff;
-}
-
-.workflow-step.is-complete .step-index {
-  background: var(--accent-green);
-  color: #fff;
-}
-
-.step-label {
-  font-size: 0.76rem;
-  font-weight: 900;
-  white-space: nowrap;
-  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
-}
-
-.workflow-arrow {
-  color: rgba(17, 17, 17, 0.72);
-  font-size: 0.62rem;
 }
 
 .header-actions {
@@ -1985,19 +1904,6 @@ body {
   align-items: center;
   justify-content: center;
   padding: 0;
-}
-
-@media (max-width: 1280px) {
-  .workspace-header {
-    grid-template-columns: 1fr;
-    justify-items: start;
-    align-items: start;
-  }
-
-  .workflow-stepper {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
 }
 
 @media (max-width: 1100px) {
