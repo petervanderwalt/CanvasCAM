@@ -1255,6 +1255,17 @@ body {
   box-shadow: none;
 }
 
+/* Treat the input and its unit as one chunky control, including the shadow. */
+.my-endmills-accordion .input-group {
+  border-radius: 0.72rem;
+  filter: drop-shadow(0 3px 0 rgba(17, 17, 17, 0.9));
+}
+
+.my-endmills-accordion .input-group > .form-control,
+.my-endmills-accordion .input-group > .input-group-text {
+  box-shadow: none !important;
+}
+
 .my-endmills-accordion .input-group > .form-control:not(:last-child),
 .my-endmills-accordion .input-group > .form-select:not(:last-child) {
   border-top-right-radius: 0;
