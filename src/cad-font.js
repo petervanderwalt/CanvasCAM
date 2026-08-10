@@ -1,5 +1,5 @@
 import { parse as parseOpenType } from "../vendor/opentype.module.js?v=1.3.4";
-import { EXTRA_FONT_OPTIONS } from "./google-font-catalog.js?v=20260810-font-library100";
+import { EXTRA_FONT_OPTIONS } from "./google-font-catalog.js?v=20260810-font-library-e-z1";
 
 const GLYPHS = {
   A: [[[0, 0], [2, 6], [4, 0]], [[0.75, 3], [3.25, 3]]],

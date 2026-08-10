@@ -10,7 +10,7 @@ import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
 import * as CanvasView from "./src/canvas-view.js?v=20260810-expand-vectors1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
-import * as CadFont from "./src/cad-font.js?v=20260810-font-library100";
+import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
 (function () {
@@ -3341,6 +3341,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
   function enableFontPickers() {
     const selects = [ui.cadTextFontSelect, ui.cadInspectorTextFontSelect].filter(Boolean);
+    const fontOptions = [
+      ...CadFont.FONT_OPTIONS.filter((font) => font.kind === "stroke"),
+      ...CadFont.FONT_OPTIONS
+        .filter((font) => font.kind !== "stroke")
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    ];
     for (const select of selects) {
       const knownIds = new Set([...select.options].map((option) => option.value));
       for (const font of CadFont.FONT_OPTIONS) {
@@ -3370,7 +3376,17 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       const menu = document.createElement("div");
       menu.className = "font-picker-menu";
       menu.setAttribute("role", "listbox");
-      for (const font of CadFont.FONT_OPTIONS) {
+      const search = document.createElement("input");
+      search.type = "search";
+      search.className = "font-picker-search";
+      search.placeholder = `Search ${fontOptions.length} fonts`;
+      search.setAttribute("aria-label", "Search fonts");
+      const count = document.createElement("div");
+      count.className = "font-picker-count";
+      count.textContent = `${fontOptions.length} fonts`;
+      const options = document.createElement("div");
+      options.className = "font-picker-options";
+      for (const font of fontOptions) {
         const item = document.createElement("button");
         item.type = "button";
         item.className = "font-picker-option";
@@ -3382,13 +3398,30 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
           select.dispatchEvent(new Event("change", { bubbles: true }));
           closeFontPickers();
         });
-        menu.append(item);
+        options.append(item);
       }
+      search.addEventListener("input", () => {
+        const query = search.value.trim().toLocaleLowerCase();
+        let visible = 0;
+        for (const item of options.querySelectorAll(".font-picker-option")) {
+          const matches = !query || item.textContent.toLocaleLowerCase().includes(query);
+          item.hidden = !matches;
+          visible += matches ? 1 : 0;
+        }
+        count.textContent = query ? `${visible} matching font${visible === 1 ? "" : "s"}` : `${fontOptions.length} fonts`;
+      });
+      menu.append(search, count, options);
       toggle.addEventListener("click", () => {
         const willOpen = !picker.classList.contains("is-open");
         closeFontPickers(picker);
         picker.classList.toggle("is-open", willOpen);
         toggle.setAttribute("aria-expanded", String(willOpen));
+        if (willOpen) {
+          search.focus();
+        } else {
+          search.value = "";
+          search.dispatchEvent(new Event("input"));
+        }
       });
       select.addEventListener("change", () => syncFontPicker(select));
       picker.append(toggle, menu);

@@ -630,7 +630,8 @@ body {
   width: 100%;
   max-height: min(19rem, 46vh);
   display: none;
-  overflow-y: auto;
+  flex-direction: column;
+  overflow: hidden;
   padding: 0.25rem;
   border: 3px solid var(--funky-ink);
   border-radius: 0.65rem;
@@ -638,7 +639,35 @@ body {
   box-shadow: 0 5px 0 rgba(17, 17, 17, 0.9);
 }
 
-.font-picker.is-open .font-picker-menu { display: grid; }
+.font-picker.is-open .font-picker-menu { display: flex; }
+
+.font-picker-search {
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.25rem 0.45rem;
+  border: 2px solid var(--funky-ink);
+  border-radius: 0.42rem;
+  background: #fff8d8;
+  color: var(--funky-ink);
+  font-weight: 800;
+}
+
+.font-picker-count {
+  flex: 0 0 auto;
+  padding: 0.32rem 0.28rem 0.22rem;
+  color: rgba(17, 17, 17, 0.66);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.font-picker-options {
+  display: grid;
+  min-height: 0;
+  overflow-y: auto;
+}
 
 .font-picker-option {
   width: 100%;
