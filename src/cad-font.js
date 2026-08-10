@@ -45,7 +45,13 @@ const GLYPHS = {
 export const FONT_OPTIONS = [
   { id: "single-line", name: "Single Line Engraving", kind: "stroke", family: "CadEngraving" },
   { id: "space-mono", name: "Space Mono", kind: "outline", family: "Space Mono", asset: "assets/fonts/SpaceMono-Regular.ttf" },
+  { id: "anton", name: "Anton", kind: "outline", family: "Anton", asset: "assets/fonts/Anton-Regular.ttf" },
+  { id: "bebas-neue", name: "Bebas Neue", kind: "outline", family: "Bebas Neue", asset: "assets/fonts/BebasNeue-Regular.ttf" },
+  { id: "righteous", name: "Righteous", kind: "outline", family: "Righteous", asset: "assets/fonts/Righteous-Regular.ttf" },
   { id: "bungee", name: "Bungee", kind: "outline", family: "Bungee", asset: "assets/fonts/Bungee-Regular.ttf" },
+  { id: "black-ops-one", name: "Black Ops One", kind: "outline", family: "Black Ops One", asset: "assets/fonts/BlackOpsOne-Regular.ttf" },
+  { id: "stardos-stencil", name: "Stardos Stencil", kind: "outline", family: "Stardos Stencil", asset: "assets/fonts/StardosStencil-Bold.ttf" },
+  { id: "lobster", name: "Lobster", kind: "outline", family: "Lobster", asset: "assets/fonts/Lobster-Regular.ttf" },
 ];
 
 const outlineFontCache = new Map();

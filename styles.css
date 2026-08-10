@@ -37,6 +37,36 @@
   src: url("assets/fonts/Bungee-Regular.ttf") format("truetype");
 }
 
+@font-face {
+  font-family: "Anton";
+  src: url("assets/fonts/Anton-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Bebas Neue";
+  src: url("assets/fonts/BebasNeue-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Righteous";
+  src: url("assets/fonts/Righteous-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Black Ops One";
+  src: url("assets/fonts/BlackOpsOne-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Stardos Stencil";
+  src: url("assets/fonts/StardosStencil-Bold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Lobster";
+  src: url("assets/fonts/Lobster-Regular.ttf") format("truetype");
+}
+
 html,
 body {
   height: 100%;
@@ -302,7 +332,13 @@ body {
 
 .cad-text-font-select option.font-single-line { font-family: monospace; }
 .cad-text-font-select option.font-space-mono { font-family: "Space Mono", monospace; }
+.cad-text-font-select option.font-anton { font-family: "Anton", sans-serif; }
+.cad-text-font-select option.font-bebas-neue { font-family: "Bebas Neue", sans-serif; }
+.cad-text-font-select option.font-righteous { font-family: "Righteous", sans-serif; }
 .cad-text-font-select option.font-bungee { font-family: "Bungee", sans-serif; }
+.cad-text-font-select option.font-black-ops-one { font-family: "Black Ops One", sans-serif; }
+.cad-text-font-select option.font-stardos-stencil { font-family: "Stardos Stencil", serif; }
+.cad-text-font-select option.font-lobster { font-family: "Lobster", cursive; }
 
 .cad-text-height-row {
   display: grid;

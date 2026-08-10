@@ -10,7 +10,7 @@ import * as CamOps from "./src/cam-ops.js?v=20260730-vcarve12";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
 import * as CanvasView from "./src/canvas-view.js?v=20260810-solid-draft1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
-import * as CadFont from "./src/cad-font.js?v=20260810-fonts2";
+import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
 
 (function () {
 
