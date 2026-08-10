@@ -1033,7 +1033,6 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
 
   function updateCadSnapUi() {
     const spacing = getGridSpacing();
-    ui.cadSnapBtn.classList.toggle("is-active", state.cadSnapEnabled);
     ui.cadSnapBtn.setAttribute("aria-pressed", String(state.cadSnapEnabled));
     ui.cadSnapBtn.title = state.cadSnapEnabled
       ? `Snap to ${formatNumber(spacing)}mm grid, endpoints, corners, and centers`

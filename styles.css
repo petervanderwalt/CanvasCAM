@@ -186,16 +186,6 @@ body {
   box-shadow: 0 3px 0 rgba(17, 17, 17, 0.92);
 }
 
-#openFileBtn {
-  background: var(--funky-blue);
-}
-
-#toggleSettingsBtn {
-  background: var(--funky-cream);
-  min-width: 2.7rem;
-  padding-inline: 0.7rem;
-}
-
 /* Desktop ribbon replaces the previous single-purpose header and canvas rail. */
 .workspace-header {
   grid-template-columns: minmax(0, 1fr);
