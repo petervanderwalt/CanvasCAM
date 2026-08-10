@@ -1,4 +1,5 @@
 import { parse as parseOpenType } from "../vendor/opentype.module.js?v=1.3.4";
+import { EXTRA_FONT_OPTIONS } from "./google-font-catalog.js?v=20260810-font-library100";
 
 const GLYPHS = {
   A: [[[0, 0], [2, 6], [4, 0]], [[0.75, 3], [3.25, 3]]],
@@ -66,9 +67,24 @@ export const FONT_OPTIONS = [
   { id: "rubik-mono-one", name: "Rubik Mono One", kind: "outline", family: "Rubik Mono One", asset: "assets/fonts/RubikMonoOne-Regular.ttf" },
   { id: "russo-one", name: "Russo One", kind: "outline", family: "Russo One", asset: "assets/fonts/RussoOne-Regular.ttf" },
   { id: "saira-stencil-one", name: "Saira Stencil One", kind: "outline", family: "Saira Stencil One", asset: "assets/fonts/SairaStencilOne-Regular.ttf" },
+  ...EXTRA_FONT_OPTIONS,
 ];
 
 const outlineFontCache = new Map();
+
+function registerCatalogFontFaces() {
+  if (typeof document === "undefined" || document.getElementById("cad-font-catalog")) {
+    return;
+  }
+  const style = document.createElement("style");
+  style.id = "cad-font-catalog";
+  style.textContent = EXTRA_FONT_OPTIONS.map(({ family, asset }) => (
+    `@font-face { font-family: "${family}"; src: url("${asset}") format("truetype"); font-display: swap; }`
+  )).join("\n");
+  document.head.append(style);
+}
+
+registerCatalogFontFaces();
 
 export function createStrokeText(text, origin, height) {
   const scale = Math.max(0.1, height) / 6;

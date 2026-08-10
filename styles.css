@@ -1710,8 +1710,8 @@ body {
 
 #myEndmillSelect.is-recommended {
   border-color: var(--funky-ink);
-  color: #166534;
-  background-color: #f3fbf5;
+  color: var(--funky-ink);
+  background-color: rgba(255, 248, 216, 0.9);
 }
 
 #myEndmillSelect,

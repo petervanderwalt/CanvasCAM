@@ -10,7 +10,7 @@ import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
 import * as CanvasView from "./src/canvas-view.js?v=20260810-grid-snap1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
-import * as CadFont from "./src/cad-font.js?v=20260810-font-library2";
+import * as CadFont from "./src/cad-font.js?v=20260810-font-library100";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
 (function () {
@@ -3247,6 +3247,17 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   function enableFontPickers() {
     const selects = [ui.cadTextFontSelect, ui.cadInspectorTextFontSelect].filter(Boolean);
     for (const select of selects) {
+      const knownIds = new Set([...select.options].map((option) => option.value));
+      for (const font of CadFont.FONT_OPTIONS) {
+        if (knownIds.has(font.id)) {
+          continue;
+        }
+        const option = document.createElement("option");
+        option.value = font.id;
+        option.textContent = font.name;
+        option.style.fontFamily = font.family;
+        select.append(option);
+      }
       if (select.closest(".font-picker")) {
         continue;
       }
