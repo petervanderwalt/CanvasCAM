@@ -217,19 +217,17 @@ body {
 }
 
 .canvas-tool-rail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(2, 2.45rem);
+  grid-template-rows: repeat(12, 2.45rem);
+  grid-auto-flow: column;
+  align-items: start;
+  justify-items: center;
   gap: 0.38rem;
 }
 
 .tool-rail-group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.38rem;
-  padding-top: 0.42rem;
-  border-top: 2px solid rgba(17, 17, 17, 0.52);
+  display: contents;
 }
 
 .canvas-ruler-corner {
