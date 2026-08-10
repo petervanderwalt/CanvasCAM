@@ -428,6 +428,28 @@
           <div class="trace-workbench">
             <section class="trace-controls">
               <p class="small mb-3">Adjust the scan, then import the preview as editable paths.</p>
+              <details class="trace-preprocess" open>
+                <summary>Input preprocessing</summary>
+                <div class="trace-preprocess-grid">
+                  <label for="traceBrightnessInput">Brightness <output id="traceBrightnessValue">100%</output></label>
+                  <input id="traceBrightnessInput" type="range" min="0" max="200" step="1" value="100">
+                  <label for="traceContrastInput">Contrast <output id="traceContrastValue">100%</output></label>
+                  <input id="traceContrastInput" type="range" min="0" max="200" step="1" value="100">
+                  <label for="traceGrayscaleInput">Grayscale <output id="traceGrayscaleValue">0%</output></label>
+                  <input id="traceGrayscaleInput" type="range" min="0" max="100" step="1" value="0">
+                  <label for="traceHueInput">Hue rotate <output id="traceHueValue">0 deg</output></label>
+                  <input id="traceHueInput" type="range" min="-180" max="180" step="1" value="0">
+                  <label for="tracePreprocessInvertInput">Invert <output id="tracePreprocessInvertValue">0%</output></label>
+                  <input id="tracePreprocessInvertInput" type="range" min="0" max="100" step="1" value="0">
+                  <label for="traceOpacityInput">Opacity <output id="traceOpacityValue">100%</output></label>
+                  <input id="traceOpacityInput" type="range" min="0" max="100" step="1" value="100">
+                  <label for="traceSaturationInput">Saturation <output id="traceSaturationValue">100%</output></label>
+                  <input id="traceSaturationInput" type="range" min="0" max="200" step="1" value="100">
+                  <label for="traceSepiaInput">Sepia <output id="traceSepiaValue">0%</output></label>
+                  <input id="traceSepiaInput" type="range" min="0" max="100" step="1" value="0">
+                </div>
+                <button id="resetTracePreprocessBtn" class="btn btn-sm btn-outline-secondary mt-2" type="button">Reset preprocessing</button>
+              </details>
               <label class="form-label small mb-1" for="traceThresholdInput">Brightness threshold</label>
               <input id="traceThresholdInput" class="form-range" type="range" min="0" max="255" step="1" value="160">
               <div class="trace-range-value"><span>Light</span><strong id="traceThresholdValue">160</strong><span>Dark</span></div>
@@ -593,6 +615,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-potrace-yflip1"></script>
+  <script type="module" src="app.js?v=20260810-trace-preprocess1"></script>
 </body>
 </html>

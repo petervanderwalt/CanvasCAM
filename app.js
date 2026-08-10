@@ -129,6 +129,23 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     bitmapTraceFileName: document.getElementById("bitmapTraceFileName"),
     traceThresholdInput: document.getElementById("traceThresholdInput"),
     traceThresholdValue: document.getElementById("traceThresholdValue"),
+    traceBrightnessInput: document.getElementById("traceBrightnessInput"),
+    traceBrightnessValue: document.getElementById("traceBrightnessValue"),
+    traceContrastInput: document.getElementById("traceContrastInput"),
+    traceContrastValue: document.getElementById("traceContrastValue"),
+    traceGrayscaleInput: document.getElementById("traceGrayscaleInput"),
+    traceGrayscaleValue: document.getElementById("traceGrayscaleValue"),
+    traceHueInput: document.getElementById("traceHueInput"),
+    traceHueValue: document.getElementById("traceHueValue"),
+    tracePreprocessInvertInput: document.getElementById("tracePreprocessInvertInput"),
+    tracePreprocessInvertValue: document.getElementById("tracePreprocessInvertValue"),
+    traceOpacityInput: document.getElementById("traceOpacityInput"),
+    traceOpacityValue: document.getElementById("traceOpacityValue"),
+    traceSaturationInput: document.getElementById("traceSaturationInput"),
+    traceSaturationValue: document.getElementById("traceSaturationValue"),
+    traceSepiaInput: document.getElementById("traceSepiaInput"),
+    traceSepiaValue: document.getElementById("traceSepiaValue"),
+    resetTracePreprocessBtn: document.getElementById("resetTracePreprocessBtn"),
     traceSpeckleInput: document.getElementById("traceSpeckleInput"),
     traceCornerInput: document.getElementById("traceCornerInput"),
     traceCornerValue: document.getElementById("traceCornerValue"),
@@ -3788,6 +3805,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     ui.bitmapTraceFileName.textContent = file.name;
     ui.traceThresholdValue.textContent = ui.traceThresholdInput.value;
     ui.traceCornerValue.textContent = Number.parseFloat(ui.traceCornerInput.value).toFixed(2);
+    syncTracePreprocessLabels();
     ui.tracePreview.innerHTML = '<span class="trace-preview-empty">Preparing preview...</span>';
     ui.tracePreviewStatus.textContent = "Preparing image...";
     getBitmapTraceModalInstance()?.show();
@@ -3812,6 +3830,78 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     };
   }
 
+  function getTracePreprocessSettings() {
+    return {
+      brightness: Number(ui.traceBrightnessInput.value) / 100,
+      contrast: Number(ui.traceContrastInput.value) / 100,
+      grayscale: Number(ui.traceGrayscaleInput.value) / 100,
+      hue: Number(ui.traceHueInput.value),
+      invert: Number(ui.tracePreprocessInvertInput.value) / 100,
+      opacity: Number(ui.traceOpacityInput.value) / 100,
+      saturation: Number(ui.traceSaturationInput.value) / 100,
+      sepia: Number(ui.traceSepiaInput.value) / 100,
+    };
+  }
+
+  function syncTracePreprocessLabels() {
+    const values = [
+      [ui.traceBrightnessInput, ui.traceBrightnessValue, "%"],
+      [ui.traceContrastInput, ui.traceContrastValue, "%"],
+      [ui.traceGrayscaleInput, ui.traceGrayscaleValue, "%"],
+      [ui.traceHueInput, ui.traceHueValue, " deg"],
+      [ui.tracePreprocessInvertInput, ui.tracePreprocessInvertValue, "%"],
+      [ui.traceOpacityInput, ui.traceOpacityValue, "%"],
+      [ui.traceSaturationInput, ui.traceSaturationValue, "%"],
+      [ui.traceSepiaInput, ui.traceSepiaValue, "%"],
+    ];
+    values.forEach(([input, output, suffix]) => {
+      output.textContent = `${input.value}${suffix}`;
+    });
+  }
+
+  function preprocessTraceImageData(imageData, settings) {
+    const data = new Uint8ClampedArray(imageData.data);
+    const hueRadians = settings.hue * Math.PI / 180;
+    const hueCos = Math.cos(hueRadians);
+    const hueSin = Math.sin(hueRadians);
+    for (let index = 0; index < data.length; index += 4) {
+      let red = data[index] / 255;
+      let green = data[index + 1] / 255;
+      let blue = data[index + 2] / 255;
+      const luminance = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+      red = luminance + (red - luminance) * settings.saturation;
+      green = luminance + (green - luminance) * settings.saturation;
+      blue = luminance + (blue - luminance) * settings.saturation;
+      const hueRed = red * (0.213 + hueCos * 0.787 - hueSin * 0.213) + green * (0.715 - hueCos * 0.715 - hueSin * 0.715) + blue * (0.072 - hueCos * 0.072 + hueSin * 0.928);
+      const hueGreen = red * (0.213 - hueCos * 0.213 + hueSin * 0.143) + green * (0.715 + hueCos * 0.285 + hueSin * 0.14) + blue * (0.072 - hueCos * 0.072 - hueSin * 0.283);
+      const hueBlue = red * (0.213 - hueCos * 0.213 - hueSin * 0.787) + green * (0.715 - hueCos * 0.715 + hueSin * 0.715) + blue * (0.072 + hueCos * 0.928 + hueSin * 0.072);
+      red = hueRed * settings.brightness;
+      green = hueGreen * settings.brightness;
+      blue = hueBlue * settings.brightness;
+      red = (red - 0.5) * settings.contrast + 0.5;
+      green = (green - 0.5) * settings.contrast + 0.5;
+      blue = (blue - 0.5) * settings.contrast + 0.5;
+      const gray = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+      red = red * (1 - settings.grayscale) + gray * settings.grayscale;
+      green = green * (1 - settings.grayscale) + gray * settings.grayscale;
+      blue = blue * (1 - settings.grayscale) + gray * settings.grayscale;
+      const sepiaRed = red * 0.393 + green * 0.769 + blue * 0.189;
+      const sepiaGreen = red * 0.349 + green * 0.686 + blue * 0.168;
+      const sepiaBlue = red * 0.272 + green * 0.534 + blue * 0.131;
+      red = red * (1 - settings.sepia) + sepiaRed * settings.sepia;
+      green = green * (1 - settings.sepia) + sepiaGreen * settings.sepia;
+      blue = blue * (1 - settings.sepia) + sepiaBlue * settings.sepia;
+      red = red * (1 - settings.invert) + (1 - red) * settings.invert;
+      green = green * (1 - settings.invert) + (1 - green) * settings.invert;
+      blue = blue * (1 - settings.invert) + (1 - blue) * settings.invert;
+      data[index] = Math.round(Math.min(1, Math.max(0, red)) * 255);
+      data[index + 1] = Math.round(Math.min(1, Math.max(0, green)) * 255);
+      data[index + 2] = Math.round(Math.min(1, Math.max(0, blue)) * 255);
+      data[index + 3] = Math.round(data[index + 3] * settings.opacity);
+    }
+    return new ImageData(data, imageData.width, imageData.height);
+  }
+
   function scheduleTracePreview(immediate = false) {
     if (state.tracePreviewTimer) {
       window.clearTimeout(state.tracePreviewTimer);
@@ -3830,7 +3920,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     ui.tracePreviewStatus.textContent = "Tracing preview...";
     try {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
-      const svg = await traceImageData(state.traceSourceImageData, getTraceSettings());
+      const source = preprocessTraceImageData(state.traceSourceImageData, getTracePreprocessSettings());
+      const svg = await traceImageData(source, getTraceSettings());
       if (token !== state.tracePreviewToken) {
         return;
       }
@@ -3900,7 +3991,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       const imageData = await rasterizeBitmap(file, 1800);
       updateWorkerJob("trace", { label: "Vectorizing contours", percent: 62, priority: 2 });
       await new Promise((resolve) => window.setTimeout(resolve, 0));
-      const svg = await traceImageData(imageData, getTraceSettings(), true);
+      const source = preprocessTraceImageData(imageData, getTracePreprocessSettings());
+      const svg = await traceImageData(source, getTraceSettings(), true);
       updateWorkerJob("trace", { label: "Importing vectors", percent: 88, priority: 2 });
       const entities = parseSvgFile(svg);
       if (!entities.length) {
@@ -4556,6 +4648,38 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   });
   ui.traceThresholdInput.addEventListener("input", () => {
     ui.traceThresholdValue.textContent = ui.traceThresholdInput.value;
+    scheduleTracePreview();
+  });
+  [
+    ui.traceBrightnessInput,
+    ui.traceContrastInput,
+    ui.traceGrayscaleInput,
+    ui.traceHueInput,
+    ui.tracePreprocessInvertInput,
+    ui.traceOpacityInput,
+    ui.traceSaturationInput,
+    ui.traceSepiaInput,
+  ].forEach((input) => {
+    input.addEventListener("input", () => {
+      syncTracePreprocessLabels();
+      scheduleTracePreview();
+    });
+  });
+  ui.resetTracePreprocessBtn.addEventListener("click", () => {
+    const defaults = {
+      traceBrightnessInput: 100,
+      traceContrastInput: 100,
+      traceGrayscaleInput: 0,
+      traceHueInput: 0,
+      tracePreprocessInvertInput: 0,
+      traceOpacityInput: 100,
+      traceSaturationInput: 100,
+      traceSepiaInput: 0,
+    };
+    Object.entries(defaults).forEach(([key, value]) => {
+      ui[key].value = String(value);
+    });
+    syncTracePreprocessLabels();
     scheduleTracePreview();
   });
   ui.traceSpeckleInput.addEventListener("input", scheduleTracePreview);
