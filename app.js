@@ -4400,8 +4400,19 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
     requestDraw();
   }, { passive: false });
 
+  function dragEventHasFiles(event) {
+    const transfer = event.dataTransfer;
+    return Boolean(
+      transfer?.files?.length ||
+      Array.from(transfer?.types || []).includes("Files")
+    );
+  }
+
   ["dragenter", "dragover"].forEach((eventName) => {
     ui.canvasWrap.addEventListener(eventName, (event) => {
+      if (!dragEventHasFiles(event)) {
+        return;
+      }
       event.preventDefault();
       state.dragImportActive = true;
       refreshWorkspaceUi();
@@ -4420,6 +4431,9 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
   });
 
   ui.canvasWrap.addEventListener("drop", async (event) => {
+    if (!dragEventHasFiles(event)) {
+      return;
+    }
     event.preventDefault();
     state.dragImportActive = false;
     refreshWorkspaceUi();
