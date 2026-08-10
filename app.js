@@ -2998,6 +2998,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       ui.cadInspectorTextFontSelect.style.fontFamily = (
         CadFont.FONT_OPTIONS.find((option) => option.id === ui.cadInspectorTextFontSelect.value)?.family || "sans-serif"
       );
+      syncFontPicker(ui.cadInspectorTextFontSelect);
       ui.cadInspectorTextSizeInput.value = formatNumber(frame.height);
     }
   }
@@ -3166,6 +3167,81 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   function updateCadTextFontPreview() {
     const option = CadFont.FONT_OPTIONS.find((candidate) => candidate.id === ui.cadTextFontSelect.value);
     ui.cadTextFontSelect.style.fontFamily = option?.family || "sans-serif";
+    syncFontPicker(ui.cadTextFontSelect);
+  }
+
+  function closeFontPickers(except = null) {
+    for (const picker of document.querySelectorAll(".font-picker")) {
+      if (picker !== except) {
+        picker.classList.remove("is-open");
+        picker.querySelector(".font-picker-toggle")?.setAttribute("aria-expanded", "false");
+      }
+    }
+  }
+
+  function syncFontPicker(select) {
+    const picker = select?.closest(".font-picker");
+    const option = CadFont.FONT_OPTIONS.find((candidate) => candidate.id === select?.value);
+    const toggle = picker?.querySelector(".font-picker-toggle");
+    if (!picker || !option || !toggle) {
+      return;
+    }
+    toggle.textContent = option.name;
+    toggle.style.fontFamily = option.family;
+    for (const item of picker.querySelectorAll("[data-font-id]")) {
+      item.classList.toggle("is-selected", item.dataset.fontId === option.id);
+    }
+  }
+
+  function enableFontPickers() {
+    const selects = [ui.cadTextFontSelect, ui.cadInspectorTextFontSelect].filter(Boolean);
+    for (const select of selects) {
+      if (select.closest(".font-picker")) {
+        continue;
+      }
+      const picker = document.createElement("div");
+      picker.className = "font-picker";
+      select.parentNode.insertBefore(picker, select);
+      picker.append(select);
+      select.classList.add("font-picker-native");
+
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "font-picker-toggle";
+      toggle.setAttribute("aria-haspopup", "listbox");
+      toggle.setAttribute("aria-expanded", "false");
+      const menu = document.createElement("div");
+      menu.className = "font-picker-menu";
+      menu.setAttribute("role", "listbox");
+      for (const font of CadFont.FONT_OPTIONS) {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "font-picker-option";
+        item.dataset.fontId = font.id;
+        item.style.fontFamily = font.family;
+        item.textContent = font.name;
+        item.addEventListener("click", () => {
+          select.value = font.id;
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+          closeFontPickers();
+        });
+        menu.append(item);
+      }
+      toggle.addEventListener("click", () => {
+        const willOpen = !picker.classList.contains("is-open");
+        closeFontPickers(picker);
+        picker.classList.toggle("is-open", willOpen);
+        toggle.setAttribute("aria-expanded", String(willOpen));
+      });
+      select.addEventListener("change", () => syncFontPicker(select));
+      picker.append(toggle, menu);
+      syncFontPicker(select);
+    }
+    document.addEventListener("pointerdown", (event) => {
+      if (!event.target.closest(".font-picker")) {
+        closeFontPickers();
+      }
+    });
   }
 
   async function commitCadText() {
@@ -5235,9 +5311,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadInspectorDismissed = true;
     refreshCadInspector();
   });
+  enableFontPickers();
   ui.cadTextAddBtn.addEventListener("click", commitCadText);
   ui.cadTextCancelBtn.addEventListener("click", hideCadTextPanel);
   ui.cadTextFontSelect.addEventListener("change", updateCadTextFontPreview);
+  ui.cadInspectorTextFontSelect.addEventListener("change", () => syncFontPicker(ui.cadInspectorTextFontSelect));
   updateCadTextFontPreview();
   ui.applyCadInspectorBtn.addEventListener("click", applyCadInspectorChanges);
   ui.transformAspectLockBtn.addEventListener("click", () => {
