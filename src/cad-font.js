@@ -145,5 +145,22 @@ export function createOutlineText(font, text, origin, height) {
     }
   }
   closeContour();
-  return contours;
+
+  // OpenType's font size is an em square. Normalize its visible outlines so
+  // the CAD height means the physical height users see and machine.
+  const points = contours.flat();
+  if (!points.length) {
+    return contours;
+  }
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxY = Math.max(...points.map((point) => point.y));
+  const visibleHeight = maxY - minY;
+  if (!Number.isFinite(visibleHeight) || visibleHeight <= 1e-9) {
+    return contours;
+  }
+  const scale = Math.max(0.1, height) / visibleHeight;
+  return contours.map((contour) => contour.map((point) => ({
+    x: origin.x + (point.x - origin.x) * scale,
+    y: origin.y + (point.y - origin.y) * scale,
+  })));
 }
