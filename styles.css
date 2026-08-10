@@ -144,6 +144,13 @@ body {
   background: #b8ff78;
 }
 
+.workflow-step[data-step="export"],
+.workflow-step[data-step="export"].is-active,
+.workflow-step[data-step="export"].is-complete {
+  background: var(--funky-peach);
+  color: var(--funky-ink);
+}
+
 .step-index {
   width: 1.35rem;
   height: 1.35rem;
