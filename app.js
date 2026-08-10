@@ -83,13 +83,19 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     cadInspectorCloseBtn: document.getElementById("cadInspectorCloseBtn"),
     cadInspectorXInput: document.getElementById("cadInspectorXInput"),
     cadInspectorYInput: document.getElementById("cadInspectorYInput"),
+    cadInspectorWidthField: document.getElementById("cadInspectorWidthField"),
     cadInspectorWidthInput: document.getElementById("cadInspectorWidthInput"),
+    cadInspectorHeightField: document.getElementById("cadInspectorHeightField"),
     cadInspectorHeightInput: document.getElementById("cadInspectorHeightInput"),
     cadInspectorAngleInput: document.getElementById("cadInspectorAngleInput"),
     cadInspectorRadiusField: document.getElementById("cadInspectorRadiusField"),
     cadInspectorRadiusInput: document.getElementById("cadInspectorRadiusInput"),
     cadInspectorTextField: document.getElementById("cadInspectorTextField"),
     cadInspectorTextInput: document.getElementById("cadInspectorTextInput"),
+    cadInspectorTextFontField: document.getElementById("cadInspectorTextFontField"),
+    cadInspectorTextFontSelect: document.getElementById("cadInspectorTextFontSelect"),
+    cadInspectorTextSizeField: document.getElementById("cadInspectorTextSizeField"),
+    cadInspectorTextSizeInput: document.getElementById("cadInspectorTextSizeInput"),
     applyCadInspectorBtn: document.getElementById("applyCadInspectorBtn"),
     cadTextPanel: document.getElementById("cadTextPanel"),
     cadTextInput: document.getElementById("cadTextInput"),
@@ -2970,13 +2976,22 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     ui.cadInspectorWidthInput.value = formatNumber(frame.width);
     ui.cadInspectorHeightInput.value = formatNumber(frame.height);
     ui.cadInspectorAngleInput.value = formatNumber((frame.angle * 180) / Math.PI);
+    ui.cadInspectorWidthField.classList.toggle("d-none", isText);
+    ui.cadInspectorHeightField.classList.toggle("d-none", isText);
     ui.cadInspectorRadiusField.classList.toggle("d-none", !isRectangle);
     ui.cadInspectorTextField.classList.toggle("d-none", !isText);
+    ui.cadInspectorTextFontField.classList.toggle("d-none", !isText);
+    ui.cadInspectorTextSizeField.classList.toggle("d-none", !isText);
     if (isRectangle) {
       ui.cadInspectorRadiusInput.value = formatNumber(selected.entity.__cadCornerRadius || 0);
     }
     if (isText) {
       ui.cadInspectorTextInput.value = selected.entity.text || "";
+      ui.cadInspectorTextFontSelect.value = selected.entity.fontId || "single-line";
+      ui.cadInspectorTextFontSelect.style.fontFamily = (
+        CadFont.FONT_OPTIONS.find((option) => option.id === ui.cadInspectorTextFontSelect.value)?.family || "sans-serif"
+      );
+      ui.cadInspectorTextSizeInput.value = formatNumber(frame.height);
     }
   }
 
@@ -2988,12 +3003,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     const targetX = Number.parseFloat(ui.cadInspectorXInput.value);
     const targetY = Number.parseFloat(ui.cadInspectorYInput.value);
-    const targetWidth = Number.parseFloat(ui.cadInspectorWidthInput.value);
-    const targetHeight = Number.parseFloat(ui.cadInspectorHeightInput.value);
     const targetAngleDeg = Number.parseFloat(ui.cadInspectorAngleInput.value);
-    if (![targetX, targetY, targetWidth, targetHeight, targetAngleDeg].every(Number.isFinite)
-      || targetWidth <= 0 || targetHeight <= 0) {
-      showToast("Enter a valid position, size, and angle.", "warning");
+    if (![targetX, targetY, targetAngleDeg].every(Number.isFinite)) {
+      showToast("Enter a valid position and angle.", "warning");
       return;
     }
     const context = captureSelectionTransformContext();
@@ -3003,6 +3015,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const historyBefore = captureHistorySnapshot();
     const targetAngle = (targetAngleDeg * Math.PI) / 180;
     if (selected.entity.__cadShape === "rectangle") {
+      const targetWidth = Number.parseFloat(ui.cadInspectorWidthInput.value);
+      const targetHeight = Number.parseFloat(ui.cadInspectorHeightInput.value);
+      if (![targetWidth, targetHeight].every(Number.isFinite) || targetWidth <= 0 || targetHeight <= 0) {
+        showToast("Enter a valid size.", "warning");
+        return;
+      }
       const requestedRadius = Number.parseFloat(ui.cadInspectorRadiusInput.value);
       if (!Number.isFinite(requestedRadius) || requestedRadius < 0) {
         showToast("Corner radius must be zero or greater.", "warning");
@@ -3020,9 +3038,16 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       await applySelectionTransformAndRebuild(null, context);
     } else if (selected.entity.__cadShape === "text") {
       const text = ui.cadInspectorTextInput.value.trim();
+      const textSize = Number.parseFloat(ui.cadInspectorTextSizeInput.value);
+      const fontId = ui.cadInspectorTextFontSelect.value;
       if (!text) {
         showToast("Enter text for the vector text shape.", "warning");
         ui.cadInspectorTextInput.focus();
+        return;
+      }
+      if (!Number.isFinite(textSize) || textSize <= 0) {
+        showToast("Text size must be greater than zero.", "warning");
+        ui.cadInspectorTextSizeInput.focus();
         return;
       }
       let replacement;
@@ -3030,8 +3055,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
         replacement = await createCadTextEntity(
           { x: 0, y: 0 },
           text,
-          selected.entity.height || frame.height,
-          selected.entity.fontId
+          textSize,
+          fontId
         );
       } catch (error) {
         showToast(error?.message || "Could not update vector text.", "danger");
@@ -3046,26 +3071,28 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       });
       context.initialEntities[selected.index] = replacement;
       state.entities[selected.index] = replacement;
+      // The replacement starts unrotated; apply the requested inspector angle below.
+      state.selectionFrameAngles.delete(context.selectedEntityKey);
       rebuildLoopsFromEntities(context.selectionSignatures);
       const replacementFrame = getSelectionFrame();
       if (!replacementFrame) {
         showToast("Could not measure the updated vector text.", "danger");
         return;
       }
-      const heightScale = targetHeight / replacementFrame.height;
-      const widthWasEdited = Math.abs(targetWidth - frame.width) > 1e-6;
-      const widthScale = widthWasEdited ? targetWidth / replacementFrame.width : heightScale;
       const deltaAngle = targetAngle - replacementFrame.angle;
       const matrix = multiplyMatrices(
         matrixForTranslation(targetX - replacementFrame.center.x, targetY - replacementFrame.center.y),
-        multiplyMatrices(
-          matrixForRotation(deltaAngle, replacementFrame.center.x, replacementFrame.center.y),
-          matrixForFrameScale(widthScale, heightScale, replacementFrame)
-        )
+        matrixForRotation(deltaAngle, replacementFrame.center.x, replacementFrame.center.y)
       );
       context.resultAngle = normalizeRadians(targetAngle);
       await applySelectionTransformAndRebuild(matrix, context);
     } else {
+      const targetWidth = Number.parseFloat(ui.cadInspectorWidthInput.value);
+      const targetHeight = Number.parseFloat(ui.cadInspectorHeightInput.value);
+      if (![targetWidth, targetHeight].every(Number.isFinite) || targetWidth <= 0 || targetHeight <= 0) {
+        showToast("Enter a valid size.", "warning");
+        return;
+      }
       const scaleX = targetWidth / frame.width;
       const scaleY = targetHeight / frame.height;
       if (selectionContainsCurvedEntities() && Math.abs(scaleX - scaleY) > 1e-6) {

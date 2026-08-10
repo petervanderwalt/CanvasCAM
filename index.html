@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260810-draggable-modals1">
+  <link rel="stylesheet" href="styles.css?v=20260810-text-inspector2">
 </head>
 <body>
   <div class="workspace-shell">
@@ -112,14 +112,32 @@
             <div class="cad-inspector-grid">
               <label><span class="cad-inspector-label">X</span><input id="cadInspectorXInput" type="number" step="0.001"><span>mm</span></label>
               <label><span class="cad-inspector-label">Y</span><input id="cadInspectorYInput" type="number" step="0.001"><span>mm</span></label>
-              <label><span class="cad-inspector-label">Width</span><input id="cadInspectorWidthInput" type="number" min="0.001" step="0.001"><span>mm</span></label>
-              <label><span class="cad-inspector-label">Height</span><input id="cadInspectorHeightInput" type="number" min="0.001" step="0.001"><span>mm</span></label>
+              <label id="cadInspectorWidthField"><span class="cad-inspector-label">Width</span><input id="cadInspectorWidthInput" type="number" min="0.001" step="0.001"><span>mm</span></label>
+              <label id="cadInspectorHeightField"><span class="cad-inspector-label">Height</span><input id="cadInspectorHeightInput" type="number" min="0.001" step="0.001"><span>mm</span></label>
             <label><span class="cad-inspector-label">Angle</span><input id="cadInspectorAngleInput" type="number" step="0.1"><span>&deg;</span></label>
             <label id="cadInspectorRadiusField"><span class="cad-inspector-label">Corner radius</span><input id="cadInspectorRadiusInput" type="number" min="0" step="0.001"><span>mm</span></label>
           </div>
           <label id="cadInspectorTextField" class="cad-inspector-text-field d-none">
             <span class="cad-inspector-label">Text</span>
             <input id="cadInspectorTextInput" type="text" maxlength="240" autocomplete="off">
+          </label>
+          <label id="cadInspectorTextFontField" class="cad-inspector-text-field d-none">
+            <span class="cad-inspector-label">Font</span>
+            <select id="cadInspectorTextFontSelect" class="cad-inspector-text-font-select">
+              <option value="single-line" class="font-single-line">Single Line Engraving</option>
+              <option value="space-mono" class="font-space-mono">Space Mono</option>
+              <option value="anton" class="font-anton">Anton</option>
+              <option value="bebas-neue" class="font-bebas-neue">Bebas Neue</option>
+              <option value="righteous" class="font-righteous">Righteous</option>
+              <option value="bungee" class="font-bungee">Bungee</option>
+              <option value="black-ops-one" class="font-black-ops-one">Black Ops One</option>
+              <option value="stardos-stencil" class="font-stardos-stencil">Stardos Stencil</option>
+              <option value="lobster" class="font-lobster">Lobster</option>
+            </select>
+          </label>
+          <label id="cadInspectorTextSizeField" class="cad-inspector-text-field d-none">
+            <span class="cad-inspector-label">Size</span>
+            <span class="cad-inspector-text-size-row"><input id="cadInspectorTextSizeInput" type="number" min="0.1" step="0.1"><span>mm</span></span>
           </label>
           <button id="applyCadInspectorBtn" type="button" class="btn btn-success cad-inspector-apply">Apply changes</button>
         </section>
@@ -641,6 +659,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-draggable-modals1"></script>
+  <script type="module" src="app.js?v=20260810-text-inspector2"></script>
 </body>
 </html>
