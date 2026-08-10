@@ -142,6 +142,66 @@ export function offsetCompositePolygons(paths, delta) {
     .filter((points) => Math.abs(polygonArea(points)) > 1);
 }
 
+export function booleanPolygons(selectedLoops, operation = "union") {
+  const records = selectedLoops
+    .filter((loop) => loop?.closed !== false && loop?.points?.length >= 4)
+    .map((loop) => ({
+      points: closePoints(loop.points),
+      area: Math.abs(polygonArea(loop.points)),
+    }))
+    .filter((record) => record.area > 1e-6);
+
+  if (records.length < 2) {
+    return [];
+  }
+
+  records.sort((a, b) => b.area - a.area);
+  const paths = records.map((record) => {
+    const sample = polygonCentroid(record.points);
+    const nestingDepth = records.reduce((depth, candidate) => (
+      candidate === record || candidate.area <= record.area || !pointInPolygon(sample, candidate.points)
+        ? depth
+        : depth + 1
+    ), 0);
+    const oriented = nestingDepth % 2 === 0
+      ? ensurePositiveOrientation(record.points)
+      : ensureNegativeOrientation(record.points);
+    return clipperPathFromPoints(oriented);
+  });
+  const fill = ClipperLib.PolyFillType.pftNonZero;
+  const execute = (clipType, subject, clip = []) => {
+    const clipper = new ClipperLib.Clipper();
+    clipper.AddPaths(subject, ClipperLib.PolyType.ptSubject, true);
+    if (clip.length) {
+      clipper.AddPaths(clip, ClipperLib.PolyType.ptClip, true);
+    }
+    const solution = new ClipperLib.Paths();
+    clipper.Execute(clipType, solution, fill, fill);
+    return solution;
+  };
+
+  let solution;
+  if (operation === "difference") {
+    solution = execute(ClipperLib.ClipType.ctDifference, [paths[0]], paths.slice(1));
+  } else if (operation === "intersection") {
+    solution = [paths[0]];
+    for (const path of paths.slice(1)) {
+      solution = execute(ClipperLib.ClipType.ctIntersection, solution, [path]);
+      if (!solution.length) {
+        break;
+      }
+    }
+  } else if (operation === "xor") {
+    solution = execute(ClipperLib.ClipType.ctXor, paths);
+  } else {
+    solution = execute(ClipperLib.ClipType.ctUnion, paths);
+  }
+
+  return solution
+    .map(pointsFromClipperPath)
+    .filter((points) => Math.abs(polygonArea(points)) > 1e-6);
+}
+
 export function createToolpathFromLoops(selectedLoops, config, options = {}) {
   if (config.operation === "vcarve") {
     throw new Error("V-Carve toolpaths must be built asynchronously.");

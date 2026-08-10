@@ -2018,6 +2018,129 @@ body {
   padding: 0;
 }
 
+#booleanModal .modal-content {
+  border: 4px solid var(--funky-ink);
+  border-radius: 1.25rem;
+  overflow: hidden;
+  background: linear-gradient(180deg, #ffc58f 0%, #fff3cd 100%);
+  box-shadow: 0 10px 0 rgba(17, 17, 17, 0.96);
+}
+
+#booleanModal .modal-header,
+#booleanModal .modal-footer {
+  border-color: rgba(17, 17, 17, 0.18);
+  background: rgba(255, 248, 216, 0.78);
+}
+
+#booleanModal .modal-title {
+  color: var(--funky-ink);
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-weight: 900;
+}
+
+#booleanModal .modal-header .text-muted,
+#booleanModal .boolean-preview-note {
+  color: rgba(17, 17, 17, 0.68) !important;
+  font-weight: 700;
+}
+
+#booleanModal .btn-close {
+  position: relative;
+  width: 2.35rem;
+  height: 2.35rem;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.8rem;
+  background: var(--funky-blue);
+  background-image: none;
+  opacity: 1;
+  box-shadow: 0 3px 0 rgba(17, 17, 17, 0.92);
+}
+
+#booleanModal .btn-close::before,
+#booleanModal .btn-close::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1rem;
+  height: 3px;
+  background: var(--funky-ink);
+}
+
+#booleanModal .btn-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+#booleanModal .btn-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
+
+.boolean-operation-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.boolean-operation-option {
+  display: grid;
+  grid-template-columns: 1.25rem 1fr;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.85rem;
+  background: #fffdf4;
+  box-shadow: 0 3px 0 rgba(17, 17, 17, 0.88);
+  cursor: pointer;
+}
+
+.boolean-operation-option.is-active {
+  background: var(--funky-blue);
+}
+
+.boolean-operation-option input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: #e8590c;
+}
+
+.boolean-operation-option strong,
+.boolean-operation-option small {
+  display: block;
+  color: var(--funky-ink);
+}
+
+.boolean-operation-option strong {
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-weight: 900;
+}
+
+.boolean-operation-option small {
+  margin-top: 0.06rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  opacity: 0.72;
+}
+
+.boolean-preview-note {
+  margin-top: 0.7rem;
+  font-size: 0.78rem;
+}
+
+#booleanModal .modal-footer .btn {
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.78rem;
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-weight: 900;
+  box-shadow: 0 4px 0 rgba(17, 17, 17, 0.92);
+}
+
+#booleanModal .modal-footer .btn-outline-secondary {
+  background: #fff8d8;
+  color: var(--funky-ink);
+}
+
+#applyBooleanBtn {
+  background: #9cf13a;
+  color: var(--funky-ink);
+}
+
 @media (max-width: 1100px) {
   .workspace-shell {
     grid-template-columns: 1fr;

@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260810-font-text3">
+  <link rel="stylesheet" href="styles.css?v=20260810-boolean1">
 </head>
 <body>
   <div class="workspace-shell">
@@ -119,6 +119,9 @@
               </button>
               <button type="button" id="duplicateVectorsBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Duplicate selected vectors (Ctrl+D)" aria-label="Duplicate selected vectors">
                 <i class="fa-regular fa-clone"></i>
+              </button>
+              <button type="button" id="booleanVectorsBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Combine selected closed vectors" aria-label="Combine selected vectors" disabled>
+                <i class="fa-solid fa-circle-nodes"></i>
               </button>
             </div>
           </div>
@@ -480,6 +483,44 @@
       </div>
     </div>
   </div>
+  <div id="booleanModal" class="modal fade" tabindex="-1" aria-labelledby="booleanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title fs-5" id="booleanModalLabel">Combine Vectors</h2>
+            <div id="booleanModalSummary" class="small text-muted"></div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="boolean-operation-list" role="radiogroup" aria-label="Boolean operation">
+            <label class="boolean-operation-option is-active">
+              <input type="radio" name="booleanOperation" value="union" checked>
+              <span><strong>Union</strong><small>Merge the selected shapes.</small></span>
+            </label>
+            <label class="boolean-operation-option">
+              <input type="radio" name="booleanOperation" value="difference">
+              <span><strong>Difference</strong><small>Remove smaller shapes from the largest shape.</small></span>
+            </label>
+            <label class="boolean-operation-option">
+              <input type="radio" name="booleanOperation" value="intersection">
+              <span><strong>Intersect</strong><small>Keep only shared areas.</small></span>
+            </label>
+            <label class="boolean-operation-option">
+              <input type="radio" name="booleanOperation" value="xor">
+              <span><strong>XOR</strong><small>Keep areas that do not overlap.</small></span>
+            </label>
+          </div>
+          <div class="boolean-preview-note"><i class="fa-regular fa-eye"></i> Orange geometry is the live canvas preview.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="applyBooleanBtn" type="button" class="btn btn-primary">Apply Boolean</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="toastContainer" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
   <div id="workerBadge" class="worker-badge d-none" aria-live="polite">
     <div class="worker-spinner spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
@@ -494,6 +535,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-marquee-drag1"></script>
+  <script type="module" src="app.js?v=20260810-boolean1"></script>
 </body>
 </html>

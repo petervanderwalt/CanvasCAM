@@ -6,7 +6,7 @@ import {
 import { parseDxf as parseDxfFile } from "./src/dxf.js?v=20260730-vcarve12";
 import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260730-vcarve12";
 import * as Paths from "./src/paths.js?v=20260810-text1";
-import * as CamOps from "./src/cam-ops.js?v=20260730-vcarve12";
+import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
 import * as CanvasView from "./src/canvas-view.js?v=20260810-solid-draft1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
@@ -27,6 +27,7 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
   let workerProgressAnimationFrame = null;
   let myEndmillsModalInstance = null;
   let bitmapTraceModalInstance = null;
+  let booleanModalInstance = null;
 
   const ui = {
     projectTitle: document.getElementById("projectTitle"),
@@ -77,6 +78,11 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
     transformToolButtons: Array.from(document.querySelectorAll(".transform-tool-btn")),
     deleteVectorsBtn: document.getElementById("deleteVectorsBtn"),
     duplicateVectorsBtn: document.getElementById("duplicateVectorsBtn"),
+    booleanVectorsBtn: document.getElementById("booleanVectorsBtn"),
+    booleanModal: document.getElementById("booleanModal"),
+    booleanModalSummary: document.getElementById("booleanModalSummary"),
+    booleanOperationInputs: Array.from(document.querySelectorAll("input[name='booleanOperation']")),
+    applyBooleanBtn: document.getElementById("applyBooleanBtn"),
     transformSidebarPanel: document.getElementById("transformSidebarPanel"),
     transformInspector: document.getElementById("transformInspector"),
     transformMoveGroup: document.getElementById("transformMoveGroup"),
@@ -199,6 +205,8 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
     cadSnapEnabled: true,
     cadInspectorDismissed: false,
     pendingBitmapFile: null,
+    booleanPreviewContours: null,
+    booleanOperation: "union",
     geometryTransform: null,
     transformingGeometry: false,
     transformSizeLastEdited: "width",
@@ -798,6 +806,8 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
       button.classList.toggle("btn-light", !active);
     }
     ui.vectorActionGroup.classList.toggle("d-none", state.selectedLoopIds.size === 0);
+    const booleanEligible = loopsFromSelection().filter((loop) => loop.closed !== false && loop.points?.length >= 4).length >= 2;
+    ui.booleanVectorsBtn.disabled = !booleanEligible;
     updateSelectModeUi();
     refreshSidebarMode();
   }
@@ -894,6 +904,141 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
     refreshToolpathUi();
     refreshWorkspaceUi();
     requestDraw();
+  }
+
+  function getBooleanEligibleLoops() {
+    return loopsFromSelection().filter((loop) => loop.closed !== false && loop.points?.length >= 4);
+  }
+
+  function getBooleanModalInstance() {
+    if (!ui.booleanModal) {
+      return null;
+    }
+    if (!booleanModalInstance) {
+      if (window.bootstrap?.Modal) {
+        booleanModalInstance = window.bootstrap.Modal.getOrCreateInstance(ui.booleanModal, { backdrop: "static" });
+      } else {
+        booleanModalInstance = {
+          show() {
+            ui.booleanModal.classList.add("show");
+            ui.booleanModal.style.display = "block";
+            ui.booleanModal.removeAttribute("aria-hidden");
+            document.body.classList.add("modal-open");
+          },
+          hide() {
+            ui.booleanModal.classList.remove("show");
+            ui.booleanModal.style.display = "none";
+            ui.booleanModal.setAttribute("aria-hidden", "true");
+            document.body.classList.remove("modal-open");
+          },
+        };
+      }
+    }
+    return booleanModalInstance;
+  }
+
+  function refreshBooleanPreview() {
+    const loops = getBooleanEligibleLoops();
+    const preview = CamOps.booleanPolygons(loops, state.booleanOperation);
+    state.booleanPreviewContours = preview;
+    ui.applyBooleanBtn.disabled = preview.length === 0;
+    requestDraw();
+  }
+
+  function openBooleanDialog() {
+    const loops = getBooleanEligibleLoops();
+    if (loops.length < 2) {
+      showToast("Select at least two closed vectors to combine.", "warning");
+      return;
+    }
+    state.booleanOperation = "union";
+    ui.booleanModalSummary.textContent = `${loops.length} closed vectors selected`;
+    for (const input of ui.booleanOperationInputs) {
+      input.checked = input.value === state.booleanOperation;
+      input.closest(".boolean-operation-option")?.classList.toggle("is-active", input.checked);
+    }
+    refreshBooleanPreview();
+    getBooleanModalInstance()?.show();
+  }
+
+  async function applyBooleanOperation() {
+    const selectedLoops = getBooleanEligibleLoops();
+    const result = state.booleanPreviewContours || [];
+    if (selectedLoops.length < 2 || !result.length) {
+      showToast("This Boolean operation has no resulting geometry.", "warning");
+      return;
+    }
+
+    const historyBefore = captureHistorySnapshot();
+    const selectedIndexes = new Set(getSelectedEntityIndexes());
+    const selectedSignatures = selectedLoopSignatures();
+    const snapshots = snapshotToolpathsForRebuild();
+    const resultEntities = result.map((points) => ({
+      type: "LWPOLYLINE",
+      closed: true,
+      vertices: points.slice(0, -1).map((point) => ({ x: point.x, y: point.y, bulge: 0 })),
+      __booleanResult: true,
+    }));
+    state.entities = state.entities.filter((_, index) => !selectedIndexes.has(index));
+    const insertedStart = state.entities.length;
+    state.entities.push(...resultEntities);
+    state.selectionFrameAngles.clear();
+    clearToolpathEditing();
+    clearDraftToolpath();
+    state.activeToolpathId = null;
+    rebuildLoopsFromEntities(new Set());
+
+    const resultIndexes = new Set(resultEntities.map((_, index) => insertedStart + index));
+    const resultLoops = state.loops.filter((loop) => loop.sourceEntityIndexes?.some((index) => resultIndexes.has(index)));
+    state.selectedLoopIds = new Set(resultLoops.map((loop) => loop.id));
+    const loopMap = new Map(state.loops.map((loop) => [loopSignature(loop), loop]));
+    const rebuiltToolpaths = [];
+    let discardedToolpaths = 0;
+
+    if (snapshots.length) {
+      startWorkerJob("boolean", { label: "Updating toolpaths", percent: 8, priority: 1 });
+      try {
+        for (let index = 0; index < snapshots.length; index += 1) {
+          const snapshot = snapshots[index];
+          const sourceSignatures = snapshot.sourceLoopSignatures || [];
+          const affected = sourceSignatures.some((signature) => selectedSignatures.has(signature));
+          const fullyAffected = affected && sourceSignatures.every((signature) => selectedSignatures.has(signature));
+          if (affected && !fullyAffected) {
+            discardedToolpaths += 1;
+            continue;
+          }
+          const sourceLoops = fullyAffected
+            ? resultLoops
+            : sourceSignatures.map((signature) => loopMap.get(signature)).filter(Boolean);
+          if (!sourceLoops.length) {
+            discardedToolpaths += 1;
+            continue;
+          }
+          updateWorkerJob("boolean", { label: "Updating toolpaths", percent: 12 + Math.round((index / Math.max(1, snapshots.length)) * 80), priority: 1 });
+          const rebuilt = await createToolpathFromLoopsAsync(sourceLoops, snapshot.config, { id: snapshot.id, label: snapshot.label });
+          rebuilt.sourceLoops = sourceLoops;
+          rebuilt.tabs = normalizeTabsForToolpath(rebuilt, snapshot.tabs);
+          rebuiltToolpaths.push(rebuilt);
+        }
+        state.toolpaths = rebuiltToolpaths;
+      } catch (error) {
+        state.toolpaths = [];
+        discardedToolpaths = snapshots.length;
+        showToast(error instanceof Error ? error.message : "Failed to rebuild toolpaths after Boolean operation.", "danger");
+      } finally {
+        finishWorkerJob("boolean");
+      }
+    }
+
+    state.booleanPreviewContours = null;
+    getBooleanModalInstance()?.hide();
+    pushHistorySnapshot(historyBefore);
+    refreshSelectionUi();
+    refreshToolpathUi();
+    refreshWorkspaceUi();
+    draw();
+    const label = state.booleanOperation === "xor" ? "XOR" : state.booleanOperation[0].toUpperCase() + state.booleanOperation.slice(1);
+    showToast(`${label} created ${resultLoops.length} vector${resultLoops.length === 1 ? "" : "s"}.${discardedToolpaths ? ` ${discardedToolpaths} mixed toolpath${discardedToolpaths === 1 ? " was" : "s were"} removed.` : ""}`, "success");
   }
 
   async function deleteVectorsByEntityIndexes(entityIndexes) {
@@ -4046,6 +4191,31 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
     deleteSelectedVectors();
   });
   ui.duplicateVectorsBtn.addEventListener("click", duplicateSelectedVectors);
+  ui.booleanVectorsBtn.addEventListener("click", openBooleanDialog);
+  ui.booleanOperationInputs.forEach((input) => {
+    input.addEventListener("change", () => {
+      if (!input.checked) {
+        return;
+      }
+      state.booleanOperation = input.value;
+      ui.booleanOperationInputs.forEach((option) => {
+        option.closest(".boolean-operation-option")?.classList.toggle("is-active", option.checked);
+      });
+      refreshBooleanPreview();
+    });
+  });
+  ui.applyBooleanBtn.addEventListener("click", applyBooleanOperation);
+  ui.booleanModal?.querySelectorAll("[data-bs-dismiss='modal']").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.booleanPreviewContours = null;
+      requestDraw();
+      getBooleanModalInstance()?.hide();
+    });
+  });
+  ui.booleanModal?.addEventListener("hidden.bs.modal", () => {
+    state.booleanPreviewContours = null;
+    requestDraw();
+  });
   for (const option of ui.operationOptions) {
     option.addEventListener("click", () => {
       ui.toolpathTypeInput.value = option.dataset.operation;

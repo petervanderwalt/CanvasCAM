@@ -49,6 +49,30 @@ export function drawScene({
     ctx.restore();
   }
 
+  if (state.booleanPreviewContours?.length) {
+    ctx.save();
+    ctx.fillStyle = "rgba(255, 126, 74, 0.24)";
+    ctx.strokeStyle = "#e8590c";
+    ctx.lineWidth = 2.4;
+    ctx.setLineDash([7, 5]);
+    ctx.beginPath();
+    for (const contour of state.booleanPreviewContours) {
+      if (!contour.length) {
+        continue;
+      }
+      const first = worldToScreen(contour[0]);
+      ctx.moveTo(first.x, first.y);
+      for (const point of contour.slice(1)) {
+        const screen = worldToScreen(point);
+        ctx.lineTo(screen.x, screen.y);
+      }
+      ctx.closePath();
+    }
+    ctx.fill("evenodd");
+    ctx.stroke();
+    ctx.restore();
+  }
+
   if (!navigationMode && !state.transformingGeometry) {
     for (const toolpath of getRenderableToolpaths()) {
       const active = state.draftToolpath
