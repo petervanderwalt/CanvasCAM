@@ -103,10 +103,12 @@ export function parseSvg(text) {
     if (tag === "path") {
       const pathData = element.getAttribute("d") || "";
       if (pathData.trim()) {
-        const closed = /[zZ]/.test(pathData);
-        const points = sampleSvgPathPoints(pathData, matrix, closed);
-        if (points.length >= 2) {
-          entities.push(polylineEntityFromPoints(points, closed, element));
+        for (const subpath of splitSvgPathSubpaths(pathData)) {
+          const closed = /[zZ]/.test(subpath);
+          const points = sampleSvgPathPoints(subpath, matrix, closed);
+          if (points.length >= 2) {
+            entities.push(polylineEntityFromPoints(points, closed, element));
+          }
         }
       }
     }
@@ -114,6 +116,20 @@ export function parseSvg(text) {
 
   visit(documentNode.documentElement, createMatrix());
   return entities;
+}
+
+function splitSvgPathSubpaths(pathData) {
+  const starts = [];
+  const moveCommand = /[Mm](?=\s*[-+]?(?:\d|\.\d))/g;
+  let match = moveCommand.exec(pathData);
+  while (match) {
+    starts.push(match.index);
+    match = moveCommand.exec(pathData);
+  }
+  if (starts.length < 2) {
+    return [pathData];
+  }
+  return starts.map((start, index) => pathData.slice(start, starts[index + 1]).trim()).filter(Boolean);
 }
 
 function polylineEntityFromPoints(points, closed, element, sourceType = "POLYLINE") {

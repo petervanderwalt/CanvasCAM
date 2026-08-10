@@ -4,14 +4,14 @@ import {
   TAB_DELETE_MOVE_THRESHOLD,
 } from "./src/constants.js?v=20260810-marquee1";
 import { parseDxf as parseDxfFile } from "./src/dxf.js?v=20260730-vcarve12";
-import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260730-vcarve12";
+import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpaths1";
 import * as Paths from "./src/paths.js?v=20260810-text1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
 import * as CanvasView from "./src/canvas-view.js?v=20260810-grid-snap1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
-import { Potrace } from "./vendor/potrace.module.js?v=20260810-potrace1";
+import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
 (function () {
 
@@ -3803,10 +3803,11 @@ import { Potrace } from "./vendor/potrace.module.js?v=20260810-potrace1";
   function getTraceSettings() {
     return {
       threshold: Number.parseInt(ui.traceThresholdInput.value, 10) || 0,
-      turdSize: Math.max(0, Number.parseInt(ui.traceSpeckleInput.value, 10) || 0),
-      alphaMax: Math.min(1.33, Math.max(0, Number.parseFloat(ui.traceCornerInput.value) || 0)),
-      optCurve: ui.traceOptimizeInput.checked,
-      optTolerance: 0.2,
+      turnpolicy: "right",
+      turdsize: Math.max(0, Number.parseInt(ui.traceSpeckleInput.value, 10) || 0),
+      alphamax: Math.min(1.33, Math.max(0, Number.parseFloat(ui.traceCornerInput.value) || 0)),
+      optcurve: ui.traceOptimizeInput.checked,
+      opttolerance: 0.2,
       blackOnWhite: !ui.traceInvertInput.checked,
     };
   }
@@ -3846,26 +3847,42 @@ import { Potrace } from "./vendor/potrace.module.js?v=20260810-potrace1";
   }
 
   function traceImageData(imageData, settings) {
-    return new Promise((resolve, reject) => {
-      const tracer = new Potrace(settings);
-      tracer.loadImage({
-        bitmap: {
-          width: imageData.width,
-          height: imageData.height,
-          data: imageData.data,
-        },
-      }, (error) => {
-        if (error) {
-          reject(error);
-          return;
+    const bitmap = new Potrace.Bitmap(imageData.width, imageData.height);
+    for (let index = 0, pixel = 0; index < imageData.data.length; index += 4, pixel += 1) {
+      const alpha = imageData.data[index + 3] / 255;
+      const luminance = (
+        imageData.data[index] * 0.2126
+        + imageData.data[index + 1] * 0.7152
+        + imageData.data[index + 2] * 0.0722
+      ) * alpha + 255 * (1 - alpha);
+      const isDark = luminance < settings.threshold;
+      bitmap.data[pixel] = settings.blackOnWhite ? Number(isDark) : Number(!isDark);
+    }
+    const pathList = Potrace.traceBitmap(bitmap, settings);
+    return buildPotraceSvg(pathList, imageData.width, imageData.height);
+  }
+
+  function buildPotraceSvg(pathList, width, height) {
+    const paths = Potrace.getPaths(pathList);
+    const pathData = paths.map((segments) => {
+      if (!segments.length) {
+        return "";
+      }
+      const commands = [`M ${segments[0].x.toFixed(3)} ${segments[0].y.toFixed(3)}`];
+      for (const segment of segments.slice(1)) {
+        if (segment.type === "CURVE") {
+          commands.push(`C ${segment.x1.toFixed(3)} ${segment.y1.toFixed(3)} ${segment.x2.toFixed(3)} ${segment.y2.toFixed(3)} ${segment.x.toFixed(3)} ${segment.y.toFixed(3)}`);
+        } else {
+          commands.push(`L ${segment.x.toFixed(3)} ${segment.y.toFixed(3)}`);
         }
-        try {
-          resolve(tracer.getSVG());
-        } catch (traceError) {
-          reject(traceError);
-        }
-      });
-    });
+      }
+      commands.push("Z");
+      return commands.join(" ");
+    }).filter(Boolean).join(" ");
+    if (!pathData) {
+      throw new Error("No vector contours were found. Raise the brightness threshold or use a clearer image.");
+    }
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><path d="${pathData}" fill="#000000" fill-rule="evenodd"/></svg>`;
   }
 
   async function tracePendingBitmap() {
