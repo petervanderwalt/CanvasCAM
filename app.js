@@ -2888,8 +2888,12 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
   }
 
   function rebuildLoopPaths() {
+    const hitSampleStep = Math.max(0.05, 4 / Math.max(state.camera.zoom, 0.01));
     for (const loop of state.loops) {
       loop.path2d = Paths.createLoopPath2D(loop.segments, worldToScreen, state.camera.zoom, loop.closed !== false);
+      loop.hitContours = loop.segments
+        .map((segment) => segment.flatten?.(hitSampleStep) || [])
+        .filter((contour) => contour.length > 1);
     }
   }
 
@@ -3615,6 +3619,15 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
     draw();
   }
 
+  function isLoopBorderHit(loop, screenPoint, hitRadius = 14) {
+    const worldPoint = screenToWorld(screenPoint);
+    const maxWorldDistance = hitRadius / Math.max(state.camera.zoom, 0.01);
+    return (loop.hitContours || []).some((contour) => {
+      const nearest = nearestPointOnPolyline(contour, worldPoint);
+      return nearest && nearest.distance <= maxWorldDistance;
+    });
+  }
+
   function findLoopHit(point, predicate = null) {
     if (loopPathsDirty) {
       rebuildLoopPaths();
@@ -3629,20 +3642,12 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
         if (ctx.isPointInPath(loop.path2d, point.x, point.y)) {
           return loop;
         }
-        ctx.save();
-        ctx.lineWidth = 10;
-        const borderHit = ctx.isPointInStroke(loop.path2d, point.x, point.y);
-        ctx.restore();
-        if (borderHit) {
+        if (isLoopBorderHit(loop, point)) {
           return loop;
         }
         continue;
       }
-      ctx.save();
-      ctx.lineWidth = 8;
-      const hit = ctx.isPointInStroke(loop.path2d, point.x, point.y);
-      ctx.restore();
-      if (hit) {
+      if (isLoopBorderHit(loop, point)) {
         return loop;
       }
     }
