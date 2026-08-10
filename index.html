@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260810-tool-rail2">
+  <link rel="stylesheet" href="styles.css?v=20260810-ribbon2">
 </head>
 <body>
   <div class="workspace-shell">
@@ -29,103 +29,87 @@
             <div class="project-title" id="projectTitle">Untitled Project</div>
           </div>
         </div>
-
-        <div class="header-actions">
-          <button id="newCanvasBtn" type="button" class="btn btn-outline-secondary btn-sm" title="Start a new empty canvas">
-            <i class="fa-regular fa-file"></i>
-            <span>New</span>
-          </button>
-          <button id="openFileBtn" type="button" class="btn btn-outline-primary btn-sm">
-            <i class="fa-solid fa-folder-open"></i>
-            <span>Open File</span>
-          </button>
-          <button id="toggleSettingsBtn" type="button" class="btn btn-outline-secondary btn-sm icon-btn" title="Workspace settings" aria-label="Workspace settings">
-            <i class="fa-solid fa-gear"></i>
-          </button>
+        <nav class="ribbon-tabs" aria-label="Workspace commands">
+          <button type="button" class="ribbon-tab" data-ribbon-tab="file">File</button>
+          <button type="button" class="ribbon-tab is-active" data-ribbon-tab="cad">CAD</button>
+          <button type="button" class="ribbon-tab" data-ribbon-tab="edit">Edit</button>
+          <button type="button" class="ribbon-tab" data-ribbon-tab="view">View</button>
+        </nav>
+        <div class="ribbon-panels">
+          <section class="ribbon-panel" data-ribbon-panel="file" aria-label="File commands">
+            <div class="ribbon-group">
+              <div class="ribbon-command-grid">
+                <button id="newCanvasBtn" type="button" class="btn ribbon-command" title="Start a new empty canvas"><i class="fa-regular fa-file"></i><span>New Canvas</span></button>
+                <button id="openFileBtn" type="button" class="btn ribbon-command" title="Open DXF, SVG, or bitmap"><i class="fa-solid fa-folder-open"></i><span>Open File</span></button>
+              </div>
+              <span class="ribbon-group-label">Project</span>
+            </div>
+            <div class="ribbon-group">
+              <div class="ribbon-command-grid">
+                <button id="toggleSettingsBtn" type="button" class="btn ribbon-command" title="Workspace settings"><i class="fa-solid fa-gear"></i><span>Settings</span></button>
+              </div>
+              <span class="ribbon-group-label">Workspace</span>
+            </div>
+          </section>
+          <section class="ribbon-panel is-active" data-ribbon-panel="cad" aria-label="CAD commands">
+            <div class="ribbon-group">
+              <div class="ribbon-command-grid">
+                <button type="button" id="selectModeBtn" class="btn ribbon-command is-active" title="Select vectors" aria-label="Select vectors" aria-pressed="true"><i class="fa-solid fa-arrow-pointer"></i><span>Select</span></button>
+                <button type="button" id="cadEditModeBtn" class="btn ribbon-command" title="Edit CAD shapes" aria-label="Edit CAD shapes" aria-pressed="false"><i class="fa-solid fa-pen-to-square"></i><span>Edit Shape</span></button>
+              </div>
+              <span class="ribbon-group-label">Modes</span>
+            </div>
+            <div id="cadActionGroup" class="ribbon-group" aria-label="Draw vectors">
+              <div class="ribbon-command-grid">
+                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="line" title="Draw line"><i class="fa-solid fa-slash"></i><span>Line</span></button>
+                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="polyline" title="Draw polyline; double-click or Enter to finish"><i class="fa-solid fa-draw-polygon"></i><span>Polyline</span></button>
+                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="rectangle" title="Draw rectangle"><i class="fa-regular fa-square"></i><span>Rectangle</span></button>
+                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="circle" title="Draw circle"><i class="fa-regular fa-circle"></i><span>Circle</span></button>
+                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="arc" title="Draw arc: center, start, end"><i class="fa-solid fa-circle-notch"></i><span>Arc</span></button>
+                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="bezier" title="Draw cubic Bezier"><i class="fa-solid fa-bezier-curve"></i><span>Bezier</span></button>
+                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="text" title="Add vector text"><i class="fa-solid fa-font"></i><span>Text</span></button>
+                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="guide" title="Create construction guide"><i class="fa-solid fa-ruler"></i><span>Guide</span></button>
+                <button type="button" id="clearGuidesBtn" class="btn ribbon-command d-none" title="Remove all construction guides"><i class="fa-solid fa-eraser"></i><span>Clear Guides</span></button>
+              </div>
+              <span class="ribbon-group-label">Draw</span>
+            </div>
+          </section>
+          <section class="ribbon-panel" data-ribbon-panel="edit" aria-label="Edit commands">
+            <div id="vectorActionGroup" class="ribbon-group d-none" aria-label="Selected vector actions">
+              <div class="ribbon-command-grid">
+                <button type="button" class="btn ribbon-command transform-tool-btn" data-transform-tool="move" title="Move selected vectors"><i class="fa-solid fa-up-down-left-right"></i><span>Move</span></button>
+                <button type="button" class="btn ribbon-command transform-tool-btn" data-transform-tool="scale" title="Resize selected vectors"><i class="fa-solid fa-expand"></i><span>Resize</span></button>
+                <button type="button" class="btn ribbon-command transform-tool-btn" data-transform-tool="rotate" title="Rotate selected vectors"><i class="fa-solid fa-rotate"></i><span>Rotate</span></button>
+                <button type="button" id="duplicateVectorsBtn" class="btn ribbon-command" title="Duplicate selected vectors (Ctrl+D)"><i class="fa-regular fa-clone"></i><span>Duplicate</span></button>
+                <button type="button" id="booleanVectorsBtn" class="btn ribbon-command" title="Combine selected closed vectors" disabled><i class="fa-solid fa-circle-nodes"></i><span>Boolean</span></button>
+                <button type="button" id="deleteVectorsBtn" class="btn ribbon-command" title="Delete selected vectors"><i class="fa-solid fa-trash"></i><span>Delete</span></button>
+              </div>
+              <span class="ribbon-group-label">Selected Vectors</span>
+            </div>
+            <div class="ribbon-group">
+              <div class="ribbon-command-grid">
+                <button type="button" id="undoBtn" class="btn ribbon-command" title="Undo (Ctrl+Z)" disabled><i class="fa-solid fa-rotate-left"></i><span>Undo</span></button>
+                <button type="button" id="redoBtn" class="btn ribbon-command" title="Redo (Ctrl+Y)" disabled><i class="fa-solid fa-rotate-right"></i><span>Redo</span></button>
+              </div>
+              <span class="ribbon-group-label">History</span>
+            </div>
+          </section>
+          <section class="ribbon-panel" data-ribbon-panel="view" aria-label="View commands">
+            <div class="ribbon-group">
+              <div class="ribbon-command-grid">
+                <button type="button" id="zoomFitBtn" class="btn ribbon-command" title="Reset view"><i class="fa-solid fa-arrows-to-dot"></i><span>Reset View</span></button>
+                <button type="button" id="zoomInBtn" class="btn ribbon-command" title="Zoom in"><i class="fa-solid fa-plus"></i><span>Zoom In</span></button>
+                <button type="button" id="zoomOutBtn" class="btn ribbon-command" title="Zoom out"><i class="fa-solid fa-minus"></i><span>Zoom Out</span></button>
+                <button type="button" id="cadSnapBtn" class="btn ribbon-command is-active" title="Snap to the 10mm grid, endpoints, corners, and centers" aria-pressed="true"><i class="fa-solid fa-magnet"></i><span>Snap</span></button>
+              </div>
+              <span class="ribbon-group-label">Canvas</span>
+            </div>
+          </section>
         </div>
       </header>
 
       <main class="canvas-panel">
         <div class="canvas-stage">
-          <div class="canvas-toolbar">
-            <div class="toolbar-row" aria-label="Canvas view controls">
-              <button type="button" id="zoomFitBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Reset view" aria-label="Reset view">
-                <i class="fa-solid fa-arrows-to-dot"></i>
-              </button>
-              <button type="button" id="zoomInBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Zoom in" aria-label="Zoom in">
-                <i class="fa-solid fa-plus"></i>
-              </button>
-              <button type="button" id="zoomOutBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Zoom out" aria-label="Zoom out">
-                <i class="fa-solid fa-minus"></i>
-              </button>
-              <button type="button" id="undoBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
-                <i class="fa-solid fa-rotate-left"></i>
-              </button>
-              <button type="button" id="redoBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Redo (Ctrl+Y)" aria-label="Redo" disabled>
-                <i class="fa-solid fa-rotate-right"></i>
-              </button>
-              <button type="button" id="cadSnapBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon is-active" title="Snap to the 10mm grid, endpoints, corners, and centers" aria-label="Toggle snapping" aria-pressed="true">
-                <i class="fa-solid fa-magnet"></i>
-              </button>
-            </div>
-            <div class="canvas-tool-rail" aria-label="Canvas tools">
-              <button type="button" id="selectModeBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon is-active" title="Select vectors" aria-label="Select vectors" aria-pressed="true">
-                <i class="fa-solid fa-arrow-pointer"></i>
-              </button>
-              <button type="button" id="cadEditModeBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Edit CAD shapes" aria-label="Edit CAD shapes" aria-pressed="false">
-                <i class="fa-solid fa-pen-to-square"></i>
-              </button>
-              <div id="cadActionGroup" class="tool-rail-group d-none" aria-label="Draw vectors">
-                <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon cad-tool-btn" data-cad-tool="line" title="Draw line" aria-label="Draw line">
-                  <i class="fa-solid fa-slash"></i>
-                </button>
-                <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon cad-tool-btn" data-cad-tool="polyline" title="Draw polyline; double-click or Enter to finish" aria-label="Draw polyline">
-                  <i class="fa-solid fa-draw-polygon"></i>
-                </button>
-                <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon cad-tool-btn" data-cad-tool="rectangle" title="Draw rectangle" aria-label="Draw rectangle">
-                  <i class="fa-regular fa-square"></i>
-                </button>
-                <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon cad-tool-btn" data-cad-tool="circle" title="Draw circle" aria-label="Draw circle">
-                  <i class="fa-regular fa-circle"></i>
-                </button>
-                <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon cad-tool-btn" data-cad-tool="arc" title="Draw arc: center, start, end" aria-label="Draw arc">
-                  <i class="fa-solid fa-circle-notch"></i>
-                </button>
-                <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon cad-tool-btn" data-cad-tool="bezier" title="Draw cubic Bezier" aria-label="Draw cubic Bezier">
-                  <i class="fa-solid fa-bezier-curve"></i>
-                </button>
-                <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon cad-tool-btn" data-cad-tool="text" title="Add vector text" aria-label="Add vector text">
-                  <i class="fa-solid fa-font"></i>
-                </button>
-                <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon cad-tool-btn" data-cad-tool="guide" title="Create construction guide" aria-label="Create construction guide">
-                  <i class="fa-solid fa-ruler"></i>
-                </button>
-                <button type="button" id="clearGuidesBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon d-none" title="Remove all construction guides" aria-label="Remove all construction guides">
-                  <i class="fa-solid fa-eraser"></i>
-                </button>
-              </div>
-              <div id="vectorActionGroup" class="tool-rail-group d-none" aria-label="Selected vector actions">
-                <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon transform-tool-btn" data-transform-tool="move" title="Move selected vectors" aria-label="Move selected vectors">
-                <i class="fa-solid fa-up-down-left-right"></i>
-              </button>
-                <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon transform-tool-btn" data-transform-tool="scale" title="Resize selected vectors" aria-label="Resize selected vectors">
-                <i class="fa-solid fa-expand"></i>
-              </button>
-                <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon transform-tool-btn" data-transform-tool="rotate" title="Rotate selected vectors" aria-label="Rotate selected vectors">
-                <i class="fa-solid fa-rotate"></i>
-              </button>
-                <button type="button" id="deleteVectorsBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Delete selected vectors" aria-label="Delete selected vectors">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-              <button type="button" id="duplicateVectorsBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Duplicate selected vectors (Ctrl+D)" aria-label="Duplicate selected vectors">
-                <i class="fa-regular fa-clone"></i>
-              </button>
-              <button type="button" id="booleanVectorsBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Combine selected closed vectors" aria-label="Combine selected vectors" disabled>
-                <i class="fa-solid fa-circle-nodes"></i>
-              </button>
-            </div>
-          </div>
-          </div>
           <section id="cadInspector" class="cad-inspector d-none" aria-label="Selected CAD shape properties">
             <div class="cad-inspector-head">
               <strong id="cadInspectorTitle">Shape</strong>
@@ -535,6 +519,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-text-height1"></script>
+  <script type="module" src="app.js?v=20260810-ribbon2"></script>
 </body>
 </html>

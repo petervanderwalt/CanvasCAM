@@ -36,6 +36,8 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
     newEmptyCanvasBtn: document.getElementById("newEmptyCanvasBtn"),
     newCanvasBtn: document.getElementById("newCanvasBtn"),
     openFileBtn: document.getElementById("openFileBtn"),
+    ribbonTabs: Array.from(document.querySelectorAll(".ribbon-tab")),
+    ribbonPanels: Array.from(document.querySelectorAll(".ribbon-panel")),
     fileInput: document.getElementById("fileInput"),
     zoomFitBtn: document.getElementById("zoomFitBtn"),
     zoomInBtn: document.getElementById("zoomInBtn"),
@@ -818,6 +820,17 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
     ui.selectModeBtn.setAttribute("aria-pressed", String(active));
     ui.cadEditModeBtn.classList.toggle("is-active", state.cadEditMode);
     ui.cadEditModeBtn.setAttribute("aria-pressed", String(state.cadEditMode));
+  }
+
+  function setRibbonTab(tabName) {
+    for (const tab of ui.ribbonTabs) {
+      const active = tab.dataset.ribbonTab === tabName;
+      tab.classList.toggle("is-active", active);
+      tab.setAttribute("aria-selected", String(active));
+    }
+    for (const panel of ui.ribbonPanels) {
+      panel.classList.toggle("is-active", panel.dataset.ribbonPanel === tabName);
+    }
   }
 
   function refreshTransformInspector() {
@@ -4154,6 +4167,9 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
   }
 
   ui.loadSampleBtn.addEventListener("click", loadBundledSample);
+  ui.ribbonTabs.forEach((tab) => {
+    tab.addEventListener("click", () => setRibbonTab(tab.dataset.ribbonTab || "cad"));
+  });
   ui.browseVectorBtn.addEventListener("click", openFilePicker);
   ui.newEmptyCanvasBtn.addEventListener("click", startNewEmptyCanvas);
   ui.newCanvasBtn.addEventListener("click", startNewEmptyCanvas);
