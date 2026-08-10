@@ -1132,6 +1132,13 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
   function normalizeMyEndmillSlot(slot, slotNumber) {
     const base = createEmptyMyEndmillSlot(slotNumber);
     const merged = { ...base, ...(slot || {}), slot: slotNumber };
+    const optionalNumber = (value) => {
+      if (value === null || value === undefined || value === "") {
+        return null;
+      }
+      const numericValue = Number(value);
+      return Number.isFinite(numericValue) ? numericValue : null;
+    };
     return {
       ...merged,
       name: typeof merged.name === "string" ? merged.name.trim() : "",
@@ -1143,12 +1150,12 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
       image: merged.image || "",
       storeUrl: merged.storeUrl || "",
       operationHints: Array.isArray(merged.operationHints) ? merged.operationHints.filter(Boolean) : [],
-      cuttingDiameterMm: Number.isFinite(Number(merged.cuttingDiameterMm)) ? Number(merged.cuttingDiameterMm) : null,
-      fluteAngleDeg: Number.isFinite(Number(merged.fluteAngleDeg)) ? Number(merged.fluteAngleDeg) : null,
-      spindle: Number.isFinite(Number(merged.spindle)) ? Number(merged.spindle) : null,
-      feedRate: Number.isFinite(Number(merged.feedRate)) ? Number(merged.feedRate) : null,
-      plungeRate: Number.isFinite(Number(merged.plungeRate)) ? Number(merged.plungeRate) : null,
-      passDepthMm: Number.isFinite(Number(merged.passDepthMm)) ? Number(merged.passDepthMm) : null,
+      cuttingDiameterMm: optionalNumber(merged.cuttingDiameterMm),
+      fluteAngleDeg: optionalNumber(merged.fluteAngleDeg),
+      spindle: optionalNumber(merged.spindle),
+      feedRate: optionalNumber(merged.feedRate),
+      plungeRate: optionalNumber(merged.plungeRate),
+      passDepthMm: optionalNumber(merged.passDepthMm),
     };
   }
 
@@ -1244,15 +1251,12 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts3";
     const feed = Number.parseFloat(modalRowFieldValue(row, ".slot-feed"));
     const plunge = Number.parseFloat(modalRowFieldValue(row, ".slot-plunge"));
     const passDepth = Number.parseFloat(modalRowFieldValue(row, ".slot-pass-depth"));
+    const hasNonZeroNumericValue = [diameter, angle, rpm, feed, plunge, passDepth]
+      .some((value) => Number.isFinite(value) && value !== 0);
     return Boolean(
       libraryToolId ||
       name ||
-      Number.isFinite(diameter) ||
-      Number.isFinite(angle) ||
-      Number.isFinite(rpm) ||
-      Number.isFinite(feed) ||
-      Number.isFinite(plunge) ||
-      Number.isFinite(passDepth)
+      hasNonZeroNumericValue
     );
   }
 
