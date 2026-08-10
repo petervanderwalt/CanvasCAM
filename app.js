@@ -3625,6 +3625,13 @@ import * as CadFont from "./src/cad-font.js?v=20260810-fonts2";
         if (ctx.isPointInPath(loop.path2d, point.x, point.y)) {
           return loop;
         }
+        ctx.save();
+        ctx.lineWidth = 10;
+        const borderHit = ctx.isPointInStroke(loop.path2d, point.x, point.y);
+        ctx.restore();
+        if (borderHit) {
+          return loop;
+        }
         continue;
       }
       ctx.save();
