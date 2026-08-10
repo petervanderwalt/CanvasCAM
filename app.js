@@ -88,6 +88,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     cadInspectorAngleInput: document.getElementById("cadInspectorAngleInput"),
     cadInspectorRadiusField: document.getElementById("cadInspectorRadiusField"),
     cadInspectorRadiusInput: document.getElementById("cadInspectorRadiusInput"),
+    cadInspectorTextField: document.getElementById("cadInspectorTextField"),
+    cadInspectorTextInput: document.getElementById("cadInspectorTextInput"),
     applyCadInspectorBtn: document.getElementById("applyCadInspectorBtn"),
     cadTextPanel: document.getElementById("cadTextPanel"),
     cadTextInput: document.getElementById("cadTextInput"),
@@ -2915,6 +2917,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       return;
     }
     const isRectangle = selected.entity.__cadShape === "rectangle";
+    const isText = selected.entity.__cadShape === "text";
     ui.cadInspectorTitle.textContent = cadShapeLabel(selected.entity.__cadShape);
     ui.cadInspectorXInput.value = formatNumber(frame.center.x);
     ui.cadInspectorYInput.value = formatNumber(frame.center.y);
@@ -2922,8 +2925,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     ui.cadInspectorHeightInput.value = formatNumber(frame.height);
     ui.cadInspectorAngleInput.value = formatNumber((frame.angle * 180) / Math.PI);
     ui.cadInspectorRadiusField.classList.toggle("d-none", !isRectangle);
+    ui.cadInspectorTextField.classList.toggle("d-none", !isText);
     if (isRectangle) {
       ui.cadInspectorRadiusInput.value = formatNumber(selected.entity.__cadCornerRadius || 0);
+    }
+    if (isText) {
+      ui.cadInspectorTextInput.value = selected.entity.text || "";
     }
   }
 
@@ -2943,11 +2950,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       showToast("Enter a valid position, size, and angle.", "warning");
       return;
     }
-    const historyBefore = captureHistorySnapshot();
     const context = captureSelectionTransformContext();
     if (!context) {
       return;
     }
+    const historyBefore = captureHistorySnapshot();
     const targetAngle = (targetAngleDeg * Math.PI) / 180;
     if (selected.entity.__cadShape === "rectangle") {
       const requestedRadius = Number.parseFloat(ui.cadInspectorRadiusInput.value);
@@ -2965,6 +2972,53 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       state.selectionFrameAngles.set(context.selectedEntityKey, normalizeRadians(targetAngle));
       rebuildLoopsFromEntities(context.selectionSignatures);
       await applySelectionTransformAndRebuild(null, context);
+    } else if (selected.entity.__cadShape === "text") {
+      const text = ui.cadInspectorTextInput.value.trim();
+      if (!text) {
+        showToast("Enter text for the vector text shape.", "warning");
+        ui.cadInspectorTextInput.focus();
+        return;
+      }
+      let replacement;
+      try {
+        replacement = await createCadTextEntity(
+          { x: 0, y: 0 },
+          text,
+          selected.entity.height || frame.height,
+          selected.entity.fontId
+        );
+      } catch (error) {
+        showToast(error?.message || "Could not update vector text.", "danger");
+        return;
+      }
+      Object.assign(replacement, {
+        __treeId: selected.entity.__treeId,
+        __treeDocumentId: selected.entity.__treeDocumentId,
+        __treeDocumentName: selected.entity.__treeDocumentName,
+        __treeSource: selected.entity.__treeSource,
+        __treeHidden: selected.entity.__treeHidden,
+      });
+      context.initialEntities[selected.index] = replacement;
+      state.entities[selected.index] = replacement;
+      rebuildLoopsFromEntities(context.selectionSignatures);
+      const replacementFrame = getSelectionFrame();
+      if (!replacementFrame) {
+        showToast("Could not measure the updated vector text.", "danger");
+        return;
+      }
+      const heightScale = targetHeight / replacementFrame.height;
+      const widthWasEdited = Math.abs(targetWidth - frame.width) > 1e-6;
+      const widthScale = widthWasEdited ? targetWidth / replacementFrame.width : heightScale;
+      const deltaAngle = targetAngle - replacementFrame.angle;
+      const matrix = multiplyMatrices(
+        matrixForTranslation(targetX - replacementFrame.center.x, targetY - replacementFrame.center.y),
+        multiplyMatrices(
+          matrixForRotation(deltaAngle, replacementFrame.center.x, replacementFrame.center.y),
+          matrixForFrameScale(widthScale, heightScale, replacementFrame)
+        )
+      );
+      context.resultAngle = normalizeRadians(targetAngle);
+      await applySelectionTransformAndRebuild(matrix, context);
     } else {
       const scaleX = targetWidth / frame.width;
       const scaleY = targetHeight / frame.height;
