@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260810-gear-ink1">
+  <link rel="stylesheet" href="styles.css?v=20260810-history1">
 </head>
 <body>
   <div class="workspace-shell">
@@ -70,6 +70,12 @@
               </button>
               <button type="button" id="zoomOutBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Zoom out" aria-label="Zoom out">
                 <i class="fa-solid fa-minus"></i>
+              </button>
+              <button type="button" id="undoBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+                <i class="fa-solid fa-rotate-left"></i>
+              </button>
+              <button type="button" id="redoBtn" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon" title="Redo (Ctrl+Y)" aria-label="Redo" disabled>
+                <i class="fa-solid fa-rotate-right"></i>
               </button>
             </div>
             <div class="canvas-tool-rail" aria-label="Canvas tools">
@@ -471,6 +477,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-toolrail1"></script>
+  <script type="module" src="app.js?v=20260810-history1"></script>
 </body>
 </html>

@@ -36,6 +36,8 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     zoomFitBtn: document.getElementById("zoomFitBtn"),
     zoomInBtn: document.getElementById("zoomInBtn"),
     zoomOutBtn: document.getElementById("zoomOutBtn"),
+    undoBtn: document.getElementById("undoBtn"),
+    redoBtn: document.getElementById("redoBtn"),
     workerBadge: document.getElementById("workerBadge"),
     workerPercent: document.getElementById("workerPercent"),
     statusText: document.getElementById("statusText"),
@@ -465,6 +467,12 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       state.history.undo.shift();
     }
     state.history.redo = [];
+    refreshHistoryButtons();
+  }
+
+  function refreshHistoryButtons() {
+    ui.undoBtn.disabled = state.history.undo.length === 0;
+    ui.redoBtn.disabled = state.history.redo.length === 0;
   }
 
   function restoreHistorySnapshot(snapshot) {
@@ -534,6 +542,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     const snapshot = state.history.undo.pop();
     state.history.redo.push(current);
     restoreHistorySnapshot(snapshot);
+    refreshHistoryButtons();
   }
 
   function redoHistory() {
@@ -544,6 +553,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     const snapshot = state.history.redo.pop();
     state.history.undo.push(current);
     restoreHistorySnapshot(snapshot);
+    refreshHistoryButtons();
   }
 
   function normalizeRadians(angle) {
@@ -3815,6 +3825,8 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
   ui.zoomOutBtn.addEventListener("click", () => {
     adjustZoom(1 / 1.2);
   });
+  ui.undoBtn.addEventListener("click", undoHistory);
+  ui.redoBtn.addEventListener("click", redoHistory);
   ui.selectModeBtn.addEventListener("click", setSelectMode);
   ui.transformToolButtons.forEach((button) => {
     button.addEventListener("click", () => {
