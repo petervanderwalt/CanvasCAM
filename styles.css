@@ -1110,6 +1110,12 @@ body {
   backdrop-filter: blur(8px);
 }
 
+.object-tree-panel.is-drag-positioned {
+  position: fixed;
+  z-index: 5002;
+  max-height: calc(100vh - 1rem);
+}
+
 .object-tree-head {
   display: flex;
   align-items: center;
@@ -1122,6 +1128,13 @@ body {
   font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
   font-size: 0.84rem;
   font-weight: 900;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.object-tree-head.is-dragging {
+  cursor: grabbing;
 }
 
 .object-tree-head button {
@@ -1134,6 +1147,8 @@ body {
   font-size: 1.2rem;
   font-weight: 900;
   line-height: 1;
+  cursor: pointer;
+  touch-action: auto;
 }
 
 .object-tree-content {
