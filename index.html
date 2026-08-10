@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260810-ribbon-tabs1">
+  <link rel="stylesheet" href="styles.css?v=20260810-potrace-preview1">
 </head>
 <body>
   <div class="workspace-shell">
@@ -425,20 +425,38 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body compact-form">
-          <p class="small mb-3">Dark pixels become editable vector paths. Start with a clean, high-contrast image.</p>
-          <label class="form-label small mb-1" for="traceThresholdInput">Black point</label>
-          <input id="traceThresholdInput" class="form-range" type="range" min="0" max="255" step="1" value="160">
-          <div class="d-flex justify-content-between small text-muted mb-3"><span>More detail</span><strong id="traceThresholdValue">160</strong><span>Cleaner trace</span></div>
-          <label class="form-label small mb-1" for="traceDetailInput">Minimum feature size</label>
-          <select id="traceDetailInput" class="form-select form-select-sm">
-            <option value="2">Fine</option>
-            <option value="6" selected>Balanced</option>
-            <option value="14">Clean</option>
-          </select>
+          <div class="trace-workbench">
+            <section class="trace-controls">
+              <p class="small mb-3">Adjust the scan, then import the preview as editable paths.</p>
+              <label class="form-label small mb-1" for="traceThresholdInput">Brightness threshold</label>
+              <input id="traceThresholdInput" class="form-range" type="range" min="0" max="255" step="1" value="160">
+              <div class="trace-range-value"><span>Light</span><strong id="traceThresholdValue">160</strong><span>Dark</span></div>
+              <label class="form-label small mb-1 mt-3" for="traceSpeckleInput">Suppress speckles</label>
+              <div class="input-group input-group-sm">
+                <input id="traceSpeckleInput" class="form-control form-control-sm" type="number" min="0" max="500" step="1" value="6">
+                <span class="input-group-text">px</span>
+              </div>
+              <label class="form-label small mb-1 mt-3" for="traceCornerInput">Corner smoothing</label>
+              <input id="traceCornerInput" class="form-range" type="range" min="0" max="1.33" step="0.01" value="1">
+              <div class="trace-range-value"><span>Sharp</span><strong id="traceCornerValue">1.00</strong><span>Smooth</span></div>
+              <div class="form-check workspace-settings-check mt-3">
+                <input id="traceOptimizeInput" class="form-check-input" type="checkbox" checked>
+                <label class="form-check-label" for="traceOptimizeInput">Optimize curves</label>
+              </div>
+              <div class="form-check workspace-settings-check mt-2">
+                <input id="traceInvertInput" class="form-check-input" type="checkbox">
+                <label class="form-check-label" for="traceInvertInput">Invert image</label>
+              </div>
+            </section>
+            <section class="trace-preview-panel" aria-live="polite">
+              <div class="trace-preview-head"><strong>Preview</strong><span id="tracePreviewStatus">Preparing image...</span></div>
+              <div id="tracePreview" class="trace-preview"><span class="trace-preview-empty">Preparing preview...</span></div>
+            </section>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button id="traceBitmapBtn" type="button" class="btn btn-primary">Trace to Vectors</button>
+          <button id="traceBitmapBtn" type="button" class="btn btn-primary">Import Vectors</button>
         </div>
       </div>
     </div>
@@ -570,12 +588,11 @@
   <input id="fileInput" type="file" accept=".dxf,.svg,image/svg+xml,image/png,image/jpeg,image/webp,image/bmp" hidden>
 
   <script src="clipperjs/clipper_unminified.js"></script>
-  <script src="vendor/imagetracer_v1.2.6.js"></script>
   <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-grid-snap4"></script>
+  <script type="module" src="app.js?v=20260810-potrace-preview1"></script>
 </body>
 </html>

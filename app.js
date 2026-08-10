@@ -11,6 +11,7 @@ import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
 import * as CanvasView from "./src/canvas-view.js?v=20260810-grid-snap1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
+import { Potrace } from "./vendor/potrace.module.js?v=20260810-potrace1";
 
 (function () {
 
@@ -128,7 +129,13 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
     bitmapTraceFileName: document.getElementById("bitmapTraceFileName"),
     traceThresholdInput: document.getElementById("traceThresholdInput"),
     traceThresholdValue: document.getElementById("traceThresholdValue"),
-    traceDetailInput: document.getElementById("traceDetailInput"),
+    traceSpeckleInput: document.getElementById("traceSpeckleInput"),
+    traceCornerInput: document.getElementById("traceCornerInput"),
+    traceCornerValue: document.getElementById("traceCornerValue"),
+    traceOptimizeInput: document.getElementById("traceOptimizeInput"),
+    traceInvertInput: document.getElementById("traceInvertInput"),
+    tracePreview: document.getElementById("tracePreview"),
+    tracePreviewStatus: document.getElementById("tracePreviewStatus"),
     traceBitmapBtn: document.getElementById("traceBitmapBtn"),
     operationOptions: Array.from(document.querySelectorAll(".operation-option")),
     toolLibraryToggle: document.getElementById("toolLibraryToggle"),
@@ -219,6 +226,10 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
     gridSpacing: 10,
     cadInspectorDismissed: false,
     pendingBitmapFile: null,
+    traceSourceImageData: null,
+    tracePreviewTimer: null,
+    tracePreviewToken: 0,
+    tracePreviewSvg: "",
     booleanPreviewContours: null,
     booleanOperation: "union",
     geometryTransform: null,
@@ -3769,76 +3780,134 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
     loadDxfText(text, file.name);
   }
 
-  function openBitmapTraceDialog(file) {
-    if (!window.ImageTracer) {
-      showToast("Bitmap tracing is unavailable because the local tracer could not load.", "danger");
-      return;
-    }
+  async function openBitmapTraceDialog(file) {
     state.pendingBitmapFile = file;
+    state.traceSourceImageData = null;
+    state.tracePreviewSvg = "";
+    state.tracePreviewToken += 1;
     ui.bitmapTraceFileName.textContent = file.name;
     ui.traceThresholdValue.textContent = ui.traceThresholdInput.value;
+    ui.traceCornerValue.textContent = Number.parseFloat(ui.traceCornerInput.value).toFixed(2);
+    ui.tracePreview.innerHTML = '<span class="trace-preview-empty">Preparing preview...</span>';
+    ui.tracePreviewStatus.textContent = "Preparing image...";
     getBitmapTraceModalInstance()?.show();
+    try {
+      state.traceSourceImageData = await rasterizeBitmap(file, 900);
+      scheduleTracePreview(true);
+    } catch (error) {
+      ui.tracePreviewStatus.textContent = "Preview unavailable";
+      showToast(error instanceof Error ? error.message : "The bitmap could not be read.", "danger");
+    }
+  }
+
+  function getTraceSettings() {
+    return {
+      threshold: Number.parseInt(ui.traceThresholdInput.value, 10) || 0,
+      turdSize: Math.max(0, Number.parseInt(ui.traceSpeckleInput.value, 10) || 0),
+      alphaMax: Math.min(1.33, Math.max(0, Number.parseFloat(ui.traceCornerInput.value) || 0)),
+      optCurve: ui.traceOptimizeInput.checked,
+      optTolerance: 0.2,
+      blackOnWhite: !ui.traceInvertInput.checked,
+    };
+  }
+
+  function scheduleTracePreview(immediate = false) {
+    if (state.tracePreviewTimer) {
+      window.clearTimeout(state.tracePreviewTimer);
+    }
+    state.tracePreviewTimer = window.setTimeout(() => {
+      state.tracePreviewTimer = null;
+      renderTracePreview();
+    }, immediate ? 0 : 160);
+  }
+
+  async function renderTracePreview() {
+    if (!state.pendingBitmapFile || !state.traceSourceImageData) {
+      return;
+    }
+    const token = ++state.tracePreviewToken;
+    ui.tracePreviewStatus.textContent = "Tracing preview...";
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+      const svg = await traceImageData(state.traceSourceImageData, getTraceSettings());
+      if (token !== state.tracePreviewToken) {
+        return;
+      }
+      state.tracePreviewSvg = svg;
+      ui.tracePreview.innerHTML = svg;
+      ui.tracePreviewStatus.textContent = "Live preview";
+    } catch (error) {
+      if (token !== state.tracePreviewToken) {
+        return;
+      }
+      ui.tracePreview.innerHTML = '<span class="trace-preview-empty">No trace produced. Raise the brightness threshold or use a clearer image.</span>';
+      ui.tracePreviewStatus.textContent = "No contours";
+    }
+  }
+
+  function traceImageData(imageData, settings) {
+    return new Promise((resolve, reject) => {
+      const tracer = new Potrace(settings);
+      tracer.loadImage({
+        bitmap: {
+          width: imageData.width,
+          height: imageData.height,
+          data: imageData.data,
+        },
+      }, (error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        try {
+          resolve(tracer.getSVG());
+        } catch (traceError) {
+          reject(traceError);
+        }
+      });
+    });
   }
 
   async function tracePendingBitmap() {
     const file = state.pendingBitmapFile;
-    if (!file || !window.ImageTracer) {
+    if (!file) {
       return;
     }
-    const threshold = Number.parseInt(ui.traceThresholdInput.value, 10) || 160;
-    const pathOmit = Number.parseInt(ui.traceDetailInput.value, 10) || 6;
     ui.traceBitmapBtn.disabled = true;
     ui.traceBitmapBtn.textContent = "Tracing...";
     startWorkerJob("trace", { label: "Tracing bitmap", percent: 10, priority: 2 });
     try {
-      const bitmap = await loadBitmap(file);
       updateWorkerJob("trace", { label: "Preparing bitmap", percent: 35, priority: 2 });
-      const maxDimension = 1800;
-      const scale = Math.min(1, maxDimension / Math.max(bitmap.naturalWidth, bitmap.naturalHeight));
-      const width = Math.max(1, Math.round(bitmap.naturalWidth * scale));
-      const height = Math.max(1, Math.round(bitmap.naturalHeight * scale));
-      const traceCanvas = document.createElement("canvas");
-      traceCanvas.width = width;
-      traceCanvas.height = height;
-      const traceCtx = traceCanvas.getContext("2d", { willReadFrequently: true });
-      traceCtx.drawImage(bitmap, 0, 0, width, height);
-      const imageData = traceCtx.getImageData(0, 0, width, height);
-      for (let offset = 0; offset < imageData.data.length; offset += 4) {
-        const alpha = imageData.data[offset + 3];
-        const luminance = imageData.data[offset] * 0.2126 + imageData.data[offset + 1] * 0.7152 + imageData.data[offset + 2] * 0.0722;
-        const dark = alpha > 20 && luminance < threshold;
-        const value = dark ? 0 : 255;
-        imageData.data[offset] = value;
-        imageData.data[offset + 1] = value;
-        imageData.data[offset + 2] = value;
-        imageData.data[offset + 3] = 255;
-      }
+      const imageData = await rasterizeBitmap(file, 1800);
       updateWorkerJob("trace", { label: "Vectorizing contours", percent: 62, priority: 2 });
       await new Promise((resolve) => window.setTimeout(resolve, 0));
-      const svg = window.ImageTracer.imagedataToSVG(imageData, {
-        numberofcolors: 2,
-        colorquantcycles: 1,
-        ltres: 1,
-        qtres: 1,
-        pathomit: pathOmit,
-        rightangleenhance: true,
-        scale: 1,
-      });
+      const svg = await traceImageData(imageData, getTraceSettings());
       updateWorkerJob("trace", { label: "Importing vectors", percent: 88, priority: 2 });
       const entities = parseSvgFile(svg);
       if (!entities.length) {
-        throw new Error("No vector contours were found. Increase the black point or use a clearer image.");
+        throw new Error("No vector contours were found. Raise the brightness threshold or use a clearer image.");
       }
-      loadImportedEntities(entities, `${file.name.replace(/\.[^.]+$/, "")}.svg`, "Traced bitmap");
+      loadImportedEntities(entities, `${file.name.replace(/\.[^.]+$/, "")}.svg`, "Potrace bitmap");
       getBitmapTraceModalInstance()?.hide();
-      state.pendingBitmapFile = null;
+      clearBitmapTraceState();
       showToast(`Traced ${entities.length} vector paths from ${file.name}.`, "success");
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Bitmap tracing failed.", "danger");
     } finally {
       finishWorkerJob("trace");
       ui.traceBitmapBtn.disabled = false;
-      ui.traceBitmapBtn.textContent = "Trace to Vectors";
+      ui.traceBitmapBtn.textContent = "Import Vectors";
+    }
+  }
+
+  function clearBitmapTraceState() {
+    state.pendingBitmapFile = null;
+    state.traceSourceImageData = null;
+    state.tracePreviewSvg = "";
+    state.tracePreviewToken += 1;
+    if (state.tracePreviewTimer) {
+      window.clearTimeout(state.tracePreviewTimer);
+      state.tracePreviewTimer = null;
     }
   }
 
@@ -3856,6 +3925,21 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
       };
       image.src = url;
     });
+  }
+
+  async function rasterizeBitmap(file, maxDimension) {
+    const bitmap = await loadBitmap(file);
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.naturalWidth, bitmap.naturalHeight));
+    const width = Math.max(1, Math.round(bitmap.naturalWidth * scale));
+    const height = Math.max(1, Math.round(bitmap.naturalHeight * scale));
+    const traceCanvas = document.createElement("canvas");
+    traceCanvas.width = width;
+    traceCanvas.height = height;
+    const traceCtx = traceCanvas.getContext("2d", { willReadFrequently: true });
+    traceCtx.fillStyle = "#ffffff";
+    traceCtx.fillRect(0, 0, width, height);
+    traceCtx.drawImage(bitmap, 0, 0, width, height);
+    return traceCtx.getImageData(0, 0, width, height);
   }
 
   async function loadBundledSample() {
@@ -4446,11 +4530,22 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
     });
   });
   ui.bitmapTraceModal?.querySelectorAll("[data-bs-dismiss='modal']").forEach((button) => {
-    button.addEventListener("click", () => getBitmapTraceModalInstance()?.hide());
+    button.addEventListener("click", () => {
+      clearBitmapTraceState();
+      getBitmapTraceModalInstance()?.hide();
+    });
   });
   ui.traceThresholdInput.addEventListener("input", () => {
     ui.traceThresholdValue.textContent = ui.traceThresholdInput.value;
+    scheduleTracePreview();
   });
+  ui.traceSpeckleInput.addEventListener("input", scheduleTracePreview);
+  ui.traceCornerInput.addEventListener("input", () => {
+    ui.traceCornerValue.textContent = Number.parseFloat(ui.traceCornerInput.value).toFixed(2);
+    scheduleTracePreview();
+  });
+  ui.traceOptimizeInput.addEventListener("change", scheduleTracePreview);
+  ui.traceInvertInput.addEventListener("change", scheduleTracePreview);
   ui.traceBitmapBtn.addEventListener("click", tracePendingBitmap);
   ui.toolLibraryToggle.addEventListener("click", () => {
     if (ui.toolLibraryMenu.classList.contains("d-none")) {
