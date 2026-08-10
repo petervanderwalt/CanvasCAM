@@ -31,6 +31,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   let booleanModalInstance = null;
   let workspaceSettingsModalInstance = null;
   let gridSettingsModalInstance = null;
+  let confirmationModalInstance = null;
+  let confirmationResolver = null;
   let workspaceSettingsOriginal = null;
 
   const ui = {
@@ -64,6 +66,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     snapEnabledInput: document.getElementById("snapEnabledInput"),
     gridSpacingInput: document.getElementById("gridSpacingInput"),
     applyGridSettingsBtn: document.getElementById("applyGridSettingsBtn"),
+    confirmationModal: document.getElementById("confirmationModal"),
+    confirmationModalLabel: document.getElementById("confirmationModalLabel"),
+    confirmationModalMessage: document.getElementById("confirmationModalMessage"),
+    confirmationAcceptBtn: document.getElementById("confirmationAcceptBtn"),
+    confirmationCancelBtn: document.getElementById("confirmationCancelBtn"),
+    confirmationCloseBtn: document.getElementById("confirmationCloseBtn"),
     clearGuidesBtn: document.getElementById("clearGuidesBtn"),
     cadInspector: document.getElementById("cadInspector"),
     cadInspectorTitle: document.getElementById("cadInspectorTitle"),
@@ -926,7 +934,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       return;
     }
     const label = entityIndexes.length === 1 ? "this segment" : `these ${entityIndexes.length} segments`;
-    if (!window.confirm(`Delete ${label}?`)) {
+    if (!await requestConfirmation({
+      title: "Delete vectors?",
+      message: `Delete ${label}?`,
+      confirmLabel: "Delete vectors",
+      destructive: true,
+    })) {
       return;
     }
     const historyBefore = captureHistorySnapshot();
@@ -1052,6 +1065,57 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       }
     }
     return gridSettingsModalInstance;
+  }
+
+  function getConfirmationModalInstance() {
+    if (!ui.confirmationModal) {
+      return null;
+    }
+    if (!confirmationModalInstance) {
+      if (window.bootstrap?.Modal) {
+        confirmationModalInstance = window.bootstrap.Modal.getOrCreateInstance(ui.confirmationModal, {
+          backdrop: "static",
+          keyboard: false,
+        });
+      } else {
+        confirmationModalInstance = {
+          show() {
+            ui.confirmationModal.classList.add("show");
+            ui.confirmationModal.style.display = "block";
+            ui.confirmationModal.removeAttribute("aria-hidden");
+            ui.confirmationModal.setAttribute("aria-modal", "true");
+            document.body.classList.add("modal-open");
+          },
+          hide() {
+            ui.confirmationModal.classList.remove("show");
+            ui.confirmationModal.style.display = "none";
+            ui.confirmationModal.setAttribute("aria-hidden", "true");
+            ui.confirmationModal.removeAttribute("aria-modal");
+            document.body.classList.remove("modal-open");
+          },
+        };
+      }
+    }
+    return confirmationModalInstance;
+  }
+
+  function requestConfirmation({ title = "Confirm action", message, confirmLabel = "Confirm", destructive = false }) {
+    ui.confirmationModalLabel.textContent = title;
+    ui.confirmationModalMessage.textContent = message;
+    ui.confirmationAcceptBtn.textContent = confirmLabel;
+    ui.confirmationAcceptBtn.classList.toggle("btn-danger", destructive);
+    ui.confirmationAcceptBtn.classList.toggle("btn-primary", !destructive);
+    return new Promise((resolve) => {
+      confirmationResolver = resolve;
+      getConfirmationModalInstance()?.show();
+    });
+  }
+
+  function resolveConfirmation(accepted) {
+    const resolve = confirmationResolver;
+    confirmationResolver = null;
+    getConfirmationModalInstance()?.hide();
+    resolve?.(accepted);
   }
 
   function getGridSpacing() {
@@ -3486,11 +3550,16 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     pushHistorySnapshot(historyBefore);
   }
 
-  function clearTabsForToolpath(toolpath) {
+  async function clearTabsForToolpath(toolpath) {
     if (!toolpath || !operationUsesTabs(toolpath)) {
       return;
     }
-    if (!window.confirm(`Clear all tabs from ${toolpath.label}?`)) {
+    if (!await requestConfirmation({
+      title: "Clear tabs?",
+      message: `Clear all tabs from ${toolpath.label}?`,
+      confirmLabel: "Clear tabs",
+      destructive: true,
+    })) {
       return;
     }
     const historyBefore = captureHistorySnapshot();
@@ -3703,9 +3772,14 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
   }
 
-  function startNewEmptyCanvas() {
+  async function startNewEmptyCanvas() {
     const hasWork = state.entities.length > 0 || state.toolpaths.length > 0;
-    if (hasWork && !window.confirm("Start a new canvas? This clears the current vectors and toolpaths.")) {
+    if (hasWork && !await requestConfirmation({
+      title: "Start a new canvas?",
+      message: "This clears the current vectors and toolpaths.",
+      confirmLabel: "Start new canvas",
+      destructive: true,
+    })) {
       return;
     }
     const historyBefore = hasWork ? captureHistorySnapshot() : null;
@@ -4687,6 +4761,14 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     openGridSettings();
   });
   ui.applyGridSettingsBtn.addEventListener("click", applyGridSettings);
+  ui.confirmationAcceptBtn.addEventListener("click", () => resolveConfirmation(true));
+  ui.confirmationCancelBtn.addEventListener("click", () => resolveConfirmation(false));
+  ui.confirmationCloseBtn.addEventListener("click", () => resolveConfirmation(false));
+  ui.confirmationModal?.addEventListener("hidden.bs.modal", () => {
+    if (confirmationResolver) {
+      resolveConfirmation(false);
+    }
+  });
   ui.cadInspectorCloseBtn.addEventListener("click", () => {
     state.cadInspectorDismissed = true;
     refreshCadInspector();

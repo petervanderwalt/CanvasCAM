@@ -594,6 +594,25 @@
       </div>
     </div>
   </div>
+  <div id="confirmationModal" class="modal fade" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title fs-5" id="confirmationModalLabel">Confirm action</h2>
+          </div>
+          <button id="confirmationCloseBtn" type="button" class="btn-close" aria-label="Cancel"></button>
+        </div>
+        <div class="modal-body">
+          <p id="confirmationModalMessage" class="confirmation-message mb-0"></p>
+        </div>
+        <div class="modal-footer">
+          <button id="confirmationCancelBtn" type="button" class="btn btn-outline-secondary">Cancel</button>
+          <button id="confirmationAcceptBtn" type="button" class="btn btn-danger">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="toastContainer" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
   <div id="workerBadge" class="worker-badge d-none" aria-live="polite">
     <div class="worker-spinner spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
@@ -607,6 +626,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-grid-draw-snap1"></script>
+  <script type="module" src="app.js?v=20260810-confirmation-modal1"></script>
 </body>
 </html>

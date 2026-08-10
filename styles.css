@@ -2666,6 +2666,81 @@ body {
   color: var(--funky-ink);
 }
 
+#confirmationModal .modal-content {
+  border: 4px solid var(--funky-ink);
+  border-radius: 1.1rem;
+  background: linear-gradient(180deg, #ffe998 0%, #fff7d6 100%);
+  box-shadow: 0 9px 0 rgba(17, 17, 17, 0.96);
+  overflow: hidden;
+}
+
+#confirmationModal .modal-header,
+#confirmationModal .modal-footer {
+  border-color: rgba(17, 17, 17, 0.2);
+  background: rgba(255, 248, 216, 0.8);
+}
+
+#confirmationModal .modal-title,
+#confirmationModal .confirmation-message {
+  color: var(--funky-ink);
+}
+
+#confirmationModal .modal-title {
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-weight: 900;
+}
+
+#confirmationModal .confirmation-message {
+  font-size: 0.94rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+#confirmationModal .btn,
+#confirmationModal .btn-close {
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.72rem;
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-weight: 900;
+  box-shadow: 0 4px 0 rgba(17, 17, 17, 0.92);
+}
+
+#confirmationModal .btn-close {
+  position: relative;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin: 0 0 0 auto;
+  padding: 0;
+  background: var(--funky-blue);
+  background-image: none;
+  opacity: 1;
+}
+
+#confirmationModal .btn-close::before,
+#confirmationModal .btn-close::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.9rem;
+  height: 0.16rem;
+  border-radius: 999px;
+  background: var(--funky-ink);
+}
+
+#confirmationModal .btn-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+#confirmationModal .btn-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
+
+#confirmationModal .btn-outline-secondary {
+  background: #fff8d8;
+  color: var(--funky-ink);
+}
+
+#confirmationModal .btn-danger {
+  background: #ff8c5a;
+  color: var(--funky-ink);
+}
+
 #applyGridSettingsBtn {
   background: #9cf13a;
   color: var(--funky-ink);
