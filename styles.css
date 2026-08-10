@@ -24,6 +24,14 @@
   --funky-yellow: #ffe06f;
   --funky-cream: #fff8d8;
   --funky-lavender: #cbc4ff;
+  --ribbon-file: #b8d6ff;
+  --ribbon-file-soft: #eef5ff;
+  --ribbon-draw: #c9f1bd;
+  --ribbon-draw-soft: #eefbe9;
+  --ribbon-edit: #ffcaa4;
+  --ribbon-edit-soft: #fff0e5;
+  --ribbon-view: #d8ccff;
+  --ribbon-view-soft: #f3efff;
   --funky-shadow: 0 6px 0 rgba(17, 17, 17, 0.96);
 }
 
@@ -234,17 +242,29 @@ body {
 
 .ribbon-tab:hover,
 .ribbon-tab:focus-visible {
-  background: rgba(173, 196, 255, 0.58);
   color: var(--funky-ink);
 }
 
+.ribbon-tab[data-ribbon-tab="file"]:hover,
+.ribbon-tab[data-ribbon-tab="file"]:focus-visible { background: var(--ribbon-file-soft); }
+.ribbon-tab[data-ribbon-tab="cad"]:hover,
+.ribbon-tab[data-ribbon-tab="cad"]:focus-visible { background: var(--ribbon-draw-soft); }
+.ribbon-tab[data-ribbon-tab="edit"]:hover,
+.ribbon-tab[data-ribbon-tab="edit"]:focus-visible { background: var(--ribbon-edit-soft); }
+.ribbon-tab[data-ribbon-tab="view"]:hover,
+.ribbon-tab[data-ribbon-tab="view"]:focus-visible { background: var(--ribbon-view-soft); }
+
 .ribbon-tab.is-active {
   border-color: var(--funky-ink);
-  background: var(--funky-blue);
   color: var(--funky-ink);
   margin-bottom: -2px;
   box-shadow: none;
 }
+
+.ribbon-tab[data-ribbon-tab="file"].is-active { background: var(--ribbon-file); }
+.ribbon-tab[data-ribbon-tab="cad"].is-active { background: var(--ribbon-draw); }
+.ribbon-tab[data-ribbon-tab="edit"].is-active { background: var(--ribbon-edit); }
+.ribbon-tab[data-ribbon-tab="view"].is-active { background: var(--ribbon-view); }
 
 .ribbon-tab.is-active::after {
   content: "";
@@ -267,11 +287,15 @@ body {
   min-width: max-content;
   min-height: 4.8rem;
   align-items: stretch;
-  background: rgba(255, 255, 255, 0.78);
   border: 0;
   border-top: 2px solid rgba(17, 17, 17, 0.58);
   border-radius: 0;
 }
+
+.ribbon-panel[data-ribbon-panel="file"] { background: linear-gradient(90deg, var(--ribbon-file-soft), rgba(255, 255, 255, 0.86)); }
+.ribbon-panel[data-ribbon-panel="cad"] { background: linear-gradient(90deg, var(--ribbon-draw-soft), rgba(255, 255, 255, 0.86)); }
+.ribbon-panel[data-ribbon-panel="edit"] { background: linear-gradient(90deg, var(--ribbon-edit-soft), rgba(255, 255, 255, 0.86)); }
+.ribbon-panel[data-ribbon-panel="view"] { background: linear-gradient(90deg, var(--ribbon-view-soft), rgba(255, 255, 255, 0.86)); }
 
 .ribbon-panel.is-active {
   display: flex;
@@ -332,6 +356,22 @@ body {
   transform: translateY(1px);
   box-shadow: 0 1px 0 rgba(17, 17, 17, 0.84);
 }
+
+.ribbon-panel[data-ribbon-panel="file"] .ribbon-command:hover,
+.ribbon-panel[data-ribbon-panel="file"] .ribbon-command:focus-visible,
+.ribbon-panel[data-ribbon-panel="file"] .ribbon-command.is-active { background: var(--ribbon-file); }
+
+.ribbon-panel[data-ribbon-panel="cad"] .ribbon-command:hover,
+.ribbon-panel[data-ribbon-panel="cad"] .ribbon-command:focus-visible,
+.ribbon-panel[data-ribbon-panel="cad"] .ribbon-command.is-active { background: var(--ribbon-draw); }
+
+.ribbon-panel[data-ribbon-panel="edit"] .ribbon-command:hover,
+.ribbon-panel[data-ribbon-panel="edit"] .ribbon-command:focus-visible,
+.ribbon-panel[data-ribbon-panel="edit"] .ribbon-command.is-active { background: var(--ribbon-edit); }
+
+.ribbon-panel[data-ribbon-panel="view"] .ribbon-command:hover,
+.ribbon-panel[data-ribbon-panel="view"] .ribbon-command:focus-visible,
+.ribbon-panel[data-ribbon-panel="view"] .ribbon-command.is-active { background: var(--ribbon-view); }
 
 .ribbon-command:disabled {
   opacity: 0.42;
