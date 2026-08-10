@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260810-trace-stroke1">
+  <link rel="stylesheet" href="styles.css?v=20260810-trace-compact1">
 </head>
 <body>
   <div class="workspace-shell">
@@ -431,22 +431,14 @@
               <details class="trace-preprocess" open>
                 <summary>Input preprocessing</summary>
                 <div class="trace-preprocess-grid">
-                  <label for="traceBrightnessInput">Brightness <output id="traceBrightnessValue">100%</output></label>
-                  <input id="traceBrightnessInput" type="range" min="0" max="200" step="1" value="100">
-                  <label for="traceContrastInput">Contrast <output id="traceContrastValue">100%</output></label>
-                  <input id="traceContrastInput" type="range" min="0" max="200" step="1" value="100">
-                  <label for="traceGrayscaleInput">Grayscale <output id="traceGrayscaleValue">0%</output></label>
-                  <input id="traceGrayscaleInput" type="range" min="0" max="100" step="1" value="0">
-                  <label for="traceHueInput">Hue rotate <output id="traceHueValue">0 deg</output></label>
-                  <input id="traceHueInput" type="range" min="-180" max="180" step="1" value="0">
-                  <label for="tracePreprocessInvertInput">Invert <output id="tracePreprocessInvertValue">0%</output></label>
-                  <input id="tracePreprocessInvertInput" type="range" min="0" max="100" step="1" value="0">
-                  <label for="traceOpacityInput">Opacity <output id="traceOpacityValue">100%</output></label>
-                  <input id="traceOpacityInput" type="range" min="0" max="100" step="1" value="100">
-                  <label for="traceSaturationInput">Saturation <output id="traceSaturationValue">100%</output></label>
-                  <input id="traceSaturationInput" type="range" min="0" max="200" step="1" value="100">
-                  <label for="traceSepiaInput">Sepia <output id="traceSepiaValue">0%</output></label>
-                  <input id="traceSepiaInput" type="range" min="0" max="100" step="1" value="0">
+                  <div class="trace-preprocess-control"><label for="traceBrightnessInput">Brightness <output id="traceBrightnessValue">100%</output></label><input id="traceBrightnessInput" type="range" min="0" max="200" step="1" value="100"></div>
+                  <div class="trace-preprocess-control"><label for="traceContrastInput">Contrast <output id="traceContrastValue">100%</output></label><input id="traceContrastInput" type="range" min="0" max="200" step="1" value="100"></div>
+                  <div class="trace-preprocess-control"><label for="traceGrayscaleInput">Grayscale <output id="traceGrayscaleValue">0%</output></label><input id="traceGrayscaleInput" type="range" min="0" max="100" step="1" value="0"></div>
+                  <div class="trace-preprocess-control"><label for="traceHueInput">Hue rotate <output id="traceHueValue">0 deg</output></label><input id="traceHueInput" type="range" min="-180" max="180" step="1" value="0"></div>
+                  <div class="trace-preprocess-control"><label for="tracePreprocessInvertInput">Invert <output id="tracePreprocessInvertValue">0%</output></label><input id="tracePreprocessInvertInput" type="range" min="0" max="100" step="1" value="0"></div>
+                  <div class="trace-preprocess-control"><label for="traceOpacityInput">Opacity <output id="traceOpacityValue">100%</output></label><input id="traceOpacityInput" type="range" min="0" max="100" step="1" value="100"></div>
+                  <div class="trace-preprocess-control"><label for="traceSaturationInput">Saturation <output id="traceSaturationValue">100%</output></label><input id="traceSaturationInput" type="range" min="0" max="200" step="1" value="100"></div>
+                  <div class="trace-preprocess-control"><label for="traceSepiaInput">Sepia <output id="traceSepiaValue">0%</output></label><input id="traceSepiaInput" type="range" min="0" max="100" step="1" value="0"></div>
                 </div>
                 <button id="resetTracePreprocessBtn" class="btn btn-sm btn-outline-secondary mt-2" type="button">Reset preprocessing</button>
               </details>
