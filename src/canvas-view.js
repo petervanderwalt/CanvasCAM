@@ -125,7 +125,7 @@ function drawCadDraft(ctx, draft, worldToScreen) {
   ctx.strokeStyle = "#0d6efd";
   ctx.fillStyle = "rgba(13, 110, 253, 0.08)";
   ctx.lineWidth = 2;
-  ctx.setLineDash([7, 5]);
+  ctx.setLineDash([]);
   ctx.beginPath();
   if (draft.tool === "rectangle") {
     const [a, b] = points;
@@ -177,7 +177,7 @@ function drawCadDraft(ctx, draft, worldToScreen) {
       }
     }
     ctx.stroke();
-    ctx.setLineDash([3, 4]);
+    ctx.setLineDash([]);
     ctx.beginPath();
     for (const point of points) {
       const screen = worldToScreen(point);

@@ -5,11 +5,12 @@ import {
 } from "./src/constants.js?v=20260730-vcarve12";
 import { parseDxf as parseDxfFile } from "./src/dxf.js?v=20260730-vcarve12";
 import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260730-vcarve12";
-import * as Paths from "./src/paths.js?v=20260730-vcarve12";
+import * as Paths from "./src/paths.js?v=20260810-text1";
 import * as CamOps from "./src/cam-ops.js?v=20260730-vcarve12";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260810-origin-label1";
+import * as CanvasView from "./src/canvas-view.js?v=20260810-solid-draft1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
+import * as CadFont from "./src/cad-font.js?v=20260810-text1";
 
 (function () {
 
@@ -63,6 +64,11 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     cadInspectorRadiusField: document.getElementById("cadInspectorRadiusField"),
     cadInspectorRadiusInput: document.getElementById("cadInspectorRadiusInput"),
     applyCadInspectorBtn: document.getElementById("applyCadInspectorBtn"),
+    cadTextPanel: document.getElementById("cadTextPanel"),
+    cadTextInput: document.getElementById("cadTextInput"),
+    cadTextHeightInput: document.getElementById("cadTextHeightInput"),
+    cadTextAddBtn: document.getElementById("cadTextAddBtn"),
+    cadTextCancelBtn: document.getElementById("cadTextCancelBtn"),
     topRulerCanvas,
     leftRulerCanvas,
     canvasEmptyState: document.getElementById("canvasEmptyState"),
@@ -188,6 +194,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     cadEditMode: false,
     cadTool: null,
     cadDraft: null,
+    cadTextPlacement: null,
     cadSnapEnabled: true,
     cadInspectorDismissed: false,
     pendingBitmapFile: null,
@@ -2263,6 +2270,16 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     return null;
   }
 
+  function createCadTextEntity(origin, text, height) {
+    return {
+      type: "CAD_TEXT",
+      __cadShape: "text",
+      text,
+      height,
+      strokes: CadFont.createStrokeText(text, origin, height),
+    };
+  }
+
   function selectEntityIndex(index) {
     state.selectedLoopIds.clear();
     for (const loop of state.loops) {
@@ -2292,6 +2309,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       circle: "Circle",
       arc: "Arc",
       bezier: "Bezier curve",
+      text: "Vector text",
     }[shape] || "CAD shape";
   }
 
@@ -2415,7 +2433,51 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     requestDraw();
   }
 
+  function showCadTextPanel(screenPoint) {
+    state.cadTextPlacement = snapCadPoint(screenPoint);
+    ui.cadTextPanel.classList.remove("d-none");
+    ui.cadTextInput.focus();
+    ui.cadTextInput.select();
+  }
+
+  function hideCadTextPanel() {
+    state.cadTextPlacement = null;
+    ui.cadTextPanel.classList.add("d-none");
+  }
+
+  function commitCadText() {
+    if (!state.cadTextPlacement) {
+      return;
+    }
+    const text = ui.cadTextInput.value.trim();
+    const height = Number.parseFloat(ui.cadTextHeightInput.value);
+    if (!text) {
+      showToast("Enter text to add.", "warning");
+      ui.cadTextInput.focus();
+      return;
+    }
+    if (!Number.isFinite(height) || height <= 0) {
+      showToast("Text height must be greater than zero.", "warning");
+      return;
+    }
+    const historyBefore = captureHistorySnapshot();
+    const index = state.entities.length;
+    state.entities.push(createCadTextEntity(state.cadTextPlacement, text, height));
+    rebuildLoopsFromEntities(new Set());
+    selectEntityIndex(index);
+    hideCadTextPanel();
+    pushHistorySnapshot(historyBefore);
+    refreshSelectionUi();
+    refreshToolpathUi();
+    refreshWorkspaceUi();
+    requestDraw();
+  }
+
   function handleCadPointerDown(screenPoint) {
+    if (state.cadTool === "text") {
+      showCadTextPanel(screenPoint);
+      return true;
+    }
     const snapped = snapCadPoint(screenPoint);
     if (!state.cadDraft) {
       state.cadDraft = { tool: state.cadTool, points: [snapped], preview: snapped };
@@ -2446,6 +2508,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     state.cadTool = state.cadTool === nextTool ? null : nextTool;
     state.cadEditMode = false;
     state.cadDraft = null;
+    hideCadTextPanel();
     state.transformTool = null;
     for (const button of ui.cadToolButtons) {
       const active = button.dataset.cadTool === state.cadTool;
@@ -2463,6 +2526,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     state.cadEditMode = false;
     state.cadTool = null;
     state.cadDraft = null;
+    hideCadTextPanel();
     state.transformTool = null;
     state.addTabsMode = false;
     for (const button of ui.cadToolButtons) {
@@ -2479,6 +2543,7 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     state.cadEditMode = !state.cadEditMode;
     state.cadTool = null;
     state.cadDraft = null;
+    hideCadTextPanel();
     state.transformTool = null;
     state.addTabsMode = false;
     state.cadInspectorDismissed = false;
@@ -3506,10 +3571,20 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
       state.selectedLoopIds.clear();
     }
     if (hit) {
-      if (append && state.selectedLoopIds.has(hit.id)) {
-        state.selectedLoopIds.delete(hit.id);
+      const textEntityIndex = (hit.sourceEntityIndexes || []).find((index) => state.entities[index]?.type === "CAD_TEXT");
+      const linkedLoopIds = textEntityIndex === undefined
+        ? [hit.id]
+        : state.loops
+          .filter((loop) => loop.sourceEntityIndexes?.includes(textEntityIndex))
+          .map((loop) => loop.id);
+      if (append && linkedLoopIds.every((id) => state.selectedLoopIds.has(id))) {
+        for (const id of linkedLoopIds) {
+          state.selectedLoopIds.delete(id);
+        }
       } else {
-        state.selectedLoopIds.add(hit.id);
+        for (const id of linkedLoopIds) {
+          state.selectedLoopIds.add(id);
+        }
       }
     }
     refreshSelectionUi();
@@ -3559,7 +3634,12 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     const hit = findCadLoopHit(point);
     state.selectedLoopIds.clear();
     if (hit) {
-      state.selectedLoopIds.add(hit.id);
+      const textEntityIndex = (hit.sourceEntityIndexes || []).find((index) => state.entities[index]?.type === "CAD_TEXT");
+      if (textEntityIndex !== undefined) {
+        selectEntityIndex(textEntityIndex);
+      } else {
+        state.selectedLoopIds.add(hit.id);
+      }
       state.cadInspectorDismissed = false;
     }
     updateTransformToolUi();
@@ -4051,6 +4131,8 @@ import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1"
     state.cadInspectorDismissed = true;
     refreshCadInspector();
   });
+  ui.cadTextAddBtn.addEventListener("click", commitCadText);
+  ui.cadTextCancelBtn.addEventListener("click", hideCadTextPanel);
   ui.applyCadInspectorBtn.addEventListener("click", applyCadInspectorChanges);
   ui.transformAspectLockBtn.addEventListener("click", () => {
     state.transformAspectLocked = !state.transformAspectLocked;

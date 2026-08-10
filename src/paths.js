@@ -97,6 +97,12 @@ export function sampleEllipsePoints(cx, cy, rx, ry, matrix, steps = 72) {
 }
 
 export function translateEntity(entity, dx, dy) {
+  if (entity.type === "CAD_TEXT") {
+    return {
+      ...entity,
+      strokes: entity.strokes.map((stroke) => stroke.map((point) => ({ x: point.x + dx, y: point.y + dy }))),
+    };
+  }
   if (entity.type === "LINE") {
     return {
       ...entity,
@@ -141,6 +147,12 @@ export function translateEntity(entity, dx, dy) {
 }
 
 export function transformEntity(entity, matrix) {
+  if (entity.type === "CAD_TEXT") {
+    return {
+      ...entity,
+      strokes: entity.strokes.map((stroke) => stroke.map((point) => applyMatrixToPoint(point, matrix))),
+    };
+  }
   if (entity.type === "LINE") {
     const start = applyMatrixToPoint({ x: entity.x1, y: entity.y1 }, matrix);
     const end = applyMatrixToPoint({ x: entity.x2, y: entity.y2 }, matrix);
@@ -215,6 +227,12 @@ export function transformEntity(entity, matrix) {
 }
 
 export function mirrorEntityY(entity, maxY) {
+  if (entity.type === "CAD_TEXT") {
+    return {
+      ...entity,
+      strokes: entity.strokes.map((stroke) => stroke.map((point) => ({ x: point.x, y: maxY - point.y }))),
+    };
+  }
   if (entity.type === "LINE") {
     return {
       ...entity,
@@ -666,6 +684,14 @@ export function buildLoops(entities) {
   const circles = [];
   for (let entityIndex = 0; entityIndex < entities.length; entityIndex += 1) {
     const entity = entities[entityIndex];
+    if (entity.type === "CAD_TEXT") {
+      for (const stroke of entity.strokes || []) {
+        if (stroke.length >= 2) {
+          loops.push(buildOpenChain([polylineSegmentFromPoints(stroke, entity, entityIndex)]));
+        }
+      }
+      continue;
+    }
     if (entity.type === "LWPOLYLINE" || entity.type === "POLYLINE") {
       const segments = buildSegmentsFromPolylineEntity(entity, entityIndex);
       if (!segments.length) {
@@ -1047,7 +1073,9 @@ export function mergeBounds(list) {
 export function boundsOfEntities(entities) {
   const candidateBounds = [];
   for (const entity of entities) {
-    if (entity.type === "LINE") {
+    if (entity.type === "CAD_TEXT") {
+      candidateBounds.push(boundsOfPoints(entity.strokes.flat()));
+    } else if (entity.type === "LINE") {
       candidateBounds.push(boundsOfPoints([
         { x: entity.x1, y: entity.y1 },
         { x: entity.x2, y: entity.y2 },

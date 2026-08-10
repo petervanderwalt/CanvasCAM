@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260810-no-stepper1">
+  <link rel="stylesheet" href="styles.css?v=20260810-text-tool1">
 </head>
 <body>
   <div class="workspace-shell">
@@ -91,6 +91,9 @@
                 <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon cad-tool-btn" data-cad-tool="bezier" title="Draw cubic Bezier" aria-label="Draw cubic Bezier">
                   <i class="fa-solid fa-bezier-curve"></i>
                 </button>
+                <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon cad-tool-btn" data-cad-tool="text" title="Add vector text" aria-label="Add vector text">
+                  <i class="fa-solid fa-font"></i>
+                </button>
                 <button type="button" class="btn btn-light canvas-tool-btn canvas-tool-btn-icon cad-tool-btn" data-cad-tool="guide" title="Create construction guide" aria-label="Create construction guide">
                   <i class="fa-solid fa-ruler"></i>
                 </button>
@@ -134,6 +137,17 @@
               <label id="cadInspectorRadiusField"><span class="cad-inspector-label">Corner radius</span><input id="cadInspectorRadiusInput" type="number" min="0" step="0.001"><span>mm</span></label>
             </div>
             <button id="applyCadInspectorBtn" type="button" class="btn btn-success cad-inspector-apply">Apply changes</button>
+          </section>
+          <section id="cadTextPanel" class="cad-text-panel d-none" aria-label="Add vector text">
+            <div class="cad-inspector-head">
+              <strong>Add Vector Text</strong>
+              <button id="cadTextCancelBtn" type="button" class="cad-inspector-close" aria-label="Cancel text placement">&times;</button>
+            </div>
+            <label class="cad-text-field" for="cadTextInput">Text</label>
+            <input id="cadTextInput" type="text" maxlength="80" value="TEXT" autocomplete="off">
+            <label class="cad-text-field" for="cadTextHeightInput">Height</label>
+            <div class="cad-text-height-row"><input id="cadTextHeightInput" type="number" min="0.1" step="0.1" value="20"><span>mm</span></div>
+            <button id="cadTextAddBtn" type="button" class="btn btn-success cad-inspector-apply">Add Text</button>
           </section>
           <div class="canvas-ruler-corner" aria-hidden="true"></div>
           <canvas id="topRulerCanvas" class="canvas-ruler canvas-ruler-top" aria-hidden="true"></canvas>
@@ -468,6 +482,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-no-stepper1"></script>
+  <script type="module" src="app.js?v=20260810-text-tool3"></script>
 </body>
 </html>
