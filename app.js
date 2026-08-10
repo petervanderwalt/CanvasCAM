@@ -800,16 +800,20 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
   }
 
   function updateTransformToolUi() {
+    const hasSelection = state.selectedLoopIds.size > 0;
     if (!state.selectedLoopIds.size) {
       state.transformTool = null;
     }
     for (const button of ui.transformToolButtons) {
       const active = button.dataset.transformTool === state.transformTool;
+      button.disabled = !hasSelection;
       button.classList.toggle("is-active", active);
       button.classList.toggle("btn-primary", active);
       button.classList.toggle("btn-light", !active);
     }
-    ui.vectorActionGroup.classList.toggle("d-none", state.selectedLoopIds.size === 0);
+    ui.vectorActionGroup.classList.remove("d-none");
+    ui.duplicateVectorsBtn.disabled = !hasSelection;
+    ui.deleteVectorsBtn.disabled = !hasSelection;
     const booleanEligible = loopsFromSelection().filter((loop) => loop.closed !== false && loop.points?.length >= 4).length >= 2;
     ui.booleanVectorsBtn.disabled = !booleanEligible;
     updateSelectModeUi();
@@ -2120,7 +2124,7 @@ import * as CadFont from "./src/cad-font.js?v=20260810-text-height1";
         ? "Drop DXF/SVG to open"
         : "or drag DXF/SVG here";
     }
-    ui.vectorActionGroup.classList.toggle("d-none", !hasSelection);
+    ui.vectorActionGroup.classList.remove("d-none");
     ui.cadActionGroup.classList.toggle("d-none", false);
     ui.clearGuidesBtn.classList.toggle("d-none", !state.entities.some((entity) => entity.type === "GUIDE"));
 
