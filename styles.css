@@ -962,6 +962,22 @@ body {
   position: fixed;
   margin: 0;
   transform: none !important;
+  z-index: 5001;
+}
+
+.modal-dialog.is-drag-positioned.modal-dialog-centered {
+  display: block;
+  min-height: 0;
+}
+
+/* Bootstrap's scrolling modal shell otherwise clips a fixed dragged dialog. */
+.modal {
+  z-index: 5000 !important;
+  overflow: visible !important;
+}
+
+.modal-backdrop {
+  z-index: 4990 !important;
 }
 
 .transform-tool-btn.is-active {

@@ -1033,13 +1033,17 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       if (!dialog || !header || header.dataset.dragEnabled) {
         continue;
       }
+      const content = dialog.querySelector(":scope > .modal-content");
+      if (!content) {
+        continue;
+      }
       header.dataset.dragEnabled = "true";
       header.classList.add("modal-drag-handle");
       header.addEventListener("pointerdown", (event) => {
         if (event.button !== 0 || event.target.closest("button, input, select, textarea, a, label")) {
           return;
         }
-        const rect = dialog.getBoundingClientRect();
+        const rect = content.getBoundingClientRect();
         const offset = { x: event.clientX - rect.left, y: event.clientY - rect.top };
         const clampPosition = (left, top) => ({
           left: Math.max(8, Math.min(left, Math.max(8, window.innerWidth - rect.width - 8))),
@@ -1050,6 +1054,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
         dialog.style.left = `${position.left}px`;
         dialog.style.top = `${position.top}px`;
         dialog.style.width = `${rect.width}px`;
+        if (dialog.classList.contains("modal-dialog-scrollable")) {
+          dialog.style.height = `${Math.min(rect.height, window.innerHeight - 16)}px`;
+        }
         dialog.style.maxWidth = `calc(100vw - 1rem)`;
         header.setPointerCapture?.(event.pointerId);
         header.classList.add("is-dragging");
