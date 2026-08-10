@@ -297,6 +297,10 @@ body {
   gap: 0.25rem;
 }
 
+#cadActionGroup .ribbon-command-grid {
+  grid-template-columns: repeat(8, max-content);
+}
+
 .ribbon-command {
   min-width: 3.8rem;
   min-height: 2.55rem;
