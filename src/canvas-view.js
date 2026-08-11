@@ -218,35 +218,27 @@ function drawCadSnapMarker(ctx, state, worldToScreen) {
 }
 
 function drawTrimHover(ctx, state, worldToScreen) {
-  const rangeStart = state.cadTool === "trim" ? state.trimRangeStart : null;
   const candidate = state.cadTool === "trim" ? state.trimHover : null;
-  if (!candidate && !rangeStart) {
+  const strokeCandidates = state.cadTool === "trim" && state.trimStroke
+    ? [...state.trimStroke.candidates.values()]
+    : [];
+  if (!candidate && !strokeCandidates.length) {
     return;
   }
-  if (rangeStart) {
-    const point = worldToScreen(rangeStart.point);
-    ctx.save();
-    ctx.fillStyle = "#f59e0b";
-    ctx.strokeStyle = "#78350f";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "#78350f";
-    ctx.font = "700 11px Trebuchet MS, sans-serif";
-    ctx.textBaseline = "bottom";
-    ctx.fillText("Range start", point.x + 9, point.y - 8);
-    ctx.restore();
+  for (const strokeCandidate of strokeCandidates) {
+    drawTrimCandidate(ctx, strokeCandidate, worldToScreen, "#f97316", 3);
   }
-  if (!candidate) {
-    return;
+  if (candidate) {
+    drawTrimCandidate(ctx, candidate, worldToScreen, "#dc2626", 4, true);
   }
+}
+
+function drawTrimCandidate(ctx, candidate, worldToScreen, color, lineWidth, drawEnds = false) {
   const start = worldToScreen(candidate.trimStart);
   const end = worldToScreen(candidate.trimEnd);
   ctx.save();
-  ctx.strokeStyle = "#dc2626";
-  ctx.lineWidth = 4;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
   ctx.lineCap = "round";
   ctx.setLineDash([7, 5]);
   ctx.beginPath();
@@ -262,9 +254,13 @@ function drawTrimHover(ctx, state, worldToScreen) {
     ctx.lineTo(end.x, end.y);
   }
   ctx.stroke();
+  if (!drawEnds) {
+    ctx.restore();
+    return;
+  }
   ctx.setLineDash([]);
   ctx.fillStyle = "#fffdf4";
-  ctx.strokeStyle = "#dc2626";
+  ctx.strokeStyle = color;
   ctx.lineWidth = 1.8;
   for (const point of [start, end]) {
     ctx.beginPath();
