@@ -354,10 +354,12 @@ body {
 
 .ribbon-menu-trigger {
   min-width: 3.55rem;
+  flex-direction: row;
+  gap: 0.24rem;
 }
 
 .ribbon-menu-chevron {
-  margin-top: -0.02rem;
+  margin-top: 0;
   font-size: 0.48rem !important;
 }
 
