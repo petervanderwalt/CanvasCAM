@@ -286,6 +286,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     guideSourceHover: null,
     cadSnapHover: null,
     trimHover: null,
+    trimRangeStart: null,
     trimming: false,
     cadTextPlacement: null,
     cadSnapEnabled: true,
@@ -4483,6 +4484,62 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     return [before, after].filter(Boolean);
   }
 
+  function canRangeTrim(candidate) {
+    const entity = state.entities[candidate?.entityIndex];
+    return Boolean(candidate?.flattened)
+      || (entity && ["LWPOLYLINE", "POLYLINE"].includes(entity.type) && Array.isArray(entity.vertices));
+  }
+
+  function trimPolylineRangeReplacement(entity, startCandidate, endCandidate) {
+    const source = startCandidate.flattened;
+    const vertices = (source?.points || entity.vertices || []).map((vertex) => ({ x: vertex.x, y: vertex.y }));
+    const closed = source ? source.closed : Boolean(entity.closed);
+    if (vertices.length < 2) {
+      return [];
+    }
+
+    const makeEntity = (points, keepTreeId) => {
+      const clean = uniqueTrimPoints(points);
+      if (clean.length < 2) {
+        return null;
+      }
+      const replacement = {
+        ...deepClone(entity),
+        type: source ? "LWPOLYLINE" : entity.type,
+        closed: false,
+        vertices: clean.map((point) => ({ x: point.x, y: point.y, bulge: 0 })),
+      };
+      if (source) {
+        delete replacement.controlPoints;
+        delete replacement.degree;
+        delete replacement.knots;
+      }
+      if (!keepTreeId) {
+        replacement.__treeId = crypto.randomUUID();
+      }
+      return replacement;
+    };
+
+    const first = startCandidate.segmentIndex;
+    const last = endCandidate.segmentIndex;
+    if (!closed) {
+      const from = Math.min(first, last);
+      const to = Math.max(first, last);
+      const before = makeEntity(vertices.slice(0, from + 1), true);
+      const after = makeEntity(vertices.slice(to + 1), !before);
+      return [before, after].filter(Boolean);
+    }
+
+    // Closed paths retain the run opposite the directed Ctrl-click range.
+    const kept = [{ ...vertices[(last + 1) % vertices.length] }];
+    let index = (last + 1) % vertices.length;
+    while (index !== first) {
+      index = (index + 1) % vertices.length;
+      kept.push({ ...vertices[index] });
+    }
+    return [makeEntity(kept, true)].filter(Boolean);
+  }
+
   function trimLineReplacement(entity, candidate) {
     const makeLine = (start, end, keepTreeId) => {
       if (Math.hypot(end.x - start.x, end.y - start.y) <= 1e-7) {
@@ -4581,24 +4638,16 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
   }
 
-  async function trimCandidate(candidate) {
+  async function applyTrimReplacements(candidate, replacements, message) {
     if (state.trimming) {
       return;
     }
-    const entity = state.entities[candidate.entityIndex];
-    if (!entity) {
-      return;
-    }
-    const replacements = candidate.kind === "arc"
-      ? trimArcReplacement(entity, candidate)
-      : entity.type === "LINE"
-        ? trimLineReplacement(entity, candidate)
-        : trimPolylineReplacement(entity, candidate);
     const historyBefore = captureHistorySnapshot();
     const snapshots = snapshotToolpathsForRebuild();
     const activeToolpathId = state.activeToolpathId;
     state.trimming = true;
     state.trimHover = null;
+    state.trimRangeStart = null;
     try {
       if (replacements.length) {
         state.entities[candidate.entityIndex] = replacements[0];
@@ -4616,20 +4665,75 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       refreshSelectionUi();
       refreshToolpathUi();
       refreshWorkspaceUi();
-      showToast("Trimmed vector segment.", "success", { duration: 1600 });
+      showToast(message, "success", { duration: 1800 });
     } finally {
       state.trimming = false;
       requestDraw();
     }
   }
 
-  function handleCadPointerDown(screenPoint) {
+  async function trimCandidate(candidate) {
+    const entity = state.entities[candidate.entityIndex];
+    if (!entity) {
+      return;
+    }
+    const replacements = candidate.kind === "arc"
+      ? trimArcReplacement(entity, candidate)
+      : entity.type === "LINE"
+        ? trimLineReplacement(entity, candidate)
+        : trimPolylineReplacement(entity, candidate);
+    await applyTrimReplacements(candidate, replacements, "Trimmed vector segment.");
+  }
+
+  async function trimCandidateRange(startCandidate, endCandidate) {
+    const entity = state.entities[startCandidate.entityIndex];
+    if (!entity) {
+      return;
+    }
+    const replacements = trimPolylineRangeReplacement(entity, startCandidate, endCandidate);
+    await applyTrimReplacements(startCandidate, replacements, "Trimmed vector range.");
+  }
+
+  function beginTrimRange(candidate) {
+    if (!canRangeTrim(candidate)) {
+      showToast("Ctrl range trim is available on multi-segment vectors.", "warning", { duration: 2200 });
+      return;
+    }
+    state.trimRangeStart = {
+      ...candidate,
+      point: { ...candidate.point },
+    };
+    requestDraw();
+    showToast("Range start set. Ctrl-click the final edge to trim the run between.", "success", { duration: 3000 });
+  }
+
+  function handleCadPointerDown(screenPoint, options = {}) {
     if (state.cadTool === "trim") {
       const candidate = findTrimCandidate(screenPoint);
       if (!candidate) {
         showToast("Hover a vector edge to trim it.", "warning", { duration: 1800 });
         return true;
       }
+      if (options.range) {
+        if (!state.trimRangeStart) {
+          beginTrimRange(candidate);
+          return true;
+        }
+        if (state.trimRangeStart.entityIndex !== candidate.entityIndex) {
+          beginTrimRange(candidate);
+          showToast("Range start moved to this vector. Ctrl-click its final edge.", "warning", { duration: 2400 });
+          return true;
+        }
+        if (state.trimRangeStart.segmentIndex === candidate.segmentIndex) {
+          state.trimRangeStart = null;
+          requestDraw();
+          showToast("Range trim cancelled.", "warning", { duration: 1600 });
+          return true;
+        }
+        void trimCandidateRange(state.trimRangeStart, candidate);
+        return true;
+      }
+      state.trimRangeStart = null;
       void trimCandidate(candidate);
       return true;
     }
@@ -4707,6 +4811,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.guideSourceHover = null;
     state.cadSnapHover = null;
     state.trimHover = null;
+    state.trimRangeStart = null;
     hideGuideDistancePill();
     hidePolygonDraftPanel();
     hideCadTextPanel();
@@ -4730,6 +4835,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.guideSourceHover = null;
     state.cadSnapHover = null;
     state.trimHover = null;
+    state.trimRangeStart = null;
     hideGuideDistancePill();
     hidePolygonDraftPanel();
     hideCadTextPanel();
@@ -4752,6 +4858,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.guideSourceHover = null;
     state.cadSnapHover = null;
     state.trimHover = null;
+    state.trimRangeStart = null;
     hideGuideDistancePill();
     hidePolygonDraftPanel();
     hideCadTextPanel();
@@ -7154,6 +7261,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
   canvas.addEventListener("mousedown", (event) => {
     const point = { x: event.offsetX, y: event.offsetY };
+    if (event.button === 0 && state.cadTool === "trim") {
+      handleCadPointerDown(point, { range: event.ctrlKey || event.metaKey });
+      updateCanvasCursor(point);
+      return;
+    }
     if (event.button === 0 && state.cadTool && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
       handleCadPointerDown(point);
       updateCanvasCursor(point);

@@ -218,7 +218,27 @@ function drawCadSnapMarker(ctx, state, worldToScreen) {
 }
 
 function drawTrimHover(ctx, state, worldToScreen) {
+  const rangeStart = state.cadTool === "trim" ? state.trimRangeStart : null;
   const candidate = state.cadTool === "trim" ? state.trimHover : null;
+  if (!candidate && !rangeStart) {
+    return;
+  }
+  if (rangeStart) {
+    const point = worldToScreen(rangeStart.point);
+    ctx.save();
+    ctx.fillStyle = "#f59e0b";
+    ctx.strokeStyle = "#78350f";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#78350f";
+    ctx.font = "700 11px Trebuchet MS, sans-serif";
+    ctx.textBaseline = "bottom";
+    ctx.fillText("Range start", point.x + 9, point.y - 8);
+    ctx.restore();
+  }
   if (!candidate) {
     return;
   }
