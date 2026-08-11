@@ -4345,7 +4345,6 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       refreshToolpathUi();
       refreshWorkspaceUi();
       showToast("Trimmed vector segment.", "success", { duration: 1600 });
-      setSelectMode();
     } finally {
       state.trimming = false;
       requestDraw();
