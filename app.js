@@ -307,6 +307,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     tracePreviewToken: 0,
     tracePreviewSvg: "",
     booleanPreviewContours: null,
+    booleanPreviewActive: false,
     expandPreviewContours: null,
     booleanOperation: "union",
     geometryTransform: null,
@@ -1373,6 +1374,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       return;
     }
     state.booleanOperation = "union";
+    state.booleanPreviewActive = true;
     ui.booleanModalSummary.textContent = `${loops.length} closed vectors selected`;
     for (const input of ui.booleanOperationInputs) {
       input.checked = input.value === state.booleanOperation;
@@ -1453,6 +1455,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
 
     state.booleanPreviewContours = null;
+    state.booleanPreviewActive = false;
     getBooleanModalInstance()?.hide();
     pushHistorySnapshot(historyBefore);
     refreshSelectionUi();
@@ -6647,12 +6650,14 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   ui.booleanModal?.querySelectorAll("[data-bs-dismiss='modal']").forEach((button) => {
     button.addEventListener("click", () => {
       state.booleanPreviewContours = null;
+      state.booleanPreviewActive = false;
       requestDraw();
       getBooleanModalInstance()?.hide();
     });
   });
   ui.booleanModal?.addEventListener("hidden.bs.modal", () => {
     state.booleanPreviewContours = null;
+    state.booleanPreviewActive = false;
     requestDraw();
   });
   ui.expandAmountInput?.addEventListener("input", refreshExpandPreview);

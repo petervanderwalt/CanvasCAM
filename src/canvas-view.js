@@ -61,8 +61,9 @@ export function drawScene({
     ctx.save();
     ctx.fillStyle = "rgba(255, 126, 74, 0.24)";
     ctx.strokeStyle = "#e8590c";
-    ctx.lineWidth = 2.4;
-    ctx.setLineDash([7, 5]);
+    ctx.lineWidth = 4.2;
+    ctx.lineJoin = "round";
+    ctx.setLineDash([]);
     ctx.beginPath();
     for (const contour of state.booleanPreviewContours) {
       if (!contour.length) {
@@ -105,7 +106,7 @@ export function drawScene({
     ctx.restore();
   }
 
-  if (!navigationMode && !state.transformingGeometry) {
+  if (!navigationMode && !state.transformingGeometry && !state.booleanPreviewActive) {
     for (const toolpath of getRenderableToolpaths()) {
       const active = state.draftToolpath
         ? toolpath === state.draftToolpath
@@ -124,7 +125,7 @@ export function drawScene({
     }
   }
 
-  if (!navigationMode && state.addTabsMode && state.hoveredTabCandidate) {
+  if (!navigationMode && !state.booleanPreviewActive && state.addTabsMode && state.hoveredTabCandidate) {
     const candidate = state.hoveredTabCandidate;
     drawTabMarker(candidate, candidate.toolDiameter, { alpha: 0.85 });
   }
