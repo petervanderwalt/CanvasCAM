@@ -1002,6 +1002,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     refreshSelectionUi();
     refreshToolpathUi();
     refreshWorkspaceUi();
+    setSelectMode();
     requestDraw();
   }
 
@@ -3297,6 +3298,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     refreshSelectionUi();
     refreshToolpathUi();
     refreshWorkspaceUi();
+    setSelectMode();
     requestDraw();
   }
 
@@ -3470,6 +3472,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     refreshSelectionUi();
     refreshToolpathUi();
     refreshWorkspaceUi();
+    setSelectMode();
     requestDraw();
   }
 
