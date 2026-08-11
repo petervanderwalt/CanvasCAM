@@ -8,7 +8,7 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpat
 import * as Paths from "./src/paths.js?v=20260810-text1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260811-trim3";
+import * as CanvasView from "./src/canvas-view.js?v=20260811-polygon1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
@@ -52,6 +52,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     redoBtn: document.getElementById("redoBtn"),
     workerBadge: document.getElementById("workerBadge"),
     workerPercent: document.getElementById("workerPercent"),
+    polygonDraftPanel: document.getElementById("polygonDraftPanel"),
+    polygonRadiusInput: document.getElementById("polygonRadiusInput"),
+    polygonSidesInput: document.getElementById("polygonSidesInput"),
+    polygonInscribedBtn: document.getElementById("polygonInscribedBtn"),
+    polygonCircumscribedBtn: document.getElementById("polygonCircumscribedBtn"),
     guideDistancePill: document.getElementById("guideDistancePill"),
     guideDistanceLabel: document.getElementById("guideDistanceLabel"),
     guideDistanceInput: document.getElementById("guideDistanceInput"),
@@ -3331,7 +3336,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
   function commitCadDimensionDraft() {
     const draft = state.cadDraft;
-    if (!draft || !["circle", "rectangle", "line"].includes(draft.tool) || !draft.preview) {
+    if (!draft || !["circle", "rectangle", "line", "polygon"].includes(draft.tool) || !draft.preview) {
       return false;
     }
     if (draft.points.length === 1) {
@@ -3414,6 +3419,116 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       : entity;
   }
 
+  function getPolygonDraftConfig(draft) {
+    const polygon = draft?.polygon || {};
+    return {
+      sides: Math.min(128, Math.max(3, Math.round(Number(polygon.sides) || 6))),
+      radius: Math.max(0.001, Number(polygon.radius) || 10),
+      mode: polygon.mode === "circumscribed" ? "circumscribed" : "inscribed",
+      angle: Number.isFinite(polygon.angle) ? polygon.angle : 0,
+    };
+  }
+
+  function polygonVertices(center, config) {
+    const firstAngle = config.angle + (config.mode === "circumscribed" ? Math.PI / config.sides : 0);
+    const vertexRadius = config.mode === "circumscribed"
+      ? config.radius / Math.cos(Math.PI / config.sides)
+      : config.radius;
+    return Array.from({ length: config.sides }, (_, index) => {
+      const angle = firstAngle + (Math.PI * 2 * index) / config.sides;
+      return {
+        x: center.x + Math.cos(angle) * vertexRadius,
+        y: center.y + Math.sin(angle) * vertexRadius,
+      };
+    });
+  }
+
+  function updatePolygonDraftFromPoint(screenPoint) {
+    const draft = state.cadDraft;
+    const center = draft?.points?.[0];
+    if (!center || draft.tool !== "polygon") {
+      return;
+    }
+    const preview = snapCadPoint(screenPoint);
+    const config = getPolygonDraftConfig(draft);
+    const dx = preview.x - center.x;
+    const dy = preview.y - center.y;
+    config.radius = Math.max(0.001, Math.hypot(dx, dy));
+    config.angle = Math.atan2(dy, dx);
+    draft.polygon = config;
+    draft.preview = {
+      x: center.x + Math.cos(config.angle) * config.radius,
+      y: center.y + Math.sin(config.angle) * config.radius,
+    };
+    state.cadSnapHover = draft.preview;
+    renderPolygonDraftPanel();
+  }
+
+  function setPolygonDraftRadius(radius) {
+    const draft = state.cadDraft;
+    const center = draft?.points?.[0];
+    if (!center || draft.tool !== "polygon") {
+      return;
+    }
+    const config = getPolygonDraftConfig(draft);
+    config.radius = Math.max(0.001, radius);
+    draft.polygon = config;
+    draft.preview = {
+      x: center.x + Math.cos(config.angle) * config.radius,
+      y: center.y + Math.sin(config.angle) * config.radius,
+    };
+    state.cadSnapHover = draft.preview;
+    renderPolygonDraftPanel();
+  }
+
+  function setPolygonDraftSides(sides) {
+    const draft = state.cadDraft;
+    if (!draft || draft.tool !== "polygon") {
+      return;
+    }
+    draft.polygon = { ...getPolygonDraftConfig(draft), sides };
+    renderPolygonDraftPanel();
+  }
+
+  function setPolygonDraftMode(mode) {
+    const draft = state.cadDraft;
+    if (!draft || draft.tool !== "polygon") {
+      return;
+    }
+    draft.polygon = { ...getPolygonDraftConfig(draft), mode };
+    renderPolygonDraftPanel();
+  }
+
+  function renderPolygonDraftPanel() {
+    const draft = state.cadDraft;
+    const center = draft?.points?.[0];
+    if (!center || draft.tool !== "polygon" || !ui.polygonDraftPanel) {
+      hidePolygonDraftPanel();
+      return;
+    }
+    const config = getPolygonDraftConfig(draft);
+    const screen = worldToScreen(center);
+    const rect = canvas.getBoundingClientRect();
+    ui.polygonDraftPanel.classList.remove("d-none");
+    ui.polygonDraftPanel.style.left = `${Math.round(Math.min(window.innerWidth - 360, rect.left + screen.x + 16))}px`;
+    ui.polygonDraftPanel.style.top = `${Math.round(Math.max(8, Math.min(window.innerHeight - 72, rect.top + screen.y - 58)))}px`;
+    if (document.activeElement !== ui.polygonRadiusInput) {
+      ui.polygonRadiusInput.value = String(Number(config.radius.toFixed(3)));
+    }
+    if (document.activeElement !== ui.polygonSidesInput) {
+      ui.polygonSidesInput.value = String(config.sides);
+    }
+    const inscribed = config.mode === "inscribed";
+    ui.polygonInscribedBtn.classList.toggle("is-active", inscribed);
+    ui.polygonInscribedBtn.setAttribute("aria-pressed", String(inscribed));
+    ui.polygonCircumscribedBtn.classList.toggle("is-active", !inscribed);
+    ui.polygonCircumscribedBtn.setAttribute("aria-pressed", String(!inscribed));
+  }
+
+  function hidePolygonDraftPanel() {
+    ui.polygonDraftPanel?.classList.add("d-none");
+  }
+
   function createCadEntity(tool, draft) {
     const { points } = draft;
     if (tool === "line") {
@@ -3441,6 +3556,19 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       const minY = Math.min(a.y, b.y);
       const maxY = Math.max(a.y, b.y);
       return createCadRectangleEntity({ x: (minX + maxX) / 2, y: (minY + maxY) / 2 }, maxX - minX, maxY - minY);
+    }
+    if (tool === "polygon") {
+      const center = points[0];
+      const config = getPolygonDraftConfig(draft);
+      return {
+        type: "LWPOLYLINE",
+        closed: true,
+        __cadShape: "polygon",
+        __cadPolygonSides: config.sides,
+        __cadPolygonRadius: config.radius,
+        __cadPolygonMode: config.mode,
+        vertices: polygonVertices(center, config).map((point) => ({ ...point, bulge: 0 })),
+      };
     }
     if (tool === "circle") {
       const [center, edge] = points;
@@ -3527,6 +3655,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       line: "Line",
       polyline: "Polyline",
       rectangle: "Rectangle",
+      polygon: "Polygon",
       circle: "Circle",
       arc: "Arc",
       bezier: "Bezier curve",
@@ -3722,6 +3851,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     state.cadDraft = null;
     hideGuideDistancePill();
+    hidePolygonDraftPanel();
     pushHistorySnapshot(historyBefore);
     refreshSelectionUi();
     refreshToolpathUi();
@@ -4380,12 +4510,23 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const snapped = snapCadPoint(screenPoint);
     state.cadSnapHover = snapped;
     if (!state.cadDraft) {
-      state.cadDraft = { tool: state.cadTool, points: [snapped], preview: snapped };
+      state.cadDraft = {
+        tool: state.cadTool,
+        points: [snapped],
+        preview: snapped,
+        polygon: state.cadTool === "polygon" ? { sides: 6, radius: 10, mode: "inscribed", angle: 0 } : undefined,
+      };
+      if (state.cadTool === "polygon") {
+        renderPolygonDraftPanel();
+      }
       renderCadDraftDimensions();
       requestDraw();
       return true;
     }
 
+    if (state.cadTool === "polygon") {
+      updatePolygonDraftFromPoint(screenPoint);
+    }
     state.cadDraft.points.push(snapped);
     state.cadDraft.preview = snapped;
     const pointsRequired = state.cadTool === "bezier" ? 4 : state.cadTool === "arc" ? 3 : state.cadTool === "polyline" ? Number.POSITIVE_INFINITY : 2;
@@ -4406,6 +4547,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       requestDraw();
       return;
     }
+    if (state.cadDraft.tool === "polygon") {
+      updatePolygonDraftFromPoint(screenPoint);
+      requestDraw();
+      return;
+    }
     state.cadDraft.preview = snapCadPoint(screenPoint);
     state.cadSnapHover = state.cadDraft.preview;
     renderCadDraftDimensions();
@@ -4420,6 +4566,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadSnapHover = null;
     state.trimHover = null;
     hideGuideDistancePill();
+    hidePolygonDraftPanel();
     hideCadTextPanel();
     state.transformTool = null;
     for (const button of ui.cadToolButtons) {
@@ -4442,6 +4589,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadSnapHover = null;
     state.trimHover = null;
     hideGuideDistancePill();
+    hidePolygonDraftPanel();
     hideCadTextPanel();
     state.transformTool = null;
     state.addTabsMode = false;
@@ -4463,6 +4611,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadSnapHover = null;
     state.trimHover = null;
     hideGuideDistancePill();
+    hidePolygonDraftPanel();
     hideCadTextPanel();
     state.transformTool = null;
     state.addTabsMode = false;
@@ -6464,6 +6613,36 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   enableFontPickers();
   ui.cadTextAddBtn.addEventListener("click", commitCadText);
   ui.cadTextCancelBtn.addEventListener("click", hideCadTextPanel);
+  ui.polygonRadiusInput?.addEventListener("input", () => {
+    const radius = Number.parseFloat(ui.polygonRadiusInput.value);
+    if (Number.isFinite(radius)) {
+      setPolygonDraftRadius(radius);
+      requestDraw();
+    }
+  });
+  ui.polygonSidesInput?.addEventListener("input", () => {
+    const sides = Number.parseInt(ui.polygonSidesInput.value, 10);
+    if (Number.isFinite(sides)) {
+      setPolygonDraftSides(sides);
+      requestDraw();
+    }
+  });
+  ui.polygonInscribedBtn?.addEventListener("click", () => {
+    setPolygonDraftMode("inscribed");
+    requestDraw();
+  });
+  ui.polygonCircumscribedBtn?.addEventListener("click", () => {
+    setPolygonDraftMode("circumscribed");
+    requestDraw();
+  });
+  [ui.polygonRadiusInput, ui.polygonSidesInput].forEach((input) => input?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    commitCadDimensionDraft();
+  }));
   ui.guideDistanceInput?.addEventListener("input", () => {
     const value = Number.parseFloat(ui.guideDistanceInput.value);
     const draft = state.cadDraft;

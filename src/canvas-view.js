@@ -326,6 +326,47 @@ function drawCadDraft(ctx, draft, worldToScreen) {
     ctx.rect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
     ctx.fill();
     ctx.stroke();
+  } else if (draft.tool === "polygon") {
+    const [center, edge] = points;
+    const polygon = draft.polygon || {};
+    const sides = Math.min(128, Math.max(3, Math.round(Number(polygon.sides) || 6)));
+    const mode = polygon.mode === "circumscribed" ? "circumscribed" : "inscribed";
+    const radius = Math.max(0.001, Number(polygon.radius) || Math.hypot(edge.x - center.x, edge.y - center.y));
+    const angle = Number.isFinite(polygon.angle) ? polygon.angle : Math.atan2(edge.y - center.y, edge.x - center.x);
+    const vertexRadius = mode === "circumscribed" ? radius / Math.cos(Math.PI / sides) : radius;
+    const firstAngle = angle + (mode === "circumscribed" ? Math.PI / sides : 0);
+    const vertices = Array.from({ length: sides }, (_, index) => {
+      const vertexAngle = firstAngle + (Math.PI * 2 * index) / sides;
+      return worldToScreen({
+        x: center.x + Math.cos(vertexAngle) * vertexRadius,
+        y: center.y + Math.sin(vertexAngle) * vertexRadius,
+      });
+    });
+    ctx.moveTo(vertices[0].x, vertices[0].y);
+    for (const vertex of vertices.slice(1)) {
+      ctx.lineTo(vertex.x, vertex.y);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    const centerScreen = worldToScreen(center);
+    const radiusTarget = worldToScreen({
+      x: center.x + Math.cos(angle) * radius,
+      y: center.y + Math.sin(angle) * radius,
+    });
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = 1.35;
+    ctx.beginPath();
+    ctx.moveTo(centerScreen.x, centerScreen.y);
+    ctx.lineTo(radiusTarget.x, radiusTarget.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#fffdf4";
+    ctx.beginPath();
+    ctx.arc(radiusTarget.x, radiusTarget.y, 3.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
   } else if (draft.tool === "circle") {
     const [center, edge] = points;
     const c = worldToScreen(center);

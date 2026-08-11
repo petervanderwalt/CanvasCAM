@@ -61,6 +61,7 @@
                   <button type="button" class="cad-tool-btn" data-cad-tool="line" role="menuitem"><i class="fa-solid fa-slash"></i>Line</button>
                   <button type="button" class="cad-tool-btn" data-cad-tool="polyline" role="menuitem"><i class="fa-solid fa-draw-polygon"></i>Polyline</button>
                   <button type="button" class="cad-tool-btn" data-cad-tool="rectangle" role="menuitem"><i class="fa-regular fa-square"></i>Rectangle</button>
+                  <button type="button" class="cad-tool-btn" data-cad-tool="polygon" role="menuitem"><i class="fa-solid fa-hexagon"></i>Polygon</button>
                   <button type="button" class="cad-tool-btn" data-cad-tool="circle" role="menuitem"><i class="fa-regular fa-circle"></i>Circle</button>
                   <button type="button" class="cad-tool-btn" data-cad-tool="arc" role="menuitem"><i class="fa-solid fa-circle-notch"></i>Arc</button>
                   <button type="button" class="cad-tool-btn" data-cad-tool="bezier" role="menuitem"><i class="fa-solid fa-bezier-curve"></i>Bezier</button>
@@ -707,6 +708,14 @@
     <div class="worker-spinner spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
     <span id="workerPercent" class="worker-percent">0%</span>
   </div>
+  <div id="polygonDraftPanel" class="polygon-draft-panel d-none" role="group" aria-label="Polygon settings">
+    <label>Radius<span class="polygon-input-group"><input id="polygonRadiusInput" type="number" min="0.001" step="0.001" inputmode="decimal"><strong>mm</strong></span></label>
+    <div class="polygon-mode-toggle" role="group" aria-label="Polygon radius type">
+      <button id="polygonInscribedBtn" type="button" aria-pressed="true">Inscribed</button>
+      <button id="polygonCircumscribedBtn" type="button" aria-pressed="false">Circumscribed</button>
+    </div>
+    <label>Sides<span class="polygon-input-group"><input id="polygonSidesInput" type="number" min="3" max="128" step="1" inputmode="numeric"><strong>#</strong></span></label>
+  </div>
   <div id="guideDistancePill" class="guide-distance-pill d-none" role="group" aria-label="Drawing dimensions">
     <span id="guideDistanceLabel" class="guide-dimension-label">Offset</span>
     <input id="guideDistanceInput" type="number" step="0.001" inputmode="decimal" aria-label="Guide offset distance">
@@ -725,6 +734,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260811-trim4"></script>
+  <script type="module" src="app.js?v=20260811-polygon1"></script>
 </body>
 </html>
