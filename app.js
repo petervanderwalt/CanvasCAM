@@ -131,6 +131,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     transformToolButtons: Array.from(document.querySelectorAll(".transform-tool-btn")),
     deleteVectorsBtn: document.getElementById("deleteVectorsBtn"),
     duplicateVectorsBtn: document.getElementById("duplicateVectorsBtn"),
+    createGroupBtn: document.getElementById("createGroupBtn"),
+    explodeGroupBtn: document.getElementById("explodeGroupBtn"),
     booleanVectorsBtn: document.getElementById("booleanVectorsBtn"),
     expandVectorsBtn: document.getElementById("expandVectorsBtn"),
     booleanModal: document.getElementById("booleanModal"),
@@ -250,6 +252,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     emptyCanvasStarted: false,
     entities: [],
     loops: [],
+    groups: [],
     selectedLoopIds: new Set(),
     hoveredLoopId: null,
     toolpaths: [],
@@ -421,6 +424,16 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   }
 
   function getSelectedEntityIndexes() {
+    const indexes = getDirectlySelectedEntityIndexes();
+    for (const group of getGroupsForEntityIndexes(Array.from(indexes))) {
+      for (const index of getGroupEntityIndexes(group)) {
+        indexes.add(index);
+      }
+    }
+    return Array.from(indexes).sort((a, b) => a - b);
+  }
+
+  function getDirectlySelectedEntityIndexes() {
     const indexes = new Set();
     for (const loop of state.loops) {
       if (!state.selectedLoopIds.has(loop.id)) {
@@ -430,10 +443,55 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
         indexes.add(index);
       }
     }
-    return Array.from(indexes).sort((a, b) => a - b);
+    return indexes;
+  }
+
+  function getGroupEntityIndexes(group) {
+    const memberIds = new Set(group?.entityIds || []);
+    return state.entities
+      .map((entity, index) => (memberIds.has(entity.__treeId) ? index : -1))
+      .filter((index) => index >= 0);
+  }
+
+  function getGroupsForEntityIndexes(indexes) {
+    const entityIds = new Set(indexes.map((index) => state.entities[index]?.__treeId).filter(Boolean));
+    if (!entityIds.size) {
+      return [];
+    }
+    return state.groups.filter((group) => group.entityIds?.some((id) => entityIds.has(id)));
+  }
+
+  function expandSelectionToGroups() {
+    const directIndexes = Array.from(getDirectlySelectedEntityIndexes());
+    const groups = getGroupsForEntityIndexes(directIndexes);
+    if (!groups.length) {
+      return;
+    }
+    const groupedIndexes = new Set(groups.flatMap(getGroupEntityIndexes));
+    for (const loop of state.loops) {
+      if (loop.sourceEntityIndexes?.some((index) => groupedIndexes.has(index))) {
+        state.selectedLoopIds.add(loop.id);
+      }
+    }
+  }
+
+  function getGroupToolpaths(group) {
+    const entityIndexes = new Set(getGroupEntityIndexes(group));
+    return state.toolpaths.filter((toolpath) => toolpath.sourceLoops?.some((loop) =>
+      loop.sourceEntityIndexes?.some((index) => entityIndexes.has(index))
+    ));
+  }
+
+  function pruneGroups() {
+    const validIds = new Set(state.entities.map((entity) => entity.__treeId).filter(Boolean));
+    state.groups = state.groups
+      .map((group) => ({ ...group, entityIds: (group.entityIds || []).filter((id) => validIds.has(id)) }))
+      .filter((group) => group.entityIds.length > 0);
   }
 
   function rebuildLoopsFromEntities(selectionSignatures = new Set()) {
+    ensureObjectTreeMetadata();
+    pruneGroups();
     state.loops = buildLoops(state.entities);
     state.openEndpointCache = collectOpenVectorEndpoints();
     loopPathsDirty = true;
@@ -531,6 +589,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     return {
       fileName: state.fileName,
       entities: deepClone(state.entities),
+      groups: deepClone(state.groups),
       toolpaths: snapshotToolpathsForHistory(),
       selectedLoopSignatures: Array.from(selectedLoopSignatures()),
       activeToolpathId: state.activeToolpathId,
@@ -589,6 +648,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     state.fileName = snapshot.fileName || "";
     state.entities = deepClone(snapshot.entities || []);
+    state.groups = deepClone(snapshot.groups || []);
     state.selectionFrameAngles = new Map(snapshot.selectionFrameAngles || []);
     state.activeToolpathId = snapshot.activeToolpathId || null;
     state.editingToolpathId = snapshot.editingToolpathId || null;
@@ -910,6 +970,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     ui.vectorActionGroup.classList.remove("d-none");
     ui.duplicateVectorsBtn.disabled = !hasSelection;
+    const selectedIndexes = getSelectedEntityIndexes();
+    const selectedGroups = getGroupsForEntityIndexes(selectedIndexes);
+    ui.createGroupBtn.disabled = selectedIndexes.length < 2 || selectedGroups.length > 0;
+    ui.explodeGroupBtn.disabled = selectedGroups.length === 0;
     ui.deleteVectorsBtn.disabled = !hasSelection;
     const booleanEligible = loopsFromSelection().filter((loop) => loop.closed !== false && loop.points?.length >= 4).length >= 2;
     ui.booleanVectorsBtn.disabled = !booleanEligible;
@@ -1031,6 +1095,48 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     refreshToolpathUi();
     refreshWorkspaceUi();
     requestDraw();
+  }
+
+  function createVectorGroup() {
+    ensureObjectTreeMetadata();
+    const indexes = getSelectedEntityIndexes();
+    if (indexes.length < 2) {
+      return;
+    }
+    if (getGroupsForEntityIndexes(indexes).length) {
+      showToast("Explode the existing group before creating a new one.", "warning");
+      return;
+    }
+    const historyBefore = captureHistorySnapshot();
+    const groupNumber = state.groups.length + 1;
+    state.groups.push({
+      id: crypto.randomUUID(),
+      name: `Group ${groupNumber}`,
+      entityIds: indexes.map((index) => state.entities[index].__treeId),
+    });
+    expandSelectionToGroups();
+    pushHistorySnapshot(historyBefore);
+    refreshSelectionUi();
+    refreshToolpathUi();
+    refreshWorkspaceUi();
+    requestDraw();
+    showToast(`Created Group ${groupNumber}.`, "success", { duration: 1800 });
+  }
+
+  function explodeSelectedGroups() {
+    const groups = getGroupsForEntityIndexes(getSelectedEntityIndexes());
+    if (!groups.length) {
+      return;
+    }
+    const historyBefore = captureHistorySnapshot();
+    const groupIds = new Set(groups.map((group) => group.id));
+    state.groups = state.groups.filter((group) => !groupIds.has(group.id));
+    pushHistorySnapshot(historyBefore);
+    refreshSelectionUi();
+    refreshToolpathUi();
+    refreshWorkspaceUi();
+    requestDraw();
+    showToast(`Exploded ${groups.length === 1 ? "group" : `${groups.length} groups`}.`, "success", { duration: 1800 });
   }
 
   function getBooleanEligibleLoops() {
@@ -2647,6 +2753,46 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       documents.get(id).entries.push({ entity, index });
     });
     ui.objectTreeContent.replaceChildren();
+    const groups = state.groups.filter((group) => getGroupEntityIndexes(group).length);
+    if (groups.length) {
+      const groupsKey = "groups";
+      const groupsExpanded = !state.objectTreeCollapsedKeys.has(groupsKey);
+      ui.objectTreeContent.append(createObjectTreeRow({
+        label: "Groups",
+        depth: 0,
+        expanded: groupsExpanded,
+        key: groupsKey,
+      }));
+      if (groupsExpanded) {
+        for (const group of groups) {
+          const groupKey = `group:${group.id}`;
+          const groupExpanded = !state.objectTreeCollapsedKeys.has(groupKey);
+          const indexes = getGroupEntityIndexes(group);
+          const toolpathCount = getGroupToolpaths(group).length;
+          ui.objectTreeContent.append(createObjectTreeRow({
+            label: `${group.name} (${indexes.length} vectors${toolpathCount ? `, ${toolpathCount} toolpath${toolpathCount === 1 ? "" : "s"}` : ""})`,
+            depth: 1,
+            expanded: groupExpanded,
+            selected: indexes.every((index) => selectedIndexes.has(index)),
+            hidden: indexes.every((index) => state.entities[index].__treeHidden),
+            entityIndexes: indexes,
+            key: groupKey,
+          }));
+          if (groupExpanded) {
+            for (const index of indexes) {
+              const entity = state.entities[index];
+              ui.objectTreeContent.append(createObjectTreeRow({
+                label: objectTreeEntityLabel(entity, index),
+                depth: 2,
+                selected: selectedIndexes.has(index),
+                hidden: Boolean(entity.__treeHidden),
+                entityIndexes: [index],
+              }));
+            }
+          }
+        }
+      }
+    }
     if (!documents.size) {
       const empty = document.createElement("div");
       empty.className = "object-tree-empty";
@@ -5416,6 +5562,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   }
 
   function refreshSelectionUi() {
+    expandSelectionToGroups();
     UiState.refreshSelectionUi({
       state,
       ui,
@@ -5963,6 +6110,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.fileName = "";
     state.entities = [];
     state.loops = [];
+    state.groups = [];
     state.selectedLoopIds.clear();
     state.toolpaths = [];
     state.activeToolpathId = null;
@@ -6779,6 +6927,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     deleteSelectedVectors();
   });
   ui.duplicateVectorsBtn.addEventListener("click", duplicateSelectedVectors);
+  ui.createGroupBtn?.addEventListener("click", createVectorGroup);
+  ui.explodeGroupBtn?.addEventListener("click", explodeSelectedGroups);
   ui.booleanVectorsBtn.addEventListener("click", openBooleanDialog);
   ui.expandVectorsBtn.addEventListener("click", openExpandDialog);
   ui.booleanOperationInputs.forEach((input) => {
