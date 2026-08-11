@@ -8,7 +8,7 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpat
 import * as Paths from "./src/paths.js?v=20260811-spline-corners1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260811-spline-preview4";
+import * as CanvasView from "./src/canvas-view.js?v=20260811-nesting1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
@@ -30,6 +30,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   let bitmapTraceModalInstance = null;
   let booleanModalInstance = null;
   let expandModalInstance = null;
+  let nestModalInstance = null;
   let workspaceSettingsModalInstance = null;
   let gridSettingsModalInstance = null;
   let confirmationModalInstance = null;
@@ -135,6 +136,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     explodeGroupBtn: document.getElementById("explodeGroupBtn"),
     booleanVectorsBtn: document.getElementById("booleanVectorsBtn"),
     expandVectorsBtn: document.getElementById("expandVectorsBtn"),
+    nestGroupsBtn: document.getElementById("nestGroupsBtn"),
     booleanModal: document.getElementById("booleanModal"),
     booleanModalSummary: document.getElementById("booleanModalSummary"),
     booleanOperationInputs: Array.from(document.querySelectorAll("input[name='booleanOperation']")),
@@ -144,6 +146,14 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     expandAmountInput: document.getElementById("expandAmountInput"),
     expandDirectionInput: document.getElementById("expandDirectionInput"),
     applyExpandBtn: document.getElementById("applyExpandBtn"),
+    nestModal: document.getElementById("nestModal"),
+    nestModalSummary: document.getElementById("nestModalSummary"),
+    nestWidthInput: document.getElementById("nestWidthInput"),
+    nestHeightInput: document.getElementById("nestHeightInput"),
+    nestBorderInput: document.getElementById("nestBorderInput"),
+    nestSpacingInput: document.getElementById("nestSpacingInput"),
+    nestPreviewNote: document.getElementById("nestPreviewNote"),
+    applyNestBtn: document.getElementById("applyNestBtn"),
     transformSidebarPanel: document.getElementById("transformSidebarPanel"),
     transformInspector: document.getElementById("transformInspector"),
     transformMoveGroup: document.getElementById("transformMoveGroup"),
@@ -314,6 +324,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     booleanPreviewContours: null,
     booleanPreviewActive: false,
     expandPreviewContours: null,
+    nestPreview: null,
     booleanOperation: "union",
     geometryTransform: null,
     transformingGeometry: false,
@@ -980,6 +991,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const booleanEligible = loopsFromSelection().filter((loop) => loop.closed !== false && loop.points?.length >= 4).length >= 2;
     ui.booleanVectorsBtn.disabled = !booleanEligible;
     ui.expandVectorsBtn.disabled = getBooleanEligibleLoops().length === 0;
+    ui.nestGroupsBtn.disabled = selectedGroups.length === 0;
     updateSelectModeUi();
     refreshSidebarMode();
   }
@@ -1197,6 +1209,31 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       }
     }
     return expandModalInstance;
+  }
+
+  function getNestModalInstance() {
+    if (!ui.nestModal) return null;
+    if (!nestModalInstance) {
+      if (window.bootstrap?.Modal) {
+        nestModalInstance = window.bootstrap.Modal.getOrCreateInstance(ui.nestModal, { backdrop: "static" });
+      } else {
+        nestModalInstance = {
+          show() {
+            ui.nestModal.classList.add("show");
+            ui.nestModal.style.display = "block";
+            ui.nestModal.removeAttribute("aria-hidden");
+            document.body.classList.add("modal-open");
+          },
+          hide() {
+            ui.nestModal.classList.remove("show");
+            ui.nestModal.style.display = "none";
+            ui.nestModal.setAttribute("aria-hidden", "true");
+            document.body.classList.remove("modal-open");
+          },
+        };
+      }
+    }
+    return nestModalInstance;
   }
 
   function enableDraggableModals() {
@@ -1633,6 +1670,121 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     refreshWorkspaceUi();
     draw();
     showToast(`Created ${resultLoops.length} expanded vector${resultLoops.length === 1 ? "" : "s"}.`, "success");
+  }
+
+  function selectedNestGroups() {
+    const selected = getSelectedEntityIndexes();
+    return getGroupsForEntityIndexes(selected).filter((group) => getGroupEntityIndexes(group).length);
+  }
+
+  function buildNestPreview() {
+    const width = Number.parseFloat(ui.nestWidthInput.value);
+    const height = Number.parseFloat(ui.nestHeightInput.value);
+    const border = Number.parseFloat(ui.nestBorderInput.value);
+    const spacing = Number.parseFloat(ui.nestSpacingInput.value);
+    const groups = selectedNestGroups();
+    if (![width, height, border, spacing].every(Number.isFinite) || width <= 0 || height <= 0 || border < 0 || spacing < 0 || !groups.length) {
+      state.nestPreview = null;
+      ui.applyNestBtn.disabled = true;
+      requestDraw();
+      return;
+    }
+
+    const items = groups.map((group) => {
+      const indexes = getGroupEntityIndexes(group);
+      const bounds = boundsOfEntities(indexes.map((index) => state.entities[index]).filter(Boolean));
+      const cutterRadius = Math.max(
+        0,
+        ...getGroupToolpaths(group)
+          .filter((toolpath) => toolpath.operation === "outside")
+          .map((toolpath) => Number(toolpath.toolRadius) || Number(toolpath.toolDiameter) / 2 || 0)
+      );
+      return bounds ? {
+        group,
+        indexes,
+        bounds,
+        cutterRadius,
+        width: bounds.maxX - bounds.minX,
+        height: bounds.maxY - bounds.minY,
+      } : null;
+    }).filter(Boolean).sort((a, b) => b.height - a.height || b.width - a.width);
+    let x = border;
+    let y = border;
+    let rowHeight = 0;
+    const placements = [];
+    for (const item of items) {
+      const envelopeWidth = item.width + item.cutterRadius * 2;
+      const envelopeHeight = item.height + item.cutterRadius * 2;
+      if (x + envelopeWidth > width - border && x > border) {
+        x = border;
+        y += rowHeight + spacing;
+        rowHeight = 0;
+      }
+      if (x + envelopeWidth > width - border || y + envelopeHeight > height - border) {
+        state.nestPreview = { width, height, border, spacing, placements, failed: item };
+        ui.applyNestBtn.disabled = true;
+        ui.nestPreviewNote.textContent = `The ${item.group.name} group does not fit on this sheet.`;
+        requestDraw();
+        return;
+      }
+      const shapeX = x + item.cutterRadius;
+      const shapeY = y + item.cutterRadius;
+      placements.push({
+        ...item,
+        x: shapeX,
+        y: shapeY,
+        envelopeX: x,
+        envelopeY: y,
+        envelopeWidth,
+        envelopeHeight,
+        dx: shapeX - item.bounds.minX,
+        dy: shapeY - item.bounds.minY,
+      });
+      x += envelopeWidth + spacing;
+      rowHeight = Math.max(rowHeight, envelopeHeight);
+    }
+    state.nestPreview = { width, height, border, spacing, placements, failed: null };
+    ui.applyNestBtn.disabled = placements.length === 0;
+    const cutterClearance = Math.max(0, ...placements.map((placement) => placement.cutterRadius));
+    ui.nestPreviewNote.textContent = `Blue frames show ${placements.length} group${placements.length === 1 ? "" : "s"} on the live sheet preview.${cutterClearance > 0 ? ` Outside cuts reserve up to ${formatNumber(cutterClearance)}mm around each part.` : ""}`;
+    requestDraw();
+  }
+
+  function openNestDialog() {
+    const groups = selectedNestGroups();
+    if (!groups.length) {
+      showToast("Select one or more groups to nest. Group a finished part with its text and toolpaths first.", "warning");
+      return;
+    }
+    ui.nestModalSummary.textContent = `${groups.length} group${groups.length === 1 ? "" : "s"} selected. Groups retain their internal layout.`;
+    buildNestPreview();
+    getNestModalInstance()?.show();
+  }
+
+  async function applyNestOperation() {
+    const preview = state.nestPreview;
+    if (!preview?.placements?.length || preview.failed) return;
+    const historyBefore = captureHistorySnapshot();
+    const toolpathSnapshots = snapshotToolpathsForRebuild();
+    const activeToolpathId = state.activeToolpathId;
+    const translations = new Map();
+    for (const placement of preview.placements) {
+      for (const index of placement.indexes) translations.set(index, placement);
+    }
+    state.entities = state.entities.map((entity, index) => {
+      const placement = translations.get(index);
+      return placement ? transformEntity(entity, matrixForTranslation(placement.dx, placement.dy)) : entity;
+    });
+    state.selectionFrameAngles.clear();
+    rebuildLoopsFromEntities(new Set());
+    await rebuildToolpathsAfterTrim(toolpathSnapshots, activeToolpathId);
+    state.nestPreview = null;
+    getNestModalInstance()?.hide();
+    pushHistorySnapshot(historyBefore);
+    refreshSelectionUi();
+    refreshToolpathUi();
+    refreshWorkspaceUi();
+    showToast(`Nested ${preview.placements.length} group${preview.placements.length === 1 ? "" : "s"}.`, "success");
   }
 
   async function deleteVectorsByEntityIndexes(entityIndexes) {
@@ -7296,6 +7448,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   ui.explodeGroupBtn?.addEventListener("click", explodeSelectedGroups);
   ui.booleanVectorsBtn.addEventListener("click", openBooleanDialog);
   ui.expandVectorsBtn.addEventListener("click", openExpandDialog);
+  ui.nestGroupsBtn?.addEventListener("click", openNestDialog);
   ui.booleanOperationInputs.forEach((input) => {
     input.addEventListener("change", () => {
       if (!input.checked) {
@@ -7325,6 +7478,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   ui.expandAmountInput?.addEventListener("input", refreshExpandPreview);
   ui.expandDirectionInput?.addEventListener("change", refreshExpandPreview);
   ui.applyExpandBtn?.addEventListener("click", applyExpandOperation);
+  [ui.nestWidthInput, ui.nestHeightInput, ui.nestBorderInput, ui.nestSpacingInput].forEach((input) => {
+    input?.addEventListener("input", buildNestPreview);
+  });
+  ui.applyNestBtn?.addEventListener("click", applyNestOperation);
   ui.expandModal?.querySelectorAll("[data-bs-dismiss='modal']").forEach((button) => {
     button.addEventListener("click", () => {
       state.expandPreviewContours = null;
@@ -7334,6 +7491,17 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   });
   ui.expandModal?.addEventListener("hidden.bs.modal", () => {
     state.expandPreviewContours = null;
+    requestDraw();
+  });
+  ui.nestModal?.querySelectorAll("[data-bs-dismiss='modal']").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.nestPreview = null;
+      requestDraw();
+      getNestModalInstance()?.hide();
+    });
+  });
+  ui.nestModal?.addEventListener("hidden.bs.modal", () => {
+    state.nestPreview = null;
     requestDraw();
   });
   for (const option of ui.operationOptions) {

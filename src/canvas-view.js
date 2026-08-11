@@ -106,6 +106,52 @@ export function drawScene({
     ctx.restore();
   }
 
+  if (state.nestPreview) {
+    const { width, height, border, placements = [], failed } = state.nestPreview;
+    const sheetOrigin = worldToScreen({ x: 0, y: 0 });
+    const sheetCorner = worldToScreen({ x: width, y: height });
+    ctx.save();
+    ctx.fillStyle = "rgba(94, 148, 255, 0.08)";
+    ctx.strokeStyle = failed ? "#dc3545" : "#2563eb";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 5]);
+    ctx.strokeRect(sheetOrigin.x, sheetCorner.y, sheetCorner.x - sheetOrigin.x, sheetOrigin.y - sheetCorner.y);
+    ctx.fillRect(sheetOrigin.x, sheetCorner.y, sheetCorner.x - sheetOrigin.x, sheetOrigin.y - sheetCorner.y);
+    ctx.setLineDash([]);
+    for (const placement of placements) {
+      const envelopeLow = worldToScreen({ x: placement.envelopeX ?? placement.x, y: placement.envelopeY ?? placement.y });
+      const envelopeHigh = worldToScreen({
+        x: (placement.envelopeX ?? placement.x) + (placement.envelopeWidth ?? placement.width),
+        y: (placement.envelopeY ?? placement.y) + (placement.envelopeHeight ?? placement.height),
+      });
+      const low = worldToScreen({ x: placement.x, y: placement.y });
+      const high = worldToScreen({ x: placement.x + placement.width, y: placement.y + placement.height });
+      ctx.fillStyle = "rgba(37, 99, 235, 0.07)";
+      ctx.strokeStyle = "rgba(37, 99, 235, 0.56)";
+      ctx.lineWidth = 1.35;
+      ctx.setLineDash([5, 4]);
+      ctx.fillRect(envelopeLow.x, envelopeHigh.y, envelopeHigh.x - envelopeLow.x, envelopeLow.y - envelopeHigh.y);
+      ctx.strokeRect(envelopeLow.x, envelopeHigh.y, envelopeHigh.x - envelopeLow.x, envelopeLow.y - envelopeHigh.y);
+      ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(37, 99, 235, 0.12)";
+      ctx.strokeStyle = "#2563eb";
+      ctx.lineWidth = 2.4;
+      ctx.fillRect(low.x, high.y, high.x - low.x, low.y - high.y);
+      ctx.strokeRect(low.x, high.y, high.x - low.x, low.y - high.y);
+      ctx.fillStyle = "#1d4ed8";
+      ctx.font = "700 12px Trebuchet MS, sans-serif";
+      ctx.fillText(placement.group.name, low.x + 5, high.y + 16);
+    }
+    if (border > 0) {
+      const innerLow = worldToScreen({ x: border, y: border });
+      const innerHigh = worldToScreen({ x: width - border, y: height - border });
+      ctx.strokeStyle = "rgba(37, 99, 235, 0.55)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(innerLow.x, innerHigh.y, innerHigh.x - innerLow.x, innerLow.y - innerHigh.y);
+    }
+    ctx.restore();
+  }
+
   if (!navigationMode && !state.transformingGeometry && !state.booleanPreviewActive) {
     for (const toolpath of getRenderableToolpaths()) {
       const active = state.draftToolpath

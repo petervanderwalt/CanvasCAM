@@ -3145,7 +3145,8 @@ body {
   font-size: 0.78rem;
 }
 
-#expandModal .modal-content {
+#expandModal .modal-content,
+#nestModal .modal-content {
   border: 4px solid var(--funky-ink);
   border-radius: 1.25rem;
   overflow: hidden;
@@ -3154,24 +3155,30 @@ body {
 }
 
 #expandModal .modal-header,
-#expandModal .modal-footer {
+#expandModal .modal-footer,
+#nestModal .modal-header,
+#nestModal .modal-footer {
   border-color: rgba(17, 17, 17, 0.18);
   background: rgba(255, 248, 216, 0.78);
 }
 
-#expandModal .modal-title {
+#expandModal .modal-title,
+#nestModal .modal-title {
   color: var(--funky-ink);
   font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
   font-weight: 900;
 }
 
 #expandModal .modal-header .text-muted,
-#expandModal .expand-preview-note {
+#expandModal .expand-preview-note,
+#nestModal .modal-header .text-muted,
+#nestModal .expand-preview-note {
   color: rgba(17, 17, 17, 0.68) !important;
   font-weight: 700;
 }
 
-#expandModal .btn-close {
+#expandModal .btn-close,
+#nestModal .btn-close {
   position: relative;
   width: 2.35rem;
   height: 2.35rem;
@@ -3186,7 +3193,9 @@ body {
 }
 
 #expandModal .btn-close::before,
-#expandModal .btn-close::after {
+#expandModal .btn-close::after,
+#nestModal .btn-close::before,
+#nestModal .btn-close::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -3196,8 +3205,10 @@ body {
   background: var(--funky-ink);
 }
 
-#expandModal .btn-close::before { transform: translate(-50%, -50%) rotate(45deg); }
-#expandModal .btn-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
+#expandModal .btn-close::before,
+#nestModal .btn-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+#expandModal .btn-close::after,
+#nestModal .btn-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
 
 #expandModal .form-label {
   color: var(--funky-ink);
@@ -3278,6 +3289,56 @@ body:has(.live-canvas-preview-modal.show) .modal-backdrop {
   background: #9cf13a;
   color: var(--funky-ink);
 }
+
+.nest-controls-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.nest-controls-grid label {
+  display: grid;
+  gap: 0.22rem;
+  color: var(--funky-ink);
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+#nestModal .input-group {
+  border-radius: 0.72rem;
+  box-shadow: 3px 3px 0 rgba(17, 17, 17, 0.86);
+}
+
+#nestModal .input-group > .form-control,
+#nestModal .input-group > .input-group-text {
+  border: 3px solid var(--funky-ink);
+  box-shadow: none;
+  font-weight: 800;
+}
+
+#nestModal .input-group > .form-control {
+  border-radius: 0.72rem 0 0 0.72rem;
+  background: #fffdf4;
+  color: var(--funky-ink);
+}
+
+#nestModal .input-group > .input-group-text {
+  border-left: 0;
+  border-radius: 0 0.72rem 0.72rem 0;
+  background: #fff8d8;
+}
+
+#nestModal .modal-footer .btn {
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.78rem;
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-weight: 900;
+  box-shadow: 0 4px 0 rgba(17, 17, 17, 0.92);
+}
+
+#nestModal .modal-footer .btn-outline-secondary { background: #fff8d8; color: var(--funky-ink); }
+#applyNestBtn { background: #9cf13a; color: var(--funky-ink); }
 
 #booleanModal .modal-footer .btn {
   border: 3px solid var(--funky-ink);
