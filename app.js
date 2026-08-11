@@ -292,6 +292,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     trimming: false,
     cadTextPlacement: null,
     cadSnapEnabled: true,
+    openEndpointCache: [],
     gridVisible: true,
     gridStyle: "lines",
     gridSpacing: 10,
@@ -432,6 +433,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
   function rebuildLoopsFromEntities(selectionSignatures = new Set()) {
     state.loops = buildLoops(state.entities);
+    state.openEndpointCache = collectOpenVectorEndpoints();
     loopPathsDirty = true;
     state.bounds = mergeBounds(state.loops.map((loop) => loop.bounds));
     state.selectedLoopIds.clear();
@@ -2952,7 +2954,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (!state.cadSnapEnabled) {
       return world;
     }
-    const guideSnap = findGuideSnap(world, 10 / Math.max(state.camera.zoom, 1e-6));
+    const snapRadius = 12 / Math.max(state.camera.zoom, 1e-6);
+    const endpointSnap = findOpenEndpointSnap(world, snapRadius);
+    if (endpointSnap) {
+      return endpointSnap;
+    }
+    const guideSnap = findGuideSnap(world, snapRadius);
     if (guideSnap) {
       return guideSnap;
     }
@@ -3007,6 +3014,56 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       }
     }
     return guides;
+  }
+
+  function collectOpenVectorEndpoints() {
+    const endpoints = [];
+    const add = (point) => {
+      if (Number.isFinite(point?.x) && Number.isFinite(point?.y)) {
+        endpoints.push({ x: point.x, y: point.y });
+      }
+    };
+    for (const entity of state.entities) {
+      if (!entity || entity.type === "GUIDE") {
+        continue;
+      }
+      if (entity.type === "LINE") {
+        add(entity.start);
+        add(entity.end);
+        continue;
+      }
+      if (entity.type === "ARC" && Number.isFinite(entity.cx) && Number.isFinite(entity.cy) && Number.isFinite(entity.radius)) {
+        const start = (entity.startAngleDeg || 0) * Math.PI / 180;
+        const end = (entity.endAngleDeg || 0) * Math.PI / 180;
+        add({ x: entity.cx + Math.cos(start) * entity.radius, y: entity.cy + Math.sin(start) * entity.radius });
+        add({ x: entity.cx + Math.cos(end) * entity.radius, y: entity.cy + Math.sin(end) * entity.radius });
+        continue;
+      }
+      if (["LWPOLYLINE", "POLYLINE"].includes(entity.type) && !entity.closed && entity.vertices?.length >= 2) {
+        add(entity.vertices[0]);
+        add(entity.vertices[entity.vertices.length - 1]);
+        continue;
+      }
+      if (entity.type === "SPLINE") {
+        const flattened = flattenTrimEntity(entity);
+        if (flattened.points.length >= 2 && !flattened.closed) {
+          add(flattened.points[0]);
+          add(flattened.points[flattened.points.length - 1]);
+        }
+      }
+    }
+    return endpoints;
+  }
+
+  function findOpenEndpointSnap(world, snapRadius) {
+    let closest = null;
+    for (const point of state.openEndpointCache) {
+      const distance = Math.hypot(point.x - world.x, point.y - world.y);
+      if (distance <= snapRadius && (!closest || distance < closest.distance)) {
+        closest = { point, distance };
+      }
+    }
+    return closest?.point || null;
   }
 
   function findGuideSnap(world, snapRadius) {
