@@ -5089,7 +5089,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const tolerance = 10 / Math.max(state.camera.zoom, 0.01);
     let best = null;
     state.entities.forEach((entity, entityIndex) => {
-      if (entity.type !== "LWPOLYLINE" || !entity.vertices || entity.vertices.length < 3) return;
+      if (!["LWPOLYLINE", "POLYLINE"].includes(entity.type) || !entity.vertices || entity.vertices.length < 3) return;
       const limit = entity.closed ? entity.vertices.length : entity.vertices.length - 1;
       for (let index = entity.closed ? 0 : 1; index < limit; index += 1) {
         const point = entity.vertices[index];
@@ -5112,6 +5112,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const previous = entity.vertices[(candidate.index - 1 + count) % count];
     const corner = entity.vertices[candidate.index];
     const next = entity.vertices[(candidate.index + 1) % count];
+    if (Math.abs(previous.bulge || 0) > 1e-8 || Math.abs(corner.bulge || 0) > 1e-8) {
+      showToast("Fillet and chamfer currently need two straight edges at the selected corner.", "warning");
+      return;
+    }
     const left = Math.hypot(previous.x - corner.x, previous.y - corner.y);
     const right = Math.hypot(next.x - corner.x, next.y - corner.y);
     const radius = Math.min(Math.max(0.01, state.cornerToolRadius), left / 2, right / 2);
