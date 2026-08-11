@@ -140,7 +140,7 @@ export function drawScene({
       ctx.strokeRect(low.x, high.y, high.x - low.x, low.y - high.y);
       ctx.fillStyle = "#1d4ed8";
       ctx.font = "700 12px Trebuchet MS, sans-serif";
-      ctx.fillText(placement.group.name, low.x + 5, high.y + 16);
+      ctx.fillText(placement.name, low.x + 5, high.y + 16);
     }
     if (border > 0) {
       const innerLow = worldToScreen({ x: border, y: border });

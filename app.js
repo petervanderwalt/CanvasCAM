@@ -8,7 +8,7 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpat
 import * as Paths from "./src/paths.js?v=20260811-spline-corners1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260811-nesting1";
+import * as CanvasView from "./src/canvas-view.js?v=20260811-mixed-nesting2";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
@@ -490,6 +490,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
   function getGroupToolpaths(group) {
     const entityIndexes = new Set(getGroupEntityIndexes(group));
+    return getToolpathsForEntityIndexes(entityIndexes);
+  }
+
+  function getToolpathsForEntityIndexes(entityIndexes) {
     return state.toolpaths.filter((toolpath) => toolpath.sourceLoops?.some((loop) =>
       loop.sourceEntityIndexes?.some((index) => entityIndexes.has(index))
     ));
@@ -991,7 +995,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const booleanEligible = loopsFromSelection().filter((loop) => loop.closed !== false && loop.points?.length >= 4).length >= 2;
     ui.booleanVectorsBtn.disabled = !booleanEligible;
     ui.expandVectorsBtn.disabled = getBooleanEligibleLoops().length === 0;
-    ui.nestGroupsBtn.disabled = selectedGroups.length === 0;
+    ui.nestGroupsBtn.disabled = selectedNestItems().length === 0;
     updateSelectModeUi();
     refreshSidebarMode();
   }
@@ -1672,9 +1676,35 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     showToast(`Created ${resultLoops.length} expanded vector${resultLoops.length === 1 ? "" : "s"}.`, "success");
   }
 
-  function selectedNestGroups() {
-    const selected = getSelectedEntityIndexes();
-    return getGroupsForEntityIndexes(selected).filter((group) => getGroupEntityIndexes(group).length);
+  function selectedNestItems() {
+    const directIndexes = getDirectlySelectedEntityIndexes();
+    const groups = getGroupsForEntityIndexes(Array.from(directIndexes))
+      .filter((group) => getGroupEntityIndexes(group).length);
+    const groupedIndexes = new Set(groups.flatMap(getGroupEntityIndexes));
+    const groupedItems = groups.map((group) => ({
+      kind: "group",
+      name: group.name || "Group",
+      group,
+      indexes: getGroupEntityIndexes(group),
+      entityIds: [...group.entityIds],
+    }));
+    const vectorItems = [];
+    const seen = new Set();
+    for (const loop of state.loops) {
+      if (!state.selectedLoopIds.has(loop.id)) continue;
+      const indexes = (loop.sourceEntityIndexes || []).filter((index) => !groupedIndexes.has(index));
+      if (!indexes.length) continue;
+      const key = indexes.slice().sort((a, b) => a - b).join(",");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      vectorItems.push({
+        kind: "vector",
+        name: `Vector ${indexes[0] + 1}`,
+        indexes,
+        entityIds: indexes.map((index) => state.entities[index]?.__treeId).filter(Boolean),
+      });
+    }
+    return [...groupedItems, ...vectorItems];
   }
 
   function buildNestPreview() {
@@ -1682,25 +1712,25 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const height = Number.parseFloat(ui.nestHeightInput.value);
     const border = Number.parseFloat(ui.nestBorderInput.value);
     const spacing = Number.parseFloat(ui.nestSpacingInput.value);
-    const groups = selectedNestGroups();
-    if (![width, height, border, spacing].every(Number.isFinite) || width <= 0 || height <= 0 || border < 0 || spacing < 0 || !groups.length) {
+    const selectedItems = selectedNestItems();
+    if (![width, height, border, spacing].every(Number.isFinite) || width <= 0 || height <= 0 || border < 0 || spacing < 0 || !selectedItems.length) {
       state.nestPreview = null;
       ui.applyNestBtn.disabled = true;
       requestDraw();
       return;
     }
 
-    const items = groups.map((group) => {
-      const indexes = getGroupEntityIndexes(group);
+    const items = selectedItems.map((selectedItem) => {
+      const indexes = selectedItem.indexes;
       const bounds = boundsOfEntities(indexes.map((index) => state.entities[index]).filter(Boolean));
       const cutterRadius = Math.max(
         0,
-        ...getGroupToolpaths(group)
+        ...getToolpathsForEntityIndexes(new Set(indexes))
           .filter((toolpath) => toolpath.operation === "outside")
           .map((toolpath) => Number(toolpath.toolRadius) || Number(toolpath.toolDiameter) / 2 || 0)
       );
       return bounds ? {
-        group,
+        ...selectedItem,
         indexes,
         bounds,
         cutterRadius,
@@ -1723,7 +1753,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       if (x + envelopeWidth > width - border || y + envelopeHeight > height - border) {
         state.nestPreview = { width, height, border, spacing, placements, failed: item };
         ui.applyNestBtn.disabled = true;
-        ui.nestPreviewNote.textContent = `The ${item.group.name} group does not fit on this sheet.`;
+        ui.nestPreviewNote.textContent = `${item.name} does not fit on this sheet.`;
         requestDraw();
         return;
       }
@@ -1746,17 +1776,23 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.nestPreview = { width, height, border, spacing, placements, failed: null };
     ui.applyNestBtn.disabled = placements.length === 0;
     const cutterClearance = Math.max(0, ...placements.map((placement) => placement.cutterRadius));
-    ui.nestPreviewNote.textContent = `Blue frames show ${placements.length} group${placements.length === 1 ? "" : "s"} on the live sheet preview.${cutterClearance > 0 ? ` Outside cuts reserve up to ${formatNumber(cutterClearance)}mm around each part.` : ""}`;
+    ui.nestPreviewNote.textContent = `Blue frames show ${placements.length} selected item${placements.length === 1 ? "" : "s"} on the live sheet preview.${cutterClearance > 0 ? ` Outside cuts reserve up to ${formatNumber(cutterClearance)}mm around each part.` : ""}`;
     requestDraw();
   }
 
   function openNestDialog() {
-    const groups = selectedNestGroups();
-    if (!groups.length) {
-      showToast("Select one or more groups to nest. Group a finished part with its text and toolpaths first.", "warning");
+    const items = selectedNestItems();
+    if (!items.length) {
+      showToast("Select groups or vectors to nest. Group a finished part with its text and toolpaths first.", "warning");
       return;
     }
-    ui.nestModalSummary.textContent = `${groups.length} group${groups.length === 1 ? "" : "s"} selected. Groups retain their internal layout.`;
+    const groupCount = items.filter((item) => item.kind === "group").length;
+    const vectorCount = items.length - groupCount;
+    const labels = [
+      groupCount ? `${groupCount} group${groupCount === 1 ? "" : "s"}` : "",
+      vectorCount ? `${vectorCount} vector${vectorCount === 1 ? "" : "s"}` : "",
+    ].filter(Boolean);
+    ui.nestModalSummary.textContent = `${labels.join(" and ")} selected. Groups retain their internal layout.`;
     buildNestPreview();
     getNestModalInstance()?.show();
   }
@@ -1769,10 +1805,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const activeToolpathId = state.activeToolpathId;
     const translations = new Map();
     for (const placement of preview.placements) {
-      for (const index of placement.indexes) translations.set(index, placement);
+      for (const entityId of placement.entityIds) translations.set(entityId, placement);
     }
     state.entities = state.entities.map((entity, index) => {
-      const placement = translations.get(index);
+      const placement = translations.get(entity.__treeId);
       return placement ? transformEntity(entity, matrixForTranslation(placement.dx, placement.dy)) : entity;
     });
     state.selectionFrameAngles.clear();
@@ -1784,7 +1820,14 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     refreshSelectionUi();
     refreshToolpathUi();
     refreshWorkspaceUi();
-    showToast(`Nested ${preview.placements.length} group${preview.placements.length === 1 ? "" : "s"}.`, "success");
+    draw();
+    const groupCount = preview.placements.filter((placement) => placement.kind === "group").length;
+    const vectorCount = preview.placements.length - groupCount;
+    const labels = [
+      groupCount ? `${groupCount} group${groupCount === 1 ? "" : "s"}` : "",
+      vectorCount ? `${vectorCount} vector${vectorCount === 1 ? "" : "s"}` : "",
+    ].filter(Boolean);
+    showToast(`Nested ${labels.join(" and ")}.`, "success");
   }
 
   async function deleteVectorsByEntityIndexes(entityIndexes) {
