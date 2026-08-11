@@ -2685,6 +2685,32 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     return entity;
   }
 
+  function addCornerDerivedEntity(entity, candidate) {
+    const sourceIndexes = candidate?.kind === "curve-junction"
+      ? [candidate.left.entityIndex, candidate.right.entityIndex]
+      : [candidate?.entityIndex];
+    const validIndexes = sourceIndexes.filter((index) => Number.isInteger(index) && state.entities[index]);
+    const source = state.entities[validIndexes[0]];
+    const documentInfo = source
+      ? {
+        id: source.__treeDocumentId || "cad",
+        name: source.__treeDocumentName || "CAD",
+        source: source.__treeSource || "CAD",
+      }
+      : { id: "cad", name: "CAD", source: "CAD" };
+    assignObjectTreeMetadata(entity, documentInfo);
+    state.entities.push(entity);
+
+    // Keep features made on an imported grouped part travelling with that part.
+    for (const group of getGroupsForEntityIndexes(validIndexes)) {
+      const memberIndexes = getGroupEntityIndexes(group);
+      if (validIndexes.every((index) => memberIndexes.includes(index))) {
+        group.entityIds.push(entity.__treeId);
+      }
+    }
+    return entity;
+  }
+
   function objectTreeEntityLabel(entity, index) {
     if (entity.type === "CAD_TEXT") {
       return `Text: ${(entity.text || "Untitled").slice(0, 32)}`;
@@ -5139,6 +5165,26 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
             distance,
           });
         });
+        return;
+      }
+      if (entity.type === "ARC" && Number.isFinite(entity.cx) && Number.isFinite(entity.cy) && Number.isFinite(entity.radius) && entity.radius > 1e-8) {
+        const startAngle = normalizeArcAngle((entity.startAngleDeg || 0) * Math.PI / 180);
+        const endAngle = arcEndAngle(startAngle, (entity.endAngleDeg || 0) * Math.PI / 180);
+        [["start", startAngle, 1], ["end", endAngle, -1]].forEach(([end, angle, directionSign]) => {
+          const point = { x: entity.cx + Math.cos(angle) * entity.radius, y: entity.cy + Math.sin(angle) * entity.radius };
+          const distance = Math.hypot(point.x - world.x, point.y - world.y);
+          if (distance <= tolerance) endpoints.push({
+            kind: "arc",
+            entityIndex,
+            end,
+            point,
+            direction: { x: -Math.sin(angle) * directionSign, y: Math.cos(angle) * directionSign },
+            startAngle,
+            endAngle,
+            maxLength: entity.radius * (endAngle - startAngle),
+            distance,
+          });
+        });
       }
     });
     for (let left = 0; left < endpoints.length; left += 1) {
@@ -5159,6 +5205,19 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       const point = Number.isFinite(parameter) ? Paths.evaluateSplinePoint(entity, parameter) : null;
       const direction = Number.isFinite(parameter) ? Paths.splineTangentAt(entity, parameter, branch.end === "start" ? 1 : -1) : null;
       return point && direction ? { point, direction, parameter } : null;
+    }
+    if (branch.kind === "arc") {
+      const entity = state.entities[branch.entityIndex];
+      if (!entity || !Number.isFinite(entity.radius) || entity.radius <= 1e-8) return null;
+      const angle = branch.end === "start"
+        ? branch.startAngle + distance / entity.radius
+        : branch.endAngle - distance / entity.radius;
+      const directionSign = branch.end === "start" ? 1 : -1;
+      return {
+        point: { x: entity.cx + Math.cos(angle) * entity.radius, y: entity.cy + Math.sin(angle) * entity.radius },
+        direction: { x: -Math.sin(angle) * directionSign, y: Math.cos(angle) * directionSign },
+        angle,
+      };
     }
     return {
       point: { x: branch.point.x + branch.direction.x * distance, y: branch.point.y + branch.direction.y * distance },
@@ -5273,7 +5332,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     const angle = Math.acos(Math.max(-1, Math.min(1, towardPrevious.x * towardNext.x + towardPrevious.y * towardNext.y)));
     const trim = state.cadTool === "fillet" ? Math.min(radius / Math.tan(angle / 2), left / 2, right / 2) : radius;
-    if (state.cadTool === "fillet" && isJunction && (candidate.left.kind === "spline" || candidate.right.kind === "spline")) {
+    if (state.cadTool === "fillet" && isJunction && (candidate.left.kind !== "line" || candidate.right.kind !== "line")) {
       const solution = junctionFilletSolution(candidate, radius, trim);
       return solution ? { corner, a: solution.a, b: solution.b } : null;
     }
@@ -5314,8 +5373,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (state.cadTool === "dogbone") {
       const bisectorLength = Math.hypot(towardPrevious.x + towardNext.x, towardPrevious.y + towardNext.y) || 1;
       const center = { x: corner.x + (towardPrevious.x + towardNext.x) / bisectorLength * radius, y: corner.y + (towardPrevious.y + towardNext.y) / bisectorLength * radius };
-      const dogbone = assignObjectTreeMetadata({ type: "CIRCLE", __cadShape: "dogbone", cx: center.x, cy: center.y, radius }, { id: "cad", name: "CAD", source: "CAD" });
-      state.entities.push(dogbone);
+      addCornerDerivedEntity({ type: "CIRCLE", __cadShape: "dogbone", __cornerFeature: "dogbone", cx: center.x, cy: center.y, radius }, candidate);
     } else {
       const cornerAngle = Math.acos(Math.max(-1, Math.min(1, towardPrevious.x * towardNext.x + towardPrevious.y * towardNext.y)));
       const trim = state.cadTool === "fillet" ? Math.min(radius / Math.tan(cornerAngle / 2), left / 2, right / 2) : radius;
@@ -5324,7 +5382,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       let leftTrim = trim;
       let rightTrim = trim;
       if (state.cadTool === "fillet") {
-        if (isJunction && (candidate.left.kind === "spline" || candidate.right.kind === "spline")) {
+        if (isJunction && (candidate.left.kind !== "line" || candidate.right.kind !== "line")) {
           const solution = junctionFilletSolution(candidate, radius, trim);
           if (!solution) {
             showToast("Could not solve a tangent fillet at this spline corner.", "warning");
@@ -5354,18 +5412,25 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
             const exactPoint = Paths.evaluateSplinePoint(replacement, endpointParameter);
             return { x: exactPoint.x, y: exactPoint.y, bulge: point.bulge || 0 };
           }
+          if (endpoint.kind === "arc") {
+            const sample = junctionBranchSample(endpoint, distance);
+            if (!sample) throw new Error("Could not trim this arc at the selected corner.");
+            if (endpoint.end === "start") target.startAngleDeg = normalizeArcAngle(sample.angle) * 180 / Math.PI;
+            else target.endAngleDeg = normalizeArcAngle(sample.angle) * 180 / Math.PI;
+            return { x: sample.point.x, y: sample.point.y, bulge: point.bulge || 0 };
+          }
           target[endpoint.end === "start" ? "x1" : "x2"] = point.x;
           target[endpoint.end === "start" ? "y1" : "y2"] = point.y;
           return point;
         };
         a = updateEndpoint(candidate.left, a, leftTrim);
         b = updateEndpoint(candidate.right, b, rightTrim);
-        state.entities.push(assignObjectTreeMetadata(
+        addCornerDerivedEntity(
           state.cadTool === "fillet"
             ? { type: "LWPOLYLINE", closed: false, vertices: [a, b], __cadShape: "fillet" }
             : { type: "LINE", __cadShape: "chamfer", x1: a.x, y1: a.y, x2: b.x, y2: b.y },
-          { id: "cad", name: "CAD", source: "CAD" }
-        ));
+          candidate
+        );
       } else {
         entity.vertices.splice(candidate.index, 1, a, b);
       }
