@@ -130,6 +130,8 @@ export function drawScene({
     drawTabMarker(candidate, candidate.toolDiameter, { alpha: 0.85 });
   }
 
+  drawCornerHover(ctx, state, worldToScreen);
+
   if (transformOverlay) {
     drawTransformOverlay(ctx, transformOverlay);
   }
@@ -226,6 +228,54 @@ function drawTrimHover(ctx, state, worldToScreen) {
     return;
   }
   drawTrimCandidate(ctx, candidate, worldToScreen, "#dc2626", 4, true);
+}
+
+function drawCornerHover(ctx, state, worldToScreen) {
+  const preview = state.cornerPreview;
+  if (!preview?.corner || !preview?.a || !preview?.b) return;
+  const corner = worldToScreen(preview.corner);
+  const a = worldToScreen(preview.a);
+  const b = worldToScreen(preview.b);
+  ctx.save();
+  ctx.strokeStyle = "#f05a28";
+  ctx.fillStyle = "rgba(255, 190, 72, 0.34)";
+  ctx.lineWidth = 3;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(corner.x, corner.y);
+  ctx.lineTo(a.x, a.y);
+  ctx.moveTo(corner.x, corner.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  if (preview.dogboneRadius) {
+    const edge = worldToScreen({ x: preview.a.x + preview.dogboneRadius, y: preview.a.y });
+    ctx.arc(a.x, a.y, Math.hypot(edge.x - a.x, edge.y - a.y), 0, Math.PI * 2);
+  } else if (Math.abs(preview.a.bulge || 0) > 1e-8) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const chord = Math.hypot(dx, dy);
+    const bulge = preview.a.bulge;
+    const normal = { x: -dy / chord, y: dx / chord };
+    const center = {
+      x: (a.x + b.x) / 2 + normal.x * chord * (1 - bulge * bulge) / (4 * bulge),
+      y: (a.y + b.y) / 2 + normal.y * chord * (1 - bulge * bulge) / (4 * bulge),
+    };
+    const radius = Math.hypot(a.x - center.x, a.y - center.y);
+    ctx.arc(center.x, center.y, radius, Math.atan2(a.y - center.y, a.x - center.x), Math.atan2(b.y - center.y, b.x - center.x), bulge < 0);
+  } else {
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+  }
+  ctx.stroke();
+  ctx.fillRect(a.x - 3, a.y - 3, 6, 6);
+  ctx.fillRect(b.x - 3, b.y - 3, 6, 6);
+  ctx.beginPath();
+  ctx.arc(corner.x, corner.y, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawTrimEraser(ctx, state) {

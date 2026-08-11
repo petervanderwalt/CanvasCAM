@@ -5,10 +5,10 @@ import {
 } from "./src/constants.js?v=20260810-marquee1";
 import { parseDxf as parseDxfFile } from "./src/dxf.js?v=20260730-vcarve12";
 import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpaths1";
-import * as Paths from "./src/paths.js?v=20260810-text1";
+import * as Paths from "./src/paths.js?v=20260811-spline-corners1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260811-three-point-arc1";
+import * as CanvasView from "./src/canvas-view.js?v=20260811-spline-preview4";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
@@ -5100,21 +5100,189 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (best) return best;
     const endpoints = [];
     state.entities.forEach((entity, entityIndex) => {
-      if (entity.type !== "LINE") return;
-      [["start", entity.x1, entity.y1, entity.x2, entity.y2], ["end", entity.x2, entity.y2, entity.x1, entity.y1]].forEach(([end, x, y, otherX, otherY]) => {
-        const distance = Math.hypot(x - world.x, y - world.y);
-        if (distance <= tolerance) endpoints.push({ entityIndex, end, point: { x, y }, other: { x: otherX, y: otherY }, distance });
-      });
+      if (entity.type === "LINE") {
+        [["start", entity.x1, entity.y1, entity.x2, entity.y2], ["end", entity.x2, entity.y2, entity.x1, entity.y1]].forEach(([end, x, y, otherX, otherY]) => {
+          const distance = Math.hypot(x - world.x, y - world.y);
+          const length = Math.hypot(otherX - x, otherY - y);
+          if (distance <= tolerance && length > 1e-9) endpoints.push({
+            kind: "line",
+            entityIndex,
+            end,
+            point: { x, y },
+            other: { x: otherX, y: otherY },
+            direction: { x: (otherX - x) / length, y: (otherY - y) / length },
+            maxLength: length,
+            distance,
+          });
+        });
+        return;
+      }
+      if (entity.type === "SPLINE" && !entity.closed) {
+        const degree = Number(entity.degree);
+        const knots = entity.knots || [];
+        if (!Number.isInteger(degree) || !knots.length || !entity.controlPoints?.length) return;
+        const domain = { min: knots[degree], max: knots[knots.length - degree - 1] };
+        ["start", "end"].forEach((end) => {
+          const point = Paths.evaluateSplinePoint(entity, end === "start" ? domain.min : domain.max);
+          const direction = Paths.splineEndpointTangent(entity, end);
+          const distance = point ? Math.hypot(point.x - world.x, point.y - world.y) : Infinity;
+          if (point && direction && distance <= tolerance) endpoints.push({
+            kind: "spline",
+            entityIndex,
+            end,
+            point,
+            direction,
+            maxLength: Math.max(tolerance * 3, Math.hypot(
+              entity.controlPoints[entity.controlPoints.length - 1].x - entity.controlPoints[0].x,
+              entity.controlPoints[entity.controlPoints.length - 1].y - entity.controlPoints[0].y,
+            )),
+            distance,
+          });
+        });
+      }
     });
     for (let left = 0; left < endpoints.length; left += 1) {
       for (let right = left + 1; right < endpoints.length; right += 1) {
         const a = endpoints[left]; const b = endpoints[right];
         if (a.entityIndex === b.entityIndex || Math.hypot(a.point.x - b.point.x, a.point.y - b.point.y) > tolerance) continue;
-        const cross = (a.other.x - a.point.x) * (b.other.y - b.point.y) - (a.other.y - a.point.y) * (b.other.x - b.point.x);
-        if (Math.abs(cross) > 1e-6) return { kind: "line-junction", left: a, right: b, distance: Math.max(a.distance, b.distance) };
+        const cross = a.direction.x * b.direction.y - a.direction.y * b.direction.x;
+        if (Math.abs(cross) > 1e-6) return { kind: "curve-junction", left: a, right: b, distance: Math.max(a.distance, b.distance) };
       }
     }
     return best;
+  }
+
+  function junctionBranchSample(branch, distance) {
+    const entity = state.entities[branch.entityIndex];
+    if (branch.kind === "spline") {
+      const parameter = Paths.splineParameterAtDistance(entity, branch.end, distance);
+      const point = Number.isFinite(parameter) ? Paths.evaluateSplinePoint(entity, parameter) : null;
+      const direction = Number.isFinite(parameter) ? Paths.splineTangentAt(entity, parameter, branch.end === "start" ? 1 : -1) : null;
+      return point && direction ? { point, direction, parameter } : null;
+    }
+    return {
+      point: { x: branch.point.x + branch.direction.x * distance, y: branch.point.y + branch.direction.y * distance },
+      direction: branch.direction,
+    };
+  }
+
+  function junctionFilletSolution(candidate, radius, initialDistance) {
+    const initialLeft = junctionBranchSample(candidate.left, initialDistance);
+    const initialRight = junctionBranchSample(candidate.right, initialDistance);
+    if (!initialLeft || !initialRight) return null;
+    const corner = candidate.left.point;
+    const sum = {
+      x: candidate.left.direction.x + candidate.right.direction.x,
+      y: candidate.left.direction.y + candidate.right.direction.y,
+    };
+    const sumLength = Math.hypot(sum.x, sum.y) || 1;
+    const seedCenter = { x: corner.x + sum.x / sumLength * radius, y: corner.y + sum.y / sumLength * radius };
+    const centerFor = (sample) => {
+      const normal = { x: -sample.direction.y, y: sample.direction.x };
+      const positive = { x: sample.point.x + normal.x * radius, y: sample.point.y + normal.y * radius };
+      const negative = { x: sample.point.x - normal.x * radius, y: sample.point.y - normal.y * radius };
+      const pickPositive = Math.hypot(positive.x - seedCenter.x, positive.y - seedCenter.y) <= Math.hypot(negative.x - seedCenter.x, negative.y - seedCenter.y);
+      return { center: pickPositive ? positive : negative, sign: pickPositive ? 1 : -1 };
+    };
+    const leftSign = centerFor(initialLeft).sign;
+    const rightSign = centerFor(initialRight).sign;
+    const evaluate = (leftDistance, rightDistance) => {
+      const left = junctionBranchSample(candidate.left, leftDistance);
+      const right = junctionBranchSample(candidate.right, rightDistance);
+      if (!left || !right) return null;
+      const leftCenter = {
+        x: left.point.x + -left.direction.y * radius * leftSign,
+        y: left.point.y + left.direction.x * radius * leftSign,
+      };
+      const rightCenter = {
+        x: right.point.x + -right.direction.y * radius * rightSign,
+        y: right.point.y + right.direction.x * radius * rightSign,
+      };
+      return {
+        left,
+        right,
+        center: { x: (leftCenter.x + rightCenter.x) / 2, y: (leftCenter.y + rightCenter.y) / 2 },
+        error: Math.hypot(leftCenter.x - rightCenter.x, leftCenter.y - rightCenter.y),
+      };
+    };
+    let leftDistance = Math.min(initialDistance, candidate.left.maxLength / 2);
+    let rightDistance = Math.min(initialDistance, candidate.right.maxLength / 2);
+    let step = Math.max(radius / 2, 0.25);
+    let result = evaluate(leftDistance, rightDistance);
+    for (let iteration = 0; result && iteration < 18; iteration += 1) {
+      let best = result;
+      for (const leftDelta of [-step, 0, step]) {
+        for (const rightDelta of [-step, 0, step]) {
+          const trialLeft = Math.max(0.001, Math.min(candidate.left.maxLength / 2, leftDistance + leftDelta));
+          const trialRight = Math.max(0.001, Math.min(candidate.right.maxLength / 2, rightDistance + rightDelta));
+          const trial = evaluate(trialLeft, trialRight);
+          if (trial && trial.error < best.error) {
+            best = { ...trial, leftDistance: trialLeft, rightDistance: trialRight };
+          }
+        }
+      }
+      if (best !== result) {
+        leftDistance = best.leftDistance;
+        rightDistance = best.rightDistance;
+        result = best;
+      } else {
+        step *= 0.5;
+      }
+      if (step < 0.002 && result.error < 0.002) break;
+    }
+    if (!result || result.error > Math.max(0.05, radius * 0.01)) return null;
+    const radiusA = { x: result.left.point.x - result.center.x, y: result.left.point.y - result.center.y };
+    const ccwTangent = { x: -radiusA.y, y: radiusA.x };
+    const incoming = { x: -result.left.direction.x, y: -result.left.direction.y };
+    const ccw = ccwTangent.x * incoming.x + ccwTangent.y * incoming.y >= 0;
+    const startAngle = Math.atan2(radiusA.y, radiusA.x);
+    const endAngle = Math.atan2(result.right.point.y - result.center.y, result.right.point.x - result.center.x);
+    let sweep = endAngle - startAngle;
+    if (ccw && sweep < 0) sweep += Math.PI * 2;
+    if (!ccw && sweep > 0) sweep -= Math.PI * 2;
+    return {
+      leftDistance,
+      rightDistance,
+      a: { x: result.left.point.x, y: result.left.point.y, bulge: Math.tan(sweep / 4) },
+      b: { x: result.right.point.x, y: result.right.point.y, bulge: 0 },
+    };
+  }
+
+  function buildCornerPreview(candidate) {
+    const isJunction = candidate?.kind === "curve-junction";
+    const entity = isJunction ? null : state.entities[candidate?.entityIndex];
+    if (!candidate || (!isJunction && !entity?.vertices?.length)) return null;
+    const count = entity?.vertices?.length || 0;
+    const corner = isJunction ? candidate.left.point : entity.vertices[candidate.index];
+    const previous = isJunction ? null : entity.vertices[(candidate.index - 1 + count) % count];
+    const next = isJunction ? null : entity.vertices[(candidate.index + 1) % count];
+    if (!isJunction && (Math.abs(previous.bulge || 0) > 1e-8 || Math.abs(corner.bulge || 0) > 1e-8)) return null;
+    const left = isJunction ? candidate.left.maxLength : Math.hypot(previous.x - corner.x, previous.y - corner.y);
+    const right = isJunction ? candidate.right.maxLength : Math.hypot(next.x - corner.x, next.y - corner.y);
+    const towardPrevious = isJunction ? candidate.left.direction : { x: (previous.x - corner.x) / left, y: (previous.y - corner.y) / left };
+    const towardNext = isJunction ? candidate.right.direction : { x: (next.x - corner.x) / right, y: (next.y - corner.y) / right };
+    const radius = Math.min(Math.max(0.01, state.cornerToolRadius), left / 2, right / 2);
+    if (radius <= 0.01) return null;
+    if (state.cadTool === "dogbone") {
+      const sumLength = Math.hypot(towardPrevious.x + towardNext.x, towardPrevious.y + towardNext.y) || 1;
+      const center = {
+        x: corner.x + (towardPrevious.x + towardNext.x) / sumLength * radius,
+        y: corner.y + (towardPrevious.y + towardNext.y) / sumLength * radius,
+      };
+      return { corner, a: center, b: center, dogboneRadius: radius };
+    }
+    const angle = Math.acos(Math.max(-1, Math.min(1, towardPrevious.x * towardNext.x + towardPrevious.y * towardNext.y)));
+    const trim = state.cadTool === "fillet" ? Math.min(radius / Math.tan(angle / 2), left / 2, right / 2) : radius;
+    if (state.cadTool === "fillet" && isJunction && (candidate.left.kind === "spline" || candidate.right.kind === "spline")) {
+      const solution = junctionFilletSolution(candidate, radius, trim);
+      return solution ? { corner, a: solution.a, b: solution.b } : null;
+    }
+    const a = { x: corner.x + towardPrevious.x * trim, y: corner.y + towardPrevious.y * trim, bulge: 0 };
+    const b = { x: corner.x + towardNext.x * trim, y: corner.y + towardNext.y * trim, bulge: 0 };
+    if (state.cadTool === "fillet") {
+      a.bulge = Math.sign((-towardPrevious.x) * towardNext.y - (-towardPrevious.y) * towardNext.x) * Math.tan((Math.PI - angle) / 4);
+    }
+    return { corner, a, b };
   }
 
   async function applyCornerToolAt(screenPoint) {
@@ -5124,22 +5292,22 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       showToast("Click a rectangle or vector corner.", "warning", { duration: 1600 });
       return;
     }
-    const isJunction = candidate.kind === "line-junction";
+    const isJunction = candidate.kind === "curve-junction";
     const entity = isJunction ? null : state.entities[candidate.entityIndex];
     const count = entity?.vertices?.length || 0;
-    const previous = isJunction ? candidate.left.other : entity.vertices[(candidate.index - 1 + count) % count];
+    const previous = isJunction ? null : entity.vertices[(candidate.index - 1 + count) % count];
     const corner = isJunction ? candidate.left.point : entity.vertices[candidate.index];
-    const next = isJunction ? candidate.right.other : entity.vertices[(candidate.index + 1) % count];
+    const next = isJunction ? null : entity.vertices[(candidate.index + 1) % count];
     if (!isJunction && (Math.abs(previous.bulge || 0) > 1e-8 || Math.abs(corner.bulge || 0) > 1e-8)) {
       showToast("Fillet and chamfer currently need two straight edges at the selected corner.", "warning");
       return;
     }
-    const left = Math.hypot(previous.x - corner.x, previous.y - corner.y);
-    const right = Math.hypot(next.x - corner.x, next.y - corner.y);
+    const left = isJunction ? candidate.left.maxLength : Math.hypot(previous.x - corner.x, previous.y - corner.y);
+    const right = isJunction ? candidate.right.maxLength : Math.hypot(next.x - corner.x, next.y - corner.y);
     const radius = Math.min(Math.max(0.01, state.cornerToolRadius), left / 2, right / 2);
     if (radius <= 0.01) return;
-    const towardPrevious = { x: (previous.x - corner.x) / left, y: (previous.y - corner.y) / left };
-    const towardNext = { x: (next.x - corner.x) / right, y: (next.y - corner.y) / right };
+    const towardPrevious = isJunction ? candidate.left.direction : { x: (previous.x - corner.x) / left, y: (previous.y - corner.y) / left };
+    const towardNext = isJunction ? candidate.right.direction : { x: (next.x - corner.x) / right, y: (next.y - corner.y) / right };
     const historyBefore = captureHistorySnapshot();
     const toolpathSnapshots = snapshotToolpathsForRebuild();
     const activeToolpathId = state.activeToolpathId;
@@ -5151,21 +5319,47 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     } else {
       const cornerAngle = Math.acos(Math.max(-1, Math.min(1, towardPrevious.x * towardNext.x + towardPrevious.y * towardNext.y)));
       const trim = state.cadTool === "fillet" ? Math.min(radius / Math.tan(cornerAngle / 2), left / 2, right / 2) : radius;
-      const a = { x: corner.x + towardPrevious.x * trim, y: corner.y + towardPrevious.y * trim, bulge: 0 };
-      const b = { x: corner.x + towardNext.x * trim, y: corner.y + towardNext.y * trim, bulge: 0 };
+      let a = { x: corner.x + towardPrevious.x * trim, y: corner.y + towardPrevious.y * trim, bulge: 0 };
+      let b = { x: corner.x + towardNext.x * trim, y: corner.y + towardNext.y * trim, bulge: 0 };
+      let leftTrim = trim;
+      let rightTrim = trim;
       if (state.cadTool === "fillet") {
-        const incoming = { x: corner.x - previous.x, y: corner.y - previous.y };
-        const outgoing = { x: next.x - corner.x, y: next.y - corner.y };
-        a.bulge = Math.sign(incoming.x * outgoing.y - incoming.y * outgoing.x) * Math.tan((Math.PI - cornerAngle) / 4);
+        if (isJunction && (candidate.left.kind === "spline" || candidate.right.kind === "spline")) {
+          const solution = junctionFilletSolution(candidate, radius, trim);
+          if (!solution) {
+            showToast("Could not solve a tangent fillet at this spline corner.", "warning");
+            return;
+          }
+          ({ a, b } = solution);
+          leftTrim = solution.leftDistance;
+          rightTrim = solution.rightDistance;
+        } else {
+          const incoming = { x: -towardPrevious.x, y: -towardPrevious.y };
+          const outgoing = towardNext;
+          a.bulge = Math.sign(incoming.x * outgoing.y - incoming.y * outgoing.x) * Math.tan((Math.PI - cornerAngle) / 4);
+        }
       }
       if (isJunction) {
-        const updateEndpoint = (endpoint, point) => {
+        const updateEndpoint = (endpoint, point, distance) => {
           const target = state.entities[endpoint.entityIndex];
+          if (endpoint.kind === "spline") {
+            const parameter = Paths.splineParameterAtDistance(target, endpoint.end, distance);
+            const replacement = Number.isFinite(parameter) ? Paths.trimSplineEndpoint(target, endpoint.end, parameter) : null;
+            if (!replacement) throw new Error("Could not trim this spline at the selected corner.");
+            state.entities[endpoint.entityIndex] = replacement;
+            const knots = replacement.knots;
+            const endpointParameter = endpoint.end === "start"
+              ? knots[replacement.degree]
+              : knots[knots.length - replacement.degree - 1];
+            const exactPoint = Paths.evaluateSplinePoint(replacement, endpointParameter);
+            return { x: exactPoint.x, y: exactPoint.y, bulge: point.bulge || 0 };
+          }
           target[endpoint.end === "start" ? "x1" : "x2"] = point.x;
           target[endpoint.end === "start" ? "y1" : "y2"] = point.y;
+          return point;
         };
-        updateEndpoint(candidate.left, a);
-        updateEndpoint(candidate.right, b);
+        a = updateEndpoint(candidate.left, a, leftTrim);
+        b = updateEndpoint(candidate.right, b, rightTrim);
         state.entities.push(assignObjectTreeMetadata(
           state.cadTool === "fillet"
             ? { type: "LWPOLYLINE", closed: false, vertices: [a, b], __cadShape: "fillet" }
@@ -7381,6 +7575,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (!draft || !Number.isFinite(value)) {
       if (["fillet", "chamfer", "dogbone"].includes(state.cadTool) && Number.isFinite(value)) {
         state.cornerToolRadius = Math.max(0.01, value);
+        if (state.cornerHover) {
+          state.cornerPreview = buildCornerPreview(state.cornerHover);
+        }
+        requestDraw();
       }
       return;
     }
@@ -7947,8 +8145,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (["fillet", "chamfer", "dogbone"].includes(state.cadTool)) {
       const corner = findCornerAtScreenPoint(point);
       state.cornerHover = corner;
+      state.cornerPreview = corner ? buildCornerPreview(corner) : null;
       if (corner) {
-        const cornerPoint = corner.kind === "line-junction"
+        const cornerPoint = corner.kind === "curve-junction"
           ? corner.left.point
           : state.entities[corner.entityIndex].vertices[corner.index];
         const screen = worldToScreen(cornerPoint);

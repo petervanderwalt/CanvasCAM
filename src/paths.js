@@ -1180,6 +1180,191 @@ function evaluateBSplinePoint(degree, knots, controlPoints, t) {
   return { x: d[degree].x, y: d[degree].y };
 }
 
+function cloneSplineControlPoint(point) {
+  return { x: point.x, y: point.y, z: point.z || 0, w: point.w || 1 };
+}
+
+function splineDomain(entity) {
+  const degree = Number(entity?.degree);
+  const knots = entity?.knots || [];
+  if (!Number.isInteger(degree) || degree < 1 || knots.length < degree * 2 + 2) return null;
+  return { min: knots[degree], max: knots[knots.length - degree - 1] };
+}
+
+function homogeneousSplinePoint(point) {
+  const weight = point.w || 1;
+  return { x: point.x * weight, y: point.y * weight, z: (point.z || 0) * weight, w: weight };
+}
+
+function dehomogenizeSplinePoint(point) {
+  const weight = Math.abs(point.w) > 1e-12 ? point.w : 1;
+  return { x: point.x / weight, y: point.y / weight, z: point.z / weight, w: weight };
+}
+
+function evaluateRationalBSplinePoint(degree, knots, controlPoints, t) {
+  const n = controlPoints.length - 1;
+  const domainMin = knots[degree];
+  const domainMax = knots[knots.length - degree - 1];
+  const clampedT = Math.max(domainMin, Math.min(domainMax, t));
+  let span = degree;
+  while (span < n && clampedT >= knots[span + 1] - 1e-12) span += 1;
+  const work = [];
+  for (let j = 0; j <= degree; j += 1) {
+    work.push(homogeneousSplinePoint(controlPoints[Math.min(n, Math.max(0, span - degree + j))]));
+  }
+  for (let level = 1; level <= degree; level += 1) {
+    for (let j = degree; j >= level; j -= 1) {
+      const knotIndex = span - degree + j;
+      const denominator = knots[knotIndex + degree + 1 - level] - knots[knotIndex];
+      const alpha = Math.abs(denominator) <= 1e-12 ? 0 : (clampedT - knots[knotIndex]) / denominator;
+      work[j] = {
+        x: (1 - alpha) * work[j - 1].x + alpha * work[j].x,
+        y: (1 - alpha) * work[j - 1].y + alpha * work[j].y,
+        z: (1 - alpha) * work[j - 1].z + alpha * work[j].z,
+        w: (1 - alpha) * work[j - 1].w + alpha * work[j].w,
+      };
+    }
+  }
+  return dehomogenizeSplinePoint(work[degree]);
+}
+
+export function evaluateSplinePoint(entity, t) {
+  const domain = splineDomain(entity);
+  if (!domain || !entity?.controlPoints?.length) return null;
+  return evaluateRationalBSplinePoint(entity.degree, entity.knots, entity.controlPoints, t);
+}
+
+export function splineEndpointTangent(entity, end) {
+  const domain = splineDomain(entity);
+  if (!domain) return null;
+  const range = domain.max - domain.min;
+  const delta = Math.max(range * 1e-6, 1e-8);
+  const atStart = end === "start";
+  const first = evaluateSplinePoint(entity, atStart ? domain.min : domain.max - delta);
+  const second = evaluateSplinePoint(entity, atStart ? domain.min + delta : domain.max);
+  if (!first || !second) return null;
+  const dx = atStart ? second.x - first.x : first.x - second.x;
+  const dy = atStart ? second.y - first.y : first.y - second.y;
+  const length = Math.hypot(dx, dy);
+  return length > 1e-10 ? { x: dx / length, y: dy / length } : null;
+}
+
+export function splineTangentAt(entity, t, direction = 1) {
+  const domain = splineDomain(entity);
+  if (!domain) return null;
+  const range = domain.max - domain.min;
+  const delta = Math.max(range * 1e-6, 1e-8);
+  const first = evaluateSplinePoint(entity, Math.max(domain.min, t - delta));
+  const second = evaluateSplinePoint(entity, Math.min(domain.max, t + delta));
+  if (!first || !second) return null;
+  const multiplier = direction < 0 ? -1 : 1;
+  const dx = (second.x - first.x) * multiplier;
+  const dy = (second.y - first.y) * multiplier;
+  const length = Math.hypot(dx, dy);
+  return length > 1e-10 ? { x: dx / length, y: dy / length } : null;
+}
+
+function splineArcLength(entity, startT, endT, steps = 48) {
+  let length = 0;
+  let previous = evaluateSplinePoint(entity, startT);
+  for (let index = 1; index <= steps; index += 1) {
+    const point = evaluateSplinePoint(entity, startT + (endT - startT) * (index / steps));
+    length += Math.hypot(point.x - previous.x, point.y - previous.y);
+    previous = point;
+  }
+  return length;
+}
+
+export function splineParameterAtDistance(entity, end, distance) {
+  const domain = splineDomain(entity);
+  if (!domain) return null;
+  const total = splineArcLength(entity, domain.min, domain.max, 96);
+  const target = Math.max(0, Math.min(total, distance));
+  let low = domain.min;
+  let high = domain.max;
+  for (let iteration = 0; iteration < 24; iteration += 1) {
+    const middle = (low + high) / 2;
+    const measured = end === "start"
+      ? splineArcLength(entity, domain.min, middle)
+      : splineArcLength(entity, middle, domain.max);
+    if (measured < target) {
+      if (end === "start") low = middle;
+      else high = middle;
+    } else if (end === "start") {
+      high = middle;
+    } else {
+      low = middle;
+    }
+  }
+  return (low + high) / 2;
+}
+
+function findSplineSpan(degree, knots, pointCount, t) {
+  const n = pointCount - 1;
+  if (t >= knots[n + 1] - 1e-12) return n;
+  let low = degree;
+  let high = n + 1;
+  let middle = Math.floor((low + high) / 2);
+  while (t < knots[middle] || t >= knots[middle + 1]) {
+    if (t < knots[middle]) high = middle;
+    else low = middle;
+    middle = Math.floor((low + high) / 2);
+  }
+  return middle;
+}
+
+function knotMultiplicity(knots, t) {
+  return knots.reduce((count, knot) => count + (Math.abs(knot - t) <= 1e-10 ? 1 : 0), 0);
+}
+
+function insertSplineKnotOnce(degree, knots, controlPoints, t) {
+  const n = controlPoints.length - 1;
+  const span = findSplineSpan(degree, knots, controlPoints.length, t);
+  const multiplicity = knotMultiplicity(knots, t);
+  const insertedKnots = [...knots.slice(0, span + 1), t, ...knots.slice(span + 1)];
+  const insertedPoints = new Array(controlPoints.length + 1);
+  for (let index = 0; index <= span - degree; index += 1) insertedPoints[index] = cloneSplineControlPoint(controlPoints[index]);
+  for (let index = span - multiplicity; index <= n; index += 1) insertedPoints[index + 1] = cloneSplineControlPoint(controlPoints[index]);
+  for (let index = span - degree + 1; index <= span - multiplicity; index += 1) {
+    const denominator = knots[index + degree] - knots[index];
+    const alpha = Math.abs(denominator) <= 1e-12 ? 0 : (t - knots[index]) / denominator;
+    const left = homogeneousSplinePoint(controlPoints[index - 1]);
+    const right = homogeneousSplinePoint(controlPoints[index]);
+    insertedPoints[index] = dehomogenizeSplinePoint({
+      x: (1 - alpha) * left.x + alpha * right.x,
+      y: (1 - alpha) * left.y + alpha * right.y,
+      z: (1 - alpha) * left.z + alpha * right.z,
+      w: (1 - alpha) * left.w + alpha * right.w,
+    });
+  }
+  return { knots: insertedKnots, controlPoints: insertedPoints };
+}
+
+export function trimSplineEndpoint(entity, end, t) {
+  const domain = splineDomain(entity);
+  if (!domain || entity.closed || t <= domain.min + 1e-9 || t >= domain.max - 1e-9) return null;
+  const degree = entity.degree;
+  let knots = entity.knots.slice();
+  let controlPoints = entity.controlPoints.map(cloneSplineControlPoint);
+  while (knotMultiplicity(knots, t) < degree) {
+    ({ knots, controlPoints } = insertSplineKnotOnce(degree, knots, controlPoints, t));
+  }
+  const firstSplitKnot = knots.findIndex((knot) => Math.abs(knot - t) <= 1e-10);
+  const splitIndex = firstSplitKnot - 1;
+  if (splitIndex < degree || splitIndex >= controlPoints.length - degree) return null;
+  const left = {
+    ...entity,
+    knots: [...knots.slice(0, splitIndex + degree + 1), t],
+    controlPoints: controlPoints.slice(0, splitIndex + 1).map(cloneSplineControlPoint),
+  };
+  const right = {
+    ...entity,
+    knots: [t, ...knots.slice(splitIndex + 1)],
+    controlPoints: controlPoints.slice(splitIndex).map(cloneSplineControlPoint),
+  };
+  return end === "start" ? right : left;
+}
+
 export function pointAtDistance(points, distanceValue) {
   let remaining = distanceValue;
   for (let i = 1; i < points.length; i += 1) {
