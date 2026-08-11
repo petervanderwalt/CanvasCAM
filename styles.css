@@ -3213,6 +3213,7 @@ body {
 }
 
 #expandModal .drawing-dimension-input {
+  flex: 0 0 14rem;
   border-radius: 0.72rem;
   box-shadow: 3px 3px 0 rgba(17, 17, 17, 0.86);
 }
@@ -3226,16 +3227,24 @@ body {
 
 #expandModal .input-group > .input-group-text {
   border-left: 0;
-  border-radius: 0;
+  border-radius: 0 0.72rem 0.72rem 0;
   background: #fff8d8;
   color: rgba(17, 17, 17, 0.72);
   font-weight: 900;
 }
 
-#expandModal .input-group > .form-select {
-  flex: 0 0 8rem;
-  border-left: 0;
-  border-radius: 0 0.72rem 0.72rem 0;
+.expand-offset-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+#expandModal .expand-direction-select {
+  flex: 1 1 auto;
+  min-width: 8rem;
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.72rem;
+  box-shadow: 3px 3px 0 rgba(17, 17, 17, 0.86);
   background-color: #ffd67b;
   color: var(--funky-ink);
   font-weight: 900;
