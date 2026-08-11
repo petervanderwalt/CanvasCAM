@@ -57,6 +57,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     canvasWrap: document.getElementById("canvasWrap"),
     vectorActionGroup: document.getElementById("vectorActionGroup"),
     cadActionGroup: document.getElementById("cadActionGroup"),
+    drawMenuBtn: document.getElementById("drawMenuBtn"),
+    drawMenu: document.getElementById("drawMenu"),
     selectModeBtn: document.getElementById("selectModeBtn"),
     cadEditModeBtn: document.getElementById("cadEditModeBtn"),
     cadToolButtons: Array.from(document.querySelectorAll(".cad-tool-btn")),
@@ -5197,7 +5199,25 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   ui.undoBtn.addEventListener("click", undoHistory);
   ui.redoBtn.addEventListener("click", redoHistory);
   ui.selectModeBtn.addEventListener("click", setSelectMode);
-  ui.cadEditModeBtn.addEventListener("click", setCadEditMode);
+  ui.cadEditModeBtn.addEventListener("click", () => {
+    setCadEditMode();
+    ui.drawMenu?.classList.add("d-none");
+    ui.drawMenuBtn?.setAttribute("aria-expanded", "false");
+  });
+  ui.drawMenuBtn?.addEventListener("click", () => {
+    const isOpen = !ui.drawMenu?.classList.contains("d-none");
+    ui.drawMenu?.classList.toggle("d-none", isOpen);
+    ui.drawMenuBtn.setAttribute("aria-expanded", String(!isOpen));
+  });
+  document.addEventListener("click", (event) => {
+    if (!ui.drawMenu || !ui.drawMenuBtn || ui.drawMenu.classList.contains("d-none")) {
+      return;
+    }
+    if (!ui.cadActionGroup?.contains(event.target)) {
+      ui.drawMenu.classList.add("d-none");
+      ui.drawMenuBtn.setAttribute("aria-expanded", "false");
+    }
+  });
   ui.transformToolButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const requestedTool = button.dataset.transformTool || null;
@@ -5405,7 +5425,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     closeToolLibraryMenu();
   });
   ui.cadToolButtons.forEach((button) => {
-    button.addEventListener("click", () => setCadTool(button.dataset.cadTool || null));
+    button.addEventListener("click", () => {
+      setCadTool(button.dataset.cadTool || null);
+      ui.drawMenu?.classList.add("d-none");
+      ui.drawMenuBtn?.setAttribute("aria-expanded", "false");
+    });
   });
   ui.clearGuidesBtn.addEventListener("click", clearConstructionGuides);
   ui.cadSnapBtn.addEventListener("click", () => {

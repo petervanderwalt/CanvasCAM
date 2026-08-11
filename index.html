@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260811-design-ribbon1">
+  <link rel="stylesheet" href="styles.css?v=20260811-design-ribbon2">
 </head>
 <body>
   <div class="workspace-shell">
@@ -47,29 +47,33 @@
             <div class="ribbon-group">
               <div class="ribbon-command-grid">
                 <button type="button" id="selectModeBtn" class="btn ribbon-command is-active" title="Select vectors" aria-label="Select vectors" aria-pressed="true"><i class="fa-solid fa-arrow-pointer"></i><span>Select</span></button>
-                <button type="button" id="cadEditModeBtn" class="btn ribbon-command" title="Edit CAD shapes" aria-label="Edit CAD shapes" aria-pressed="false"><i class="fa-solid fa-pen-to-square"></i><span>Edit Shape</span></button>
+                <button type="button" class="btn ribbon-command transform-tool-btn" data-transform-tool="move" title="Move selected vectors"><i class="fa-solid fa-up-down-left-right"></i><span>Move</span></button>
+                <button type="button" class="btn ribbon-command transform-tool-btn" data-transform-tool="scale" title="Resize selected vectors"><i class="fa-solid fa-expand"></i><span>Resize</span></button>
+                <button type="button" class="btn ribbon-command transform-tool-btn" data-transform-tool="rotate" title="Rotate selected vectors"><i class="fa-solid fa-rotate"></i><span>Rotate</span></button>
               </div>
               <span class="ribbon-group-label">Modes</span>
             </div>
             <div id="cadActionGroup" class="ribbon-group" aria-label="Draw vectors">
-              <div class="ribbon-command-grid">
-                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="line" title="Draw line"><i class="fa-solid fa-slash"></i><span>Line</span></button>
-                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="polyline" title="Draw polyline; double-click or Enter to finish"><i class="fa-solid fa-draw-polygon"></i><span>Polyline</span></button>
-                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="rectangle" title="Draw rectangle"><i class="fa-regular fa-square"></i><span>Rectangle</span></button>
-                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="circle" title="Draw circle"><i class="fa-regular fa-circle"></i><span>Circle</span></button>
-                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="arc" title="Draw arc: center, start, end"><i class="fa-solid fa-circle-notch"></i><span>Arc</span></button>
-                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="bezier" title="Draw cubic Bezier"><i class="fa-solid fa-bezier-curve"></i><span>Bezier</span></button>
-                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="text" title="Add vector text"><i class="fa-solid fa-font"></i><span>Text</span></button>
-                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="guide" title="Create construction guide"><i class="fa-solid fa-ruler"></i><span>Guide</span></button>
-                <button type="button" id="clearGuidesBtn" class="btn ribbon-command d-none" title="Remove all construction guides"><i class="fa-solid fa-eraser"></i><span>Clear Guides</span></button>
+              <div class="ribbon-draw-menu">
+                <button type="button" id="drawMenuBtn" class="btn ribbon-command ribbon-menu-trigger" aria-haspopup="true" aria-expanded="false" title="Draw tools"><i class="fa-solid fa-pen-ruler"></i><span>Draw</span><i class="fa-solid fa-chevron-down ribbon-menu-chevron"></i></button>
+                <div id="drawMenu" class="ribbon-menu d-none" role="menu" aria-label="Draw tools">
+                  <button type="button" class="cad-tool-btn" data-cad-tool="line" role="menuitem"><i class="fa-solid fa-slash"></i>Line</button>
+                  <button type="button" class="cad-tool-btn" data-cad-tool="polyline" role="menuitem"><i class="fa-solid fa-draw-polygon"></i>Polyline</button>
+                  <button type="button" class="cad-tool-btn" data-cad-tool="rectangle" role="menuitem"><i class="fa-regular fa-square"></i>Rectangle</button>
+                  <button type="button" class="cad-tool-btn" data-cad-tool="circle" role="menuitem"><i class="fa-regular fa-circle"></i>Circle</button>
+                  <button type="button" class="cad-tool-btn" data-cad-tool="arc" role="menuitem"><i class="fa-solid fa-circle-notch"></i>Arc</button>
+                  <button type="button" class="cad-tool-btn" data-cad-tool="bezier" role="menuitem"><i class="fa-solid fa-bezier-curve"></i>Bezier</button>
+                  <button type="button" class="cad-tool-btn" data-cad-tool="text" role="menuitem"><i class="fa-solid fa-font"></i>Text</button>
+                  <button type="button" class="cad-tool-btn" data-cad-tool="guide" role="menuitem"><i class="fa-solid fa-ruler"></i>Guide</button>
+                  <span class="ribbon-menu-divider" role="separator"></span>
+                  <button type="button" id="cadEditModeBtn" role="menuitem" title="Edit CAD shapes" aria-pressed="false"><i class="fa-solid fa-pen-to-square"></i>Edit Shape</button>
+                  <button type="button" id="clearGuidesBtn" class="d-none" role="menuitem" title="Remove all construction guides"><i class="fa-solid fa-eraser"></i>Clear Guides</button>
+                </div>
               </div>
               <span class="ribbon-group-label">Draw</span>
             </div>
             <div id="vectorActionGroup" class="ribbon-group" aria-label="Selected vector actions">
               <div class="ribbon-command-grid">
-                <button type="button" class="btn ribbon-command transform-tool-btn" data-transform-tool="move" title="Move selected vectors"><i class="fa-solid fa-up-down-left-right"></i><span>Move</span></button>
-                <button type="button" class="btn ribbon-command transform-tool-btn" data-transform-tool="scale" title="Resize selected vectors"><i class="fa-solid fa-expand"></i><span>Resize</span></button>
-                <button type="button" class="btn ribbon-command transform-tool-btn" data-transform-tool="rotate" title="Rotate selected vectors"><i class="fa-solid fa-rotate"></i><span>Rotate</span></button>
                 <button type="button" id="duplicateVectorsBtn" class="btn ribbon-command" title="Duplicate selected vectors (Ctrl+D)"><i class="fa-regular fa-clone"></i><span>Duplicate</span></button>
                 <button type="button" id="booleanVectorsBtn" class="btn ribbon-command" title="Combine selected closed vectors" disabled><i class="fa-solid fa-circle-nodes"></i><span>Boolean</span></button>
                 <button type="button" id="expandVectorsBtn" class="btn ribbon-command" title="Union and expand selected closed vectors" disabled><i class="fa-solid fa-expand"></i><span>Expand</span></button>

@@ -287,7 +287,7 @@ body {
 
 .ribbon-panel {
   display: none;
-  min-width: max-content;
+  min-width: 0;
   min-height: 4.25rem;
   align-items: stretch;
   border: 0;
@@ -308,7 +308,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.28rem;
-  min-width: 4.5rem;
+  min-width: 0;
   padding: 0.28rem 0.46rem 0.95rem;
   border-right: 1px solid rgba(17, 17, 17, 0.22);
 }
@@ -319,33 +319,96 @@ body {
 
 .ribbon-command-grid {
   display: grid;
-  grid-template-columns: repeat(12, max-content);
+  grid-template-columns: repeat(8, max-content);
   gap: 0.2rem;
 }
 
 .ribbon-command {
-  min-width: 3.2rem;
-  min-height: 2.2rem;
+  min-width: 2.9rem;
+  min-height: 2.05rem;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.1rem;
-  padding: 0.16rem 0.36rem;
+  padding: 0.14rem 0.3rem;
   border: 2px solid var(--funky-ink);
   border-radius: 0.48rem;
   background: #fffdf4;
   color: var(--funky-ink);
   box-shadow: 0 2px 0 rgba(17, 17, 17, 0.84);
   font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
-  font-size: 0.59rem;
+  font-size: 0.56rem;
   font-weight: 900;
   line-height: 1;
   white-space: nowrap;
 }
 
 .ribbon-command i {
-  font-size: 0.82rem;
+  font-size: 0.76rem;
+}
+
+.ribbon-draw-menu {
+  position: relative;
+}
+
+.ribbon-menu-trigger {
+  min-width: 3.55rem;
+}
+
+.ribbon-menu-chevron {
+  margin-top: -0.02rem;
+  font-size: 0.48rem !important;
+}
+
+.ribbon-menu {
+  position: absolute;
+  z-index: 1200;
+  top: calc(100% + 0.42rem);
+  left: -0.15rem;
+  display: grid;
+  min-width: 9.5rem;
+  padding: 0.32rem;
+  border: 2px solid var(--funky-ink);
+  border-radius: 0.5rem;
+  background: #fffdf4;
+  box-shadow: 3px 3px 0 rgba(17, 17, 17, 0.84);
+}
+
+.ribbon-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.75rem;
+  padding: 0.24rem 0.42rem;
+  border: 0;
+  border-radius: 0.28rem;
+  background: transparent;
+  color: var(--funky-ink);
+  font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.ribbon-menu button i {
+  width: 1rem;
+  font-size: 0.76rem;
+  text-align: center;
+}
+
+.ribbon-menu button:hover,
+.ribbon-menu button:focus-visible,
+.ribbon-menu button.is-active {
+  background: var(--ribbon-draw);
+  outline: 0;
+}
+
+.ribbon-menu-divider {
+  display: block;
+  height: 1px;
+  margin: 0.24rem 0.14rem;
+  background: rgba(17, 17, 17, 0.25);
 }
 
 .ribbon-command:hover,
