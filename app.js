@@ -2996,26 +2996,32 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
   function findGuideSnap(world, snapRadius) {
     const lines = constructionSnapLines();
-    let best = null;
-    const consider = (point) => {
-      const distance = Math.hypot(point.x - world.x, point.y - world.y);
-      if (distance <= snapRadius && (!best || distance < best.distance)) {
-        best = { point, distance };
-      }
-    };
-
-    for (const line of lines) {
-      consider(nearestPointOnInfiniteLine(world, line.start, line.end));
-    }
+    let closestIntersection = null;
     for (let left = 0; left < lines.length; left += 1) {
       for (let right = left + 1; right < lines.length; right += 1) {
-        const intersection = lineIntersection(lines[left].start, lines[left].end, lines[right].start, lines[right].end);
-        if (intersection) {
-          consider(intersection);
+        const point = lineIntersection(lines[left].start, lines[left].end, lines[right].start, lines[right].end);
+        if (!point) {
+          continue;
+        }
+        const distance = Math.hypot(point.x - world.x, point.y - world.y);
+        if (distance <= snapRadius && (!closestIntersection || distance < closestIntersection.distance)) {
+          closestIntersection = { point, distance };
         }
       }
     }
-    return best?.point || null;
+    if (closestIntersection) {
+      return closestIntersection.point;
+    }
+
+    let closestLinePoint = null;
+    for (const line of lines) {
+      const point = nearestPointOnInfiniteLine(world, line.start, line.end);
+      const distance = Math.hypot(point.x - world.x, point.y - world.y);
+      if (distance <= snapRadius && (!closestLinePoint || distance < closestLinePoint.distance)) {
+        closestLinePoint = { point, distance };
+      }
+    }
+    return closestLinePoint?.point || null;
   }
 
   function normalizeVector(vector) {
