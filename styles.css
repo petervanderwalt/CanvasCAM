@@ -3255,6 +3255,12 @@ body {
   font-size: 0.78rem;
 }
 
+/* Keep the workpiece visible while canvas-preview dialogs are open. */
+body:has(.live-canvas-preview-modal.show) .modal-backdrop {
+  opacity: 0 !important;
+  background: transparent !important;
+}
+
 #expandModal .modal-footer .btn {
   border: 3px solid var(--funky-ink);
   border-radius: 0.78rem;
