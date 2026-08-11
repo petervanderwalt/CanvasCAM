@@ -1241,6 +1241,78 @@ body {
   font-weight: 900;
 }
 
+.cad-inspector-polygon-fields {
+  display: grid;
+  grid-template-columns: 1fr 0.72fr;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+}
+
+.cad-inspector-polygon-fields label {
+  display: block;
+  color: var(--funky-ink);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.cad-inspector-polygon-fields input {
+  width: 100%;
+  height: 2rem;
+  margin-top: 0.16rem;
+  padding: 0.25rem 0.42rem;
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.5rem;
+  background: #fffdf4;
+  color: var(--funky-ink);
+  font-weight: 800;
+  outline: 0;
+}
+
+.cad-inspector-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-top: 0.16rem;
+}
+
+.cad-inspector-input-row input {
+  margin-top: 0;
+  border-right: 0;
+  border-radius: 0.5rem 0 0 0.5rem;
+}
+
+.cad-inspector-input-row > span {
+  display: grid;
+  place-items: center;
+  height: 2rem;
+  padding-inline: 0.36rem;
+  border: 3px solid var(--funky-ink);
+  border-radius: 0 0.5rem 0.5rem 0;
+  background: #fff8d8;
+  font-size: 0.68rem;
+}
+
+.cad-inspector-polygon-mode {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+}
+
+.cad-inspector-polygon-mode button {
+  min-height: 1.85rem;
+  border: 3px solid var(--funky-ink);
+  border-radius: 0.5rem;
+  background: #fff8d8;
+  color: var(--funky-ink);
+  box-shadow: 0 3px 0 var(--funky-ink);
+  font-size: 0.67rem;
+  font-weight: 900;
+}
+
+.cad-inspector-polygon-mode button.is-active {
+  background: var(--funky-blue);
+}
+
 .cad-inspector-text-field input,
 .cad-inspector-text-field select {
   width: 100%;

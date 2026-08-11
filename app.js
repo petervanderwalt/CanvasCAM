@@ -106,6 +106,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     cadInspectorAngleInput: document.getElementById("cadInspectorAngleInput"),
     cadInspectorRadiusField: document.getElementById("cadInspectorRadiusField"),
     cadInspectorRadiusInput: document.getElementById("cadInspectorRadiusInput"),
+    cadInspectorPolygonFields: document.getElementById("cadInspectorPolygonFields"),
+    cadInspectorPolygonRadiusInput: document.getElementById("cadInspectorPolygonRadiusInput"),
+    cadInspectorPolygonSidesInput: document.getElementById("cadInspectorPolygonSidesInput"),
+    cadInspectorPolygonInscribedBtn: document.getElementById("cadInspectorPolygonInscribedBtn"),
+    cadInspectorPolygonCircumscribedBtn: document.getElementById("cadInspectorPolygonCircumscribedBtn"),
     cadInspectorTextField: document.getElementById("cadInspectorTextField"),
     cadInspectorTextInput: document.getElementById("cadInspectorTextInput"),
     cadInspectorTextFontField: document.getElementById("cadInspectorTextFontField"),
@@ -3443,6 +3448,36 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     });
   }
 
+  function createCadPolygonEntity(center, config) {
+    const resolved = getPolygonDraftConfig({ polygon: config });
+    return {
+      type: "LWPOLYLINE",
+      closed: true,
+      __cadShape: "polygon",
+      __cadPolygonSides: resolved.sides,
+      __cadPolygonRadius: resolved.radius,
+      __cadPolygonMode: resolved.mode,
+      __cadPolygonAngle: resolved.angle,
+      vertices: polygonVertices(center, resolved).map((point) => ({ ...point, bulge: 0 })),
+    };
+  }
+
+  function getCadPolygonConfig(entity, center) {
+    const sides = Math.min(128, Math.max(3, Math.round(Number(entity.__cadPolygonSides) || entity.vertices?.length || 6)));
+    const mode = entity.__cadPolygonMode === "circumscribed" ? "circumscribed" : "inscribed";
+    const first = entity.vertices?.[0];
+    const derivedAngle = first
+      ? Math.atan2(first.y - center.y, first.x - center.x) - (mode === "circumscribed" ? Math.PI / sides : 0)
+      : 0;
+    const radiusFromVertex = first ? Math.hypot(first.x - center.x, first.y - center.y) : 10;
+    return {
+      sides,
+      mode,
+      radius: Math.max(0.001, Number(entity.__cadPolygonRadius) || (mode === "circumscribed" ? radiusFromVertex * Math.cos(Math.PI / sides) : radiusFromVertex)),
+      angle: derivedAngle,
+    };
+  }
+
   function updatePolygonDraftFromPoint(screenPoint) {
     const draft = state.cadDraft;
     const center = draft?.points?.[0];
@@ -3560,15 +3595,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (tool === "polygon") {
       const center = points[0];
       const config = getPolygonDraftConfig(draft);
-      return {
-        type: "LWPOLYLINE",
-        closed: true,
-        __cadShape: "polygon",
-        __cadPolygonSides: config.sides,
-        __cadPolygonRadius: config.radius,
-        __cadPolygonMode: config.mode,
-        vertices: polygonVertices(center, config).map((point) => ({ ...point, bulge: 0 })),
-      };
+      return createCadPolygonEntity(center, config);
     }
     if (tool === "circle") {
       const [center, edge] = points;
@@ -3681,6 +3708,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       return;
     }
     const isRectangle = selected.entity.__cadShape === "rectangle";
+    const isPolygon = selected.entity.__cadShape === "polygon";
     const isText = selected.entity.__cadShape === "text";
     ui.cadInspectorTitle.textContent = cadShapeLabel(selected.entity.__cadShape);
     ui.cadInspectorXInput.value = formatNumber(frame.center.x);
@@ -3688,14 +3716,22 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     ui.cadInspectorWidthInput.value = formatNumber(frame.width);
     ui.cadInspectorHeightInput.value = formatNumber(frame.height);
     ui.cadInspectorAngleInput.value = formatNumber((frame.angle * 180) / Math.PI);
-    ui.cadInspectorWidthField.classList.toggle("d-none", isText);
-    ui.cadInspectorHeightField.classList.toggle("d-none", isText);
+    ui.cadInspectorWidthField.classList.toggle("d-none", isText || isPolygon);
+    ui.cadInspectorHeightField.classList.toggle("d-none", isText || isPolygon);
     ui.cadInspectorRadiusField.classList.toggle("d-none", !isRectangle);
+    ui.cadInspectorPolygonFields.classList.toggle("d-none", !isPolygon);
     ui.cadInspectorTextField.classList.toggle("d-none", !isText);
     ui.cadInspectorTextFontField.classList.toggle("d-none", !isText);
     ui.cadInspectorTextSizeField.classList.toggle("d-none", !isText);
     if (isRectangle) {
       ui.cadInspectorRadiusInput.value = formatNumber(selected.entity.__cadCornerRadius || 0);
+    }
+    if (isPolygon) {
+      const polygon = getCadPolygonConfig(selected.entity, frame.center);
+      ui.cadInspectorPolygonRadiusInput.value = formatNumber(polygon.radius);
+      ui.cadInspectorPolygonSidesInput.value = String(polygon.sides);
+      ui.cadInspectorAngleInput.value = formatNumber((polygon.angle * 180) / Math.PI);
+      setCadInspectorPolygonMode(polygon.mode);
     }
     if (isText) {
       ui.cadInspectorTextInput.value = selected.entity.text || "";
@@ -3706,6 +3742,18 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       syncFontPicker(ui.cadInspectorTextFontSelect);
       ui.cadInspectorTextSizeInput.value = formatNumber(frame.height);
     }
+  }
+
+  function setCadInspectorPolygonMode(mode) {
+    const inscribed = mode !== "circumscribed";
+    ui.cadInspectorPolygonInscribedBtn.classList.toggle("is-active", inscribed);
+    ui.cadInspectorPolygonInscribedBtn.setAttribute("aria-pressed", String(inscribed));
+    ui.cadInspectorPolygonCircumscribedBtn.classList.toggle("is-active", !inscribed);
+    ui.cadInspectorPolygonCircumscribedBtn.setAttribute("aria-pressed", String(!inscribed));
+  }
+
+  function getCadInspectorPolygonMode() {
+    return ui.cadInspectorPolygonCircumscribedBtn.classList.contains("is-active") ? "circumscribed" : "inscribed";
   }
 
   async function applyCadInspectorChanges() {
@@ -3746,6 +3794,28 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
         requestedRadius,
         targetAngle
       );
+      state.selectionFrameAngles.set(context.selectedEntityKey, normalizeRadians(targetAngle));
+      rebuildLoopsFromEntities(context.selectionSignatures);
+      await applySelectionTransformAndRebuild(null, context);
+    } else if (selected.entity.__cadShape === "polygon") {
+      const radius = Number.parseFloat(ui.cadInspectorPolygonRadiusInput.value);
+      const sides = Number.parseInt(ui.cadInspectorPolygonSidesInput.value, 10);
+      if (!Number.isFinite(radius) || radius <= 0 || !Number.isFinite(sides) || sides < 3 || sides > 128) {
+        showToast("Enter a polygon radius and between 3 and 128 sides.", "warning");
+        return;
+      }
+      const replacement = createCadPolygonEntity(
+        { x: targetX, y: targetY },
+        { sides, radius, mode: getCadInspectorPolygonMode(), angle: targetAngle }
+      );
+      Object.assign(replacement, {
+        __treeId: selected.entity.__treeId,
+        __treeDocumentId: selected.entity.__treeDocumentId,
+        __treeDocumentName: selected.entity.__treeDocumentName,
+        __treeSource: selected.entity.__treeSource,
+        __treeHidden: selected.entity.__treeHidden,
+      });
+      state.entities[selected.index] = replacement;
       state.selectionFrameAngles.set(context.selectedEntityKey, normalizeRadians(targetAngle));
       rebuildLoopsFromEntities(context.selectionSignatures);
       await applySelectionTransformAndRebuild(null, context);
@@ -6682,6 +6752,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadInspectorDismissed = true;
     refreshCadInspector();
   });
+  ui.cadInspectorPolygonInscribedBtn?.addEventListener("click", () => setCadInspectorPolygonMode("inscribed"));
+  ui.cadInspectorPolygonCircumscribedBtn?.addEventListener("click", () => setCadInspectorPolygonMode("circumscribed"));
   enableFontPickers();
   ui.cadTextAddBtn.addEventListener("click", commitCadText);
   ui.cadTextCancelBtn.addEventListener("click", hideCadTextPanel);
