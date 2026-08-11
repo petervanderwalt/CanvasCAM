@@ -288,6 +288,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     trimHover: null,
     trimStroke: null,
     trimPointer: null,
+    trimBrushMode: false,
     trimming: false,
     cadTextPlacement: null,
     cadSnapEnabled: true,
@@ -4446,6 +4447,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     return finalizeTrimCandidate(findClosestTrimSegment(screenPoint, segments), segments);
   }
 
+  function isTrimBrushModifier(event) {
+    return Boolean(event?.ctrlKey || event?.metaKey);
+  }
+
   function trimEraserRadius() {
     // Keep the trim brush physically meaningful while retaining a usable screen target when zoomed out.
     return Math.max(1.5, 8 / Math.max(state.camera.zoom, 0.01));
@@ -4682,6 +4687,18 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (!stroke) {
       return;
     }
+    if (!stroke.brush) {
+      if (!stroke.didQueueSingle) {
+        const candidate = findClosestTrimSegment(screenPoint, stroke.segments);
+        if (candidate) {
+          queueTrimStrokeCandidate(stroke, candidate);
+        }
+        stroke.didQueueSingle = true;
+      }
+      stroke.lastPoint = screenPoint;
+      state.trimPointer = screenPoint;
+      return;
+    }
     const dx = screenPoint.x - stroke.lastPoint.x;
     const dy = screenPoint.y - stroke.lastPoint.y;
     const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 10));
@@ -4699,8 +4716,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.trimPointer = screenPoint;
   }
 
-  function beginTrimStroke(screenPoint) {
+  function beginTrimStroke(screenPoint, brush = false) {
     state.trimPointer = screenPoint;
+    state.trimBrushMode = brush;
     state.trimStroke = {
       startPoint: screenPoint,
       lastPoint: screenPoint,
@@ -4713,18 +4731,20 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       mutationFrame: null,
       mutated: false,
       trimmedCount: 0,
+      brush,
+      didQueueSingle: false,
     };
     state.trimHover = null;
     addTrimStrokeCandidate(screenPoint);
   }
 
-  function handleCadPointerDown(screenPoint) {
+  function handleCadPointerDown(screenPoint, options = {}) {
     if (state.cadTool === "trim") {
       if (state.trimming) {
         showToast("Finishing the previous trim stroke.", "warning", { duration: 1600 });
         return true;
       }
-      beginTrimStroke(screenPoint);
+      beginTrimStroke(screenPoint, Boolean(options.trimBrush));
       return true;
     }
     if (state.cadTool === "text") {
@@ -7255,7 +7275,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   canvas.addEventListener("mousedown", (event) => {
     const point = { x: event.offsetX, y: event.offsetY };
     if (event.button === 0 && state.cadTool === "trim") {
-      handleCadPointerDown(point);
+      handleCadPointerDown(point, { trimBrush: isTrimBrushModifier(event) });
       updateCanvasCursor(point);
       return;
     }
@@ -7433,6 +7453,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (state.cadTool === "trim") {
       state.trimHover = findTrimCandidate(point);
       state.trimPointer = point;
+      state.trimBrushMode = isTrimBrushModifier(event);
       state.cadSnapHover = null;
       updateCanvasCursor(point);
       requestDraw();
@@ -7510,6 +7531,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       }
       flushTrimStroke(stroke);
       state.trimStroke = null;
+      state.trimBrushMode = isTrimBrushModifier(event);
       void finishTrimStroke(stroke);
       updateCanvasCursor(point);
       requestDraw();
@@ -7568,6 +7590,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.hoveredTabCandidate = null;
     state.hoveredLoopId = null;
     state.trimPointer = null;
+    state.trimBrushMode = false;
     state.dragPan = null;
     if (state.draggingTab?.changed) {
       pushHistorySnapshot(state.draggingTab.historyBefore);

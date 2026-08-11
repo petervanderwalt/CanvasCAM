@@ -228,7 +228,7 @@ function drawTrimHover(ctx, state, worldToScreen) {
 }
 
 function drawTrimEraser(ctx, state) {
-  if (state.cadTool !== "trim" || !state.trimPointer) {
+  if (state.cadTool !== "trim" || !state.trimPointer || !state.trimBrushMode) {
     return;
   }
   const radius = Math.max(8, state.camera.zoom * 1.5);
