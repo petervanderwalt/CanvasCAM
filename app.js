@@ -8,7 +8,7 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpat
 import * as Paths from "./src/paths.js?v=20260810-text1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260810-expand-vectors1";
+import * as CanvasView from "./src/canvas-view.js?v=20260811-guide-source1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
@@ -267,6 +267,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     cadEditMode: false,
     cadTool: null,
     cadDraft: null,
+    guideSourceHover: null,
     cadTextPlacement: null,
     cadSnapEnabled: true,
     gridVisible: true,
@@ -3790,6 +3791,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadTool = state.cadTool === nextTool ? null : nextTool;
     state.cadEditMode = false;
     state.cadDraft = null;
+    state.guideSourceHover = null;
     hideGuideDistancePill();
     hideCadTextPanel();
     state.transformTool = null;
@@ -3809,6 +3811,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadEditMode = false;
     state.cadTool = null;
     state.cadDraft = null;
+    state.guideSourceHover = null;
     hideGuideDistancePill();
     hideCadTextPanel();
     state.transformTool = null;
@@ -6312,6 +6315,15 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       updateCadDraft(point);
       updateCanvasCursor(point);
       return;
+    }
+    if (state.cadTool === "guide") {
+      state.guideSourceHover = guideSourceAtScreenPoint(point);
+      updateCanvasCursor(point);
+      requestDraw();
+      return;
+    }
+    if (state.guideSourceHover) {
+      state.guideSourceHover = null;
     }
     if (state.transformTool === "move") {
       state.moveSnapPoint = snapCadPoint(point);

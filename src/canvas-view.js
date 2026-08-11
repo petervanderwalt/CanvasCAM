@@ -19,6 +19,7 @@ export function drawScene({
   drawOriginGuides(ctx, rect, state, worldToScreen, formatNumber);
 
   drawConstructionGuides(ctx, rect, state, worldToScreen);
+  drawGuideSourceHover(ctx, rect, state, worldToScreen);
 
   for (const loop of state.loops) {
     if (loop.sourceEntityIndexes?.length && loop.sourceEntityIndexes.every((index) => state.entities[index]?.__treeHidden)) {
@@ -161,6 +162,42 @@ function drawConstructionGuides(ctx, rect, state, worldToScreen) {
     ctx.lineTo(a.x + (dx / length) * span, a.y + (dy / length) * span);
     ctx.stroke();
   }
+  ctx.restore();
+}
+
+function drawGuideSourceHover(ctx, rect, state, worldToScreen) {
+  const source = state.cadTool === "guide" && !state.cadDraft ? state.guideSourceHover : null;
+  if (!source) {
+    return;
+  }
+  const anchor = worldToScreen(source.point);
+  const directionScreen = worldToScreen({
+    x: source.point.x + source.direction.x,
+    y: source.point.y + source.direction.y,
+  });
+  const dx = directionScreen.x - anchor.x;
+  const dy = directionScreen.y - anchor.y;
+  const length = Math.hypot(dx, dy) || 1;
+  const span = Math.max(rect.width, rect.height) * 2;
+
+  ctx.save();
+  ctx.strokeStyle = "#e8590c";
+  ctx.lineWidth = 2.4;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.moveTo(anchor.x - (dx / length) * span, anchor.y - (dy / length) * span);
+  ctx.lineTo(anchor.x + (dx / length) * span, anchor.y + (dy / length) * span);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#fffdf4";
+  ctx.beginPath();
+  ctx.arc(anchor.x, anchor.y, 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#9c3a0b";
+  ctx.font = "700 11px Trebuchet MS, sans-serif";
+  ctx.textBaseline = "bottom";
+  ctx.fillText(`Guide from ${source.label}`, anchor.x + 8, anchor.y - 7);
   ctx.restore();
 }
 
