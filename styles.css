@@ -282,7 +282,9 @@ body {
 .ribbon-panels {
   grid-column: 1 / -1;
   min-width: 0;
-  overflow-x: auto;
+  position: relative;
+  z-index: 20;
+  overflow: visible;
 }
 
 .ribbon-panel {
