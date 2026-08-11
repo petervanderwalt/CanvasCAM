@@ -52,6 +52,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     redoBtn: document.getElementById("redoBtn"),
     workerBadge: document.getElementById("workerBadge"),
     workerPercent: document.getElementById("workerPercent"),
+    guideDistancePill: document.getElementById("guideDistancePill"),
+    guideDistanceInput: document.getElementById("guideDistanceInput"),
     statusText: document.getElementById("statusText"),
     toastContainer: document.getElementById("toastContainer"),
     canvasWrap: document.getElementById("canvasWrap"),
@@ -284,6 +286,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     booleanOperation: "union",
     geometryTransform: null,
     transformingGeometry: false,
+    moveSnapPoint: null,
     transformSizeLastEdited: "width",
     transformAspectLocked: true,
     selectionFrameAngles: new Map(),
@@ -399,14 +402,6 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       }
       for (const index of loop.sourceEntityIndexes || []) {
         indexes.add(index);
-      }
-    }
-    for (const guide of state.entities.filter((entity) => entity.type === "GUIDE")) {
-      const guideHit = nearestPointOnInfiniteLine(world, guide.start, guide.end);
-      const screen = worldToScreen(guideHit);
-      const distance = Math.hypot(screen.x - screenPoint.x, screen.y - screenPoint.y);
-      if (distance <= snapRadius && (!closest || distance < closest.distance)) {
-        closest = { point: guideHit, distance };
       }
     }
     return Array.from(indexes).sort((a, b) => a - b);
@@ -836,6 +831,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       angleDeg: normalizeRadians(frame.angle) * 180 / Math.PI,
       handles,
       rotateHandles,
+      moveSnapTarget: state.transformTool === "move" && state.moveSnapPoint
+        ? worldToScreen(state.moveSnapPoint)
+        : null,
+      moveReference: state.geometryTransform?.kind === "move" && state.geometryTransform.currentWorld
+        ? worldToScreen(state.geometryTransform.currentWorld)
+        : null,
     };
   }
 
@@ -2928,6 +2929,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (!state.cadSnapEnabled) {
       return world;
     }
+    const guideSnap = findGuideSnap(world, 10 / Math.max(state.camera.zoom, 1e-6));
+    if (guideSnap) {
+      return guideSnap;
+    }
     const grid = getGridSpacing();
     return {
       x: normalizeGridCoordinate(Math.round(world.x / grid) * grid, grid),
@@ -2948,6 +2953,263 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared;
     return { x: start.x + dx * t, y: start.y + dy * t };
+  }
+
+  function lineIntersection(startA, endA, startB, endB) {
+    const ax = endA.x - startA.x;
+    const ay = endA.y - startA.y;
+    const bx = endB.x - startB.x;
+    const by = endB.y - startB.y;
+    const determinant = ax * by - ay * bx;
+    if (Math.abs(determinant) <= 1e-9) {
+      return null;
+    }
+    const dx = startB.x - startA.x;
+    const dy = startB.y - startA.y;
+    const t = (dx * by - dy * bx) / determinant;
+    return { x: startA.x + ax * t, y: startA.y + ay * t };
+  }
+
+  function constructionSnapLines() {
+    const guides = [
+      { start: { x: 0, y: 0 }, end: { x: 1, y: 0 } },
+      { start: { x: 0, y: 0 }, end: { x: 0, y: 1 } },
+    ];
+    for (const entity of state.entities) {
+      if (entity.type !== "GUIDE") {
+        continue;
+      }
+      if (Math.hypot(entity.end.x - entity.start.x, entity.end.y - entity.start.y) > 1e-9) {
+        guides.push({ start: entity.start, end: entity.end });
+      }
+    }
+    return guides;
+  }
+
+  function findGuideSnap(world, snapRadius) {
+    const lines = constructionSnapLines();
+    let best = null;
+    const consider = (point) => {
+      const distance = Math.hypot(point.x - world.x, point.y - world.y);
+      if (distance <= snapRadius && (!best || distance < best.distance)) {
+        best = { point, distance };
+      }
+    };
+
+    for (const line of lines) {
+      consider(nearestPointOnInfiniteLine(world, line.start, line.end));
+    }
+    for (let left = 0; left < lines.length; left += 1) {
+      for (let right = left + 1; right < lines.length; right += 1) {
+        const intersection = lineIntersection(lines[left].start, lines[left].end, lines[right].start, lines[right].end);
+        if (intersection) {
+          consider(intersection);
+        }
+      }
+    }
+    return best?.point || null;
+  }
+
+  function normalizeVector(vector) {
+    const length = Math.hypot(vector.x, vector.y);
+    return length > 1e-9 ? { x: vector.x / length, y: vector.y / length } : null;
+  }
+
+  function pointOnSegment(point, start, end) {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared <= 1e-9) {
+      return { x: start.x, y: start.y };
+    }
+    const t = clamp(((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared, 0, 1);
+    return { x: start.x + dx * t, y: start.y + dy * t };
+  }
+
+  function guideSourceAtScreenPoint(screenPoint) {
+    const world = screenToWorld(screenPoint);
+    const hitRadius = 12;
+    const candidates = [];
+    const addCandidate = (point, direction, label) => {
+      const unitDirection = normalizeVector(direction);
+      if (!unitDirection) {
+        return;
+      }
+      const screen = worldToScreen(point);
+      const distance = Math.hypot(screen.x - screenPoint.x, screen.y - screenPoint.y);
+      if (distance <= hitRadius) {
+        candidates.push({ point, direction: unitDirection, label, distance });
+      }
+    };
+
+    // The workspace axes behave like SketchUp's permanent reference edges.
+    addCandidate({ x: 0, y: world.y }, { x: 0, y: 1 }, "Y axis");
+    addCandidate({ x: world.x, y: 0 }, { x: 1, y: 0 }, "X axis");
+
+    for (const guide of state.entities.filter((entity) => entity.type === "GUIDE")) {
+      const point = nearestPointOnInfiniteLine(world, guide.start, guide.end);
+      addCandidate(point, {
+        x: guide.end.x - guide.start.x,
+        y: guide.end.y - guide.start.y,
+      }, "Guide");
+    }
+
+    for (const loop of state.loops) {
+      const points = loop.points || [];
+      for (let index = 0; index < points.length - 1; index += 1) {
+        const start = points[index];
+        const end = points[index + 1];
+        const point = pointOnSegment(world, start, end);
+        addCandidate(point, { x: end.x - start.x, y: end.y - start.y }, "Edge");
+      }
+    }
+
+    candidates.sort((left, right) => left.distance - right.distance);
+    return candidates[0] || null;
+  }
+
+  function guideSnapTargets() {
+    const targets = [{ point: { x: 0, y: 0 }, label: "origin" }];
+    for (const entity of state.entities) {
+      if (entity.type === "CIRCLE" || entity.type === "ARC") {
+        targets.push({ point: { x: entity.cx, y: entity.cy }, label: "center" });
+      }
+      if (entity.type === "LINE") {
+        targets.push({ point: { x: entity.x1, y: entity.y1 }, label: "endpoint" });
+        targets.push({ point: { x: entity.x2, y: entity.y2 }, label: "endpoint" });
+      }
+      if (entity.type === "LWPOLYLINE") {
+        const vertices = entity.vertices || [];
+        for (const vertex of vertices) {
+          targets.push({ point: { x: vertex.x, y: vertex.y }, label: "vertex" });
+        }
+        const segmentCount = entity.closed ? vertices.length : Math.max(0, vertices.length - 1);
+        for (let index = 0; index < segmentCount; index += 1) {
+          const start = vertices[index];
+          const end = vertices[(index + 1) % vertices.length];
+          targets.push({
+            point: { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 },
+            label: "midpoint",
+          });
+        }
+      }
+    }
+    for (const loop of state.loops) {
+      if (!loop.bounds) {
+        continue;
+      }
+      targets.push({
+        point: {
+          x: (loop.bounds.minX + loop.bounds.maxX) / 2,
+          y: (loop.bounds.minY + loop.bounds.maxY) / 2,
+        },
+        label: "center",
+      });
+    }
+    return targets;
+  }
+
+  function updateGuideDraft(screenPoint) {
+    const draft = state.cadDraft;
+    const guide = draft?.guide;
+    if (!guide) {
+      return;
+    }
+    const world = screenToWorld(screenPoint);
+    const normal = { x: -guide.direction.y, y: guide.direction.x };
+    let offset = (world.x - guide.source.x) * normal.x + (world.y - guide.source.y) * normal.y;
+    let snapLabel = "";
+    const snapDistance = 10 / Math.max(state.camera.zoom, 1e-6);
+
+    if (state.cadSnapEnabled) {
+      const grid = getGridSpacing();
+      offset = normalizeGridCoordinate(Math.round(offset / grid) * grid, grid);
+      snapLabel = "grid";
+    }
+
+    let closestTarget = null;
+    for (const target of guideSnapTargets()) {
+      const targetOffset = (target.point.x - guide.source.x) * normal.x + (target.point.y - guide.source.y) * normal.y;
+      const distance = Math.abs(targetOffset - offset);
+      if (distance <= snapDistance && (!closestTarget || distance < closestTarget.distance)) {
+        closestTarget = { offset: targetOffset, label: target.label, distance };
+      }
+    }
+    if (closestTarget) {
+      offset = closestTarget.offset;
+      snapLabel = closestTarget.label;
+    }
+
+    setGuideDraftOffset(offset, snapLabel);
+  }
+
+  function setGuideDraftOffset(offset, snapLabel = "") {
+    const draft = state.cadDraft;
+    const guide = draft?.guide;
+    if (!guide) {
+      return;
+    }
+    const normal = { x: -guide.direction.y, y: guide.direction.x };
+    const anchor = {
+      x: guide.source.x + normal.x * offset,
+      y: guide.source.y + normal.y * offset,
+    };
+    const span = 1;
+    draft.points = [
+      { x: anchor.x - guide.direction.x * span, y: anchor.y - guide.direction.y * span },
+      { x: anchor.x + guide.direction.x * span, y: anchor.y + guide.direction.y * span },
+    ];
+    draft.preview = anchor;
+    guide.offset = offset;
+    guide.anchor = anchor;
+    guide.snapLabel = snapLabel;
+    guide.hasMoved = guide.hasMoved || Math.abs(offset) > 1e-6;
+    renderGuideDistancePill();
+  }
+
+  function renderGuideDistancePill() {
+    const guide = state.cadDraft?.guide;
+    const pill = ui.guideDistancePill;
+    if (!guide || !pill) {
+      pill?.classList.add("d-none");
+      return;
+    }
+    const source = worldToScreen(guide.source);
+    const anchor = worldToScreen(guide.anchor);
+    const rect = canvas.getBoundingClientRect();
+    pill.classList.remove("d-none");
+    pill.style.left = `${Math.round(rect.left + (source.x + anchor.x) / 2 + 12)}px`;
+    pill.style.top = `${Math.round(rect.top + (source.y + anchor.y) / 2 - 14)}px`;
+    ui.guideDistanceInput.value = String(Number(Math.abs(guide.offset || 0).toFixed(3)));
+  }
+
+  function hideGuideDistancePill() {
+    ui.guideDistancePill?.classList.add("d-none");
+  }
+
+  function beginGuideDrag(screenPoint) {
+    const source = guideSourceAtScreenPoint(screenPoint);
+    if (!source) {
+      showToast("Click an edge, guide, or axis to start a guide.", "warning", { duration: 2200 });
+      return true;
+    }
+    state.cadDraft = {
+      tool: "guide",
+      points: [],
+      preview: source.point,
+      guide: {
+        source: source.point,
+        direction: source.direction,
+        sourceLabel: source.label,
+        offset: 0,
+        anchor: source.point,
+        snapLabel: "",
+        hasMoved: false,
+      },
+    };
+    setGuideDraftOffset(0);
+    requestDraw();
+    return true;
   }
 
   function createCadRectangleEntity(center, width, height, radius = 0, angleRad = 0) {
@@ -3293,6 +3555,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       selectEntityIndex(index);
     }
     state.cadDraft = null;
+    hideGuideDistancePill();
     pushHistorySnapshot(historyBefore);
     refreshSelectionUi();
     refreshToolpathUi();
@@ -3480,6 +3743,18 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       showCadTextPanel(screenPoint);
       return true;
     }
+    if (state.cadTool === "guide") {
+      if (state.cadDraft?.guide) {
+        updateGuideDraft(screenPoint);
+        if (state.cadDraft.guide.hasMoved) {
+          commitCadDraft();
+        } else {
+          showToast("Move the guide away from its source before placing it.", "warning", { duration: 1800 });
+        }
+        return true;
+      }
+      return beginGuideDrag(screenPoint);
+    }
     const snapped = snapCadPoint(screenPoint);
     if (!state.cadDraft) {
       state.cadDraft = { tool: state.cadTool, points: [snapped], preview: snapped };
@@ -3502,6 +3777,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (!state.cadDraft) {
       return;
     }
+    if (state.cadDraft.tool === "guide") {
+      updateGuideDraft(screenPoint);
+      requestDraw();
+      return;
+    }
     state.cadDraft.preview = snapCadPoint(screenPoint);
     requestDraw();
   }
@@ -3510,6 +3790,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadTool = state.cadTool === nextTool ? null : nextTool;
     state.cadEditMode = false;
     state.cadDraft = null;
+    hideGuideDistancePill();
     hideCadTextPanel();
     state.transformTool = null;
     for (const button of ui.cadToolButtons) {
@@ -3528,6 +3809,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadEditMode = false;
     state.cadTool = null;
     state.cadDraft = null;
+    hideGuideDistancePill();
     hideCadTextPanel();
     state.transformTool = null;
     state.addTabsMode = false;
@@ -3643,7 +3925,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.marqueePreviewLoopIds.clear();
     clearToolpathEditing();
     clearDraftToolpath();
-    const worldPoint = screenToWorld(screenPoint);
+    const worldPoint = kind === "move" ? snapCadPoint(screenPoint) : screenToWorld(screenPoint);
     state.geometryTransform = {
       kind,
       hit,
@@ -3678,7 +3960,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (!transformState) {
       return;
     }
-    const worldPoint = screenToWorld(screenPoint);
+    const worldPoint = transformState.kind === "move" ? snapCadPoint(screenPoint) : screenToWorld(screenPoint);
+    transformState.currentWorld = worldPoint;
     let matrix = createMatrix();
     if (transformState.kind === "move") {
       transformState.resultAngle = transformState.startFrameAngle;
@@ -5545,6 +5828,32 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   enableFontPickers();
   ui.cadTextAddBtn.addEventListener("click", commitCadText);
   ui.cadTextCancelBtn.addEventListener("click", hideCadTextPanel);
+  ui.guideDistanceInput?.addEventListener("input", () => {
+    const guide = state.cadDraft?.guide;
+    const value = Number.parseFloat(ui.guideDistanceInput.value);
+    if (!guide || !Number.isFinite(value)) {
+      return;
+    }
+    const sign = value < 0 ? -1 : guide.offset < 0 ? -1 : 1;
+    setGuideDraftOffset(sign * Math.abs(value), "typed");
+    requestDraw();
+  });
+  ui.guideDistanceInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && state.cadDraft?.guide?.hasMoved) {
+      event.preventDefault();
+      event.stopPropagation();
+      commitCadDraft();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      state.cadDraft = null;
+      hideGuideDistancePill();
+      setCadTool(null);
+      requestDraw();
+    }
+  });
   ui.cadTextFontSelect.addEventListener("change", updateCadTextFontPreview);
   ui.cadInspectorTextFontSelect.addEventListener("change", () => syncFontPicker(ui.cadInspectorTextFontSelect));
   updateCadTextFontPreview();
@@ -5941,6 +6250,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       event.preventDefault();
       if (state.cadDraft) {
         state.cadDraft = null;
+        hideGuideDistancePill();
         requestDraw();
       } else {
         setCadTool(null);
@@ -6002,6 +6312,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       updateCadDraft(point);
       updateCanvasCursor(point);
       return;
+    }
+    if (state.transformTool === "move") {
+      state.moveSnapPoint = snapCadPoint(point);
+      requestDraw();
+    } else if (state.moveSnapPoint) {
+      state.moveSnapPoint = null;
     }
     if (state.dragPan) {
       const rect = canvas.getBoundingClientRect();

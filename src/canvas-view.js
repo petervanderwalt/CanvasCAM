@@ -165,6 +165,56 @@ function drawConstructionGuides(ctx, rect, state, worldToScreen) {
 }
 
 function drawCadDraft(ctx, draft, worldToScreen) {
+  if (draft.tool === "guide" && draft.guide) {
+    const guide = draft.guide;
+    const anchor = worldToScreen(guide.anchor);
+    const source = worldToScreen(guide.source);
+    const directionPoint = worldToScreen({
+      x: guide.anchor.x + guide.direction.x,
+      y: guide.anchor.y + guide.direction.y,
+    });
+    const dx = directionPoint.x - anchor.x;
+    const dy = directionPoint.y - anchor.y;
+    const length = Math.hypot(dx, dy) || 1;
+    const span = Math.max(ctx.canvas.width, ctx.canvas.height) * 2;
+
+    ctx.save();
+    ctx.strokeStyle = "rgba(0, 166, 190, 0.95)";
+    ctx.lineWidth = 1.7;
+    ctx.setLineDash([7, 5]);
+    ctx.beginPath();
+    ctx.moveTo(anchor.x - (dx / length) * span, anchor.y - (dy / length) * span);
+    ctx.lineTo(anchor.x + (dx / length) * span, anchor.y + (dy / length) * span);
+    ctx.stroke();
+
+    ctx.setLineDash([]);
+    ctx.strokeStyle = "#e8590c";
+    ctx.lineWidth = 1.35;
+    ctx.beginPath();
+    ctx.moveTo(source.x, source.y);
+    ctx.lineTo(anchor.x, anchor.y);
+    ctx.stroke();
+    ctx.fillStyle = "#fffdf4";
+    ctx.strokeStyle = "#e8590c";
+    ctx.lineWidth = 1.3;
+    ctx.fillRect(source.x - 4, source.y - 4, 8, 8);
+    ctx.strokeRect(source.x - 4, source.y - 4, 8, 8);
+
+    const offset = Math.abs(guide.offset || 0);
+    const suffix = guide.snapLabel ? ` · ${guide.snapLabel}` : "";
+    ctx.font = "700 12px Trebuchet MS, sans-serif";
+    ctx.textBaseline = "bottom";
+    const label = `${Number(offset.toFixed(3))} mm${suffix}`;
+    const labelX = (source.x + anchor.x) / 2 + 8;
+    const labelY = (source.y + anchor.y) / 2 - 7;
+    const width = ctx.measureText(label).width;
+    ctx.fillStyle = "rgba(255, 253, 244, 0.94)";
+    ctx.fillRect(labelX - 4, labelY - 15, width + 8, 19);
+    ctx.fillStyle = "#9c3a0b";
+    ctx.fillText(label, labelX, labelY);
+    ctx.restore();
+    return;
+  }
   const points = [...draft.points];
   if (draft.preview) {
     points.push(draft.preview);
@@ -501,6 +551,34 @@ function drawTransformOverlay(ctx, overlay) {
       ctx.stroke();
       drawRotateGlyph(ctx, handle.x, handle.y);
     }
+  }
+
+  if (overlay.mode === "move" && overlay.moveSnapTarget) {
+    const target = overlay.moveSnapTarget;
+    ctx.strokeStyle = "#e8590c";
+    ctx.fillStyle = "rgba(255, 253, 244, 0.92)";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(target.x - 8, target.y);
+    ctx.lineTo(target.x + 8, target.y);
+    ctx.moveTo(target.x, target.y - 8);
+    ctx.lineTo(target.x, target.y + 8);
+    ctx.stroke();
+  }
+
+  if (overlay.moveReference) {
+    const reference = overlay.moveReference;
+    ctx.fillStyle = "#2563eb";
+    ctx.strokeStyle = "#fffdf4";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(reference.x, reference.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
   }
   ctx.restore();
 }

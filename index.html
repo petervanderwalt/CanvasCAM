@@ -16,7 +16,7 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260811-design-ribbon4">
+  <link rel="stylesheet" href="styles.css?v=20260811-guide2">
 </head>
 <body>
   <div class="workspace-shell">
@@ -706,6 +706,11 @@
     <div class="worker-spinner spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
     <span id="workerPercent" class="worker-percent">0%</span>
   </div>
+  <label id="guideDistancePill" class="guide-distance-pill d-none">
+    <span>Offset</span>
+    <input id="guideDistanceInput" type="number" step="0.001" inputmode="decimal" aria-label="Guide offset distance">
+    <strong>mm</strong>
+  </label>
   <input id="fileInput" type="file" accept=".dxf,.svg,image/svg+xml,image/png,image/jpeg,image/webp,image/bmp" hidden>
 
   <script src="clipperjs/clipper_unminified.js"></script>
@@ -714,6 +719,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260810-font-library-e-z1"></script>
+  <script type="module" src="app.js?v=20260811-guide3"></script>
 </body>
 </html>
