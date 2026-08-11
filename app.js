@@ -8,7 +8,7 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpat
 import * as Paths from "./src/paths.js?v=20260810-text1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260811-trim-eraser1";
+import * as CanvasView from "./src/canvas-view.js?v=20260811-trim-eraser2";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
@@ -4409,11 +4409,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     return { startT: sorted[sorted.length - 2], endT: sorted[sorted.length - 1] };
   }
 
-  function findTrimCandidate(screenPoint) {
+  function findClosestTrimSegment(screenPoint, segments) {
     const world = screenToWorld(screenPoint);
     const hitRadius = trimEraserRadius();
     let closest = null;
-    const segments = trimEditableSegments();
     for (const segment of segments) {
       const point = nearestPointOnTrimSegment(world, segment);
       const distance = Math.hypot(point.x - world.x, point.y - world.y);
@@ -4422,6 +4421,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       }
       closest = { ...segment, point, distance };
     }
+    return closest;
+  }
+
+  function finalizeTrimCandidate(closest, segments) {
     if (!closest) {
       return null;
     }
@@ -4435,6 +4438,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       trimStart: segmentPointAt(closest, range.startT),
       trimEnd: segmentPointAt(closest, range.endT),
     };
+  }
+
+  function findTrimCandidate(screenPoint) {
+    const segments = trimEditableSegments();
+    return finalizeTrimCandidate(findClosestTrimSegment(screenPoint, segments), segments);
   }
 
   function trimEraserRadius() {
@@ -4694,16 +4702,15 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     const dx = screenPoint.x - stroke.lastPoint.x;
     const dy = screenPoint.y - stroke.lastPoint.y;
-    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 5));
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 10));
     for (let step = 1; step <= steps; step += 1) {
       const probe = {
         x: stroke.lastPoint.x + (dx * step) / steps,
         y: stroke.lastPoint.y + (dy * step) / steps,
       };
-      const candidate = findTrimCandidate(probe);
+      const candidate = findClosestTrimSegment(probe, stroke.segments);
       if (candidate) {
         stroke.candidates.set(`${candidate.entityIndex}:${candidate.segmentIndex}`, candidate);
-        state.trimHover = candidate;
       }
     }
     stroke.moved ||= Math.hypot(screenPoint.x - stroke.startPoint.x, screenPoint.y - stroke.startPoint.y) > 4;
@@ -4718,7 +4725,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       lastPoint: screenPoint,
       moved: false,
       candidates: new Map(),
+      segments: trimEditableSegments(),
     };
+    state.trimHover = null;
     addTrimStrokeCandidate(screenPoint);
   }
 
@@ -7389,6 +7398,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const point = { x: event.offsetX, y: event.offsetY };
     if (state.trimStroke) {
       addTrimStrokeCandidate(point);
+      state.trimHover = null;
       state.cadSnapHover = null;
       updateCanvasCursor(point);
       requestDraw();
@@ -7503,7 +7513,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const point = { x: event.offsetX, y: event.offsetY };
     if (state.trimStroke) {
       addTrimStrokeCandidate(point);
-      const candidates = [...state.trimStroke.candidates.values()];
+      const candidates = [...state.trimStroke.candidates.values()]
+        .map((candidate) => finalizeTrimCandidate(candidate, state.trimStroke.segments))
+        .filter(Boolean);
       state.trimStroke = null;
       if (!candidates.length) {
         showToast("Hover a vector edge to trim it.", "warning", { duration: 1800 });

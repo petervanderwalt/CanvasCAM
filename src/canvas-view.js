@@ -221,18 +221,10 @@ function drawCadSnapMarker(ctx, state, worldToScreen) {
 
 function drawTrimHover(ctx, state, worldToScreen) {
   const candidate = state.cadTool === "trim" ? state.trimHover : null;
-  const strokeCandidates = state.cadTool === "trim" && state.trimStroke
-    ? [...state.trimStroke.candidates.values()]
-    : [];
-  if (!candidate && !strokeCandidates.length) {
+  if (!candidate?.trimStart || !candidate?.trimEnd) {
     return;
   }
-  for (const strokeCandidate of strokeCandidates) {
-    drawTrimCandidate(ctx, strokeCandidate, worldToScreen, "#f97316", 3);
-  }
-  if (candidate) {
-    drawTrimCandidate(ctx, candidate, worldToScreen, "#dc2626", 4, true);
-  }
+  drawTrimCandidate(ctx, candidate, worldToScreen, "#dc2626", 4, true);
 }
 
 function drawTrimEraser(ctx, state) {
