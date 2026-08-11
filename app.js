@@ -8,7 +8,7 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpat
 import * as Paths from "./src/paths.js?v=20260810-text1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260811-polygon1";
+import * as CanvasView from "./src/canvas-view.js?v=20260811-trim-eraser1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
@@ -287,6 +287,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     cadSnapHover: null,
     trimHover: null,
     trimStroke: null,
+    trimPointer: null,
     trimming: false,
     cadTextPlacement: null,
     cadSnapEnabled: true,
@@ -4410,7 +4411,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
   function findTrimCandidate(screenPoint) {
     const world = screenToWorld(screenPoint);
-    const hitRadius = 12 / Math.max(state.camera.zoom, 0.01);
+    const hitRadius = trimEraserRadius();
     let closest = null;
     const segments = trimEditableSegments();
     for (const segment of segments) {
@@ -4434,6 +4435,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       trimStart: segmentPointAt(closest, range.startT),
       trimEnd: segmentPointAt(closest, range.endT),
     };
+  }
+
+  function trimEraserRadius() {
+    // Keep the trim brush physically meaningful while retaining a usable screen target when zoomed out.
+    return Math.max(1.5, 8 / Math.max(state.camera.zoom, 0.01));
   }
 
   function uniqueTrimPoints(points) {
@@ -4702,9 +4708,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     stroke.moved ||= Math.hypot(screenPoint.x - stroke.startPoint.x, screenPoint.y - stroke.startPoint.y) > 4;
     stroke.lastPoint = screenPoint;
+    state.trimPointer = screenPoint;
   }
 
   function beginTrimStroke(screenPoint) {
+    state.trimPointer = screenPoint;
     state.trimStroke = {
       startPoint: screenPoint,
       lastPoint: screenPoint,
@@ -4794,6 +4802,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadSnapHover = null;
     state.trimHover = null;
     state.trimStroke = null;
+    state.trimPointer = null;
     hideGuideDistancePill();
     hidePolygonDraftPanel();
     hideCadTextPanel();
@@ -4818,6 +4827,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadSnapHover = null;
     state.trimHover = null;
     state.trimStroke = null;
+    state.trimPointer = null;
     hideGuideDistancePill();
     hidePolygonDraftPanel();
     hideCadTextPanel();
@@ -4841,6 +4851,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadSnapHover = null;
     state.trimHover = null;
     state.trimStroke = null;
+    state.trimPointer = null;
     hideGuideDistancePill();
     hidePolygonDraftPanel();
     hideCadTextPanel();
@@ -7420,6 +7431,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     if (state.cadTool === "trim") {
       state.trimHover = findTrimCandidate(point);
+      state.trimPointer = point;
       state.cadSnapHover = null;
       updateCanvasCursor(point);
       requestDraw();
@@ -7547,6 +7559,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.hoveredTab = null;
     state.hoveredTabCandidate = null;
     state.hoveredLoopId = null;
+    state.trimPointer = null;
     state.dragPan = null;
     if (state.draggingTab?.changed) {
       pushHistorySnapshot(state.draggingTab.historyBefore);

@@ -55,6 +55,8 @@ export function drawScene({
     ctx.restore();
   }
 
+  drawTrimEraser(ctx, state);
+
   if (state.booleanPreviewContours?.length) {
     ctx.save();
     ctx.fillStyle = "rgba(255, 126, 74, 0.24)";
@@ -231,6 +233,22 @@ function drawTrimHover(ctx, state, worldToScreen) {
   if (candidate) {
     drawTrimCandidate(ctx, candidate, worldToScreen, "#dc2626", 4, true);
   }
+}
+
+function drawTrimEraser(ctx, state) {
+  if (state.cadTool !== "trim" || !state.trimPointer) {
+    return;
+  }
+  const radius = Math.max(8, state.camera.zoom * 1.5);
+  const size = radius * 2;
+  ctx.save();
+  ctx.fillStyle = "rgba(220, 38, 38, 0.10)";
+  ctx.strokeStyle = "#dc2626";
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash([4, 3]);
+  ctx.fillRect(state.trimPointer.x - radius, state.trimPointer.y - radius, size, size);
+  ctx.strokeRect(state.trimPointer.x - radius, state.trimPointer.y - radius, size, size);
+  ctx.restore();
 }
 
 function drawTrimCandidate(ctx, candidate, worldToScreen, color, lineWidth, drawEnds = false) {
