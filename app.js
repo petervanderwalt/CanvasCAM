@@ -8,7 +8,7 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpat
 import * as Paths from "./src/paths.js?v=20260810-text1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260811-trim-eraser2";
+import * as CanvasView from "./src/canvas-view.js?v=20260811-three-point-arc1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
@@ -3310,7 +3310,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const draft = state.cadDraft;
     const start = draft?.points?.[0];
     const end = draft?.preview;
-    if (!draft || !start || !end || !["circle", "rectangle", "line", "polyline"].includes(draft.tool)) {
+    if (!draft || !start || !end || !["circle", "rectangle", "line", "polyline", "arc"].includes(draft.tool)) {
       return;
     }
     const startScreen = worldToScreen(start);
@@ -3326,20 +3326,46 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       });
       return;
     }
-    if (draft.tool === "line" || draft.tool === "polyline") {
+    if (draft.tool === "line" || draft.tool === "polyline" || (draft.tool === "arc" && draft.points.length === 1)) {
       const anchor = draft.tool === "polyline" ? draft.points[draft.points.length - 1] : start;
       const anchorScreen = worldToScreen(anchor);
       const length = Math.hypot(end.x - anchor.x, end.y - anchor.y);
       const angle = Math.atan2(end.y - anchor.y, end.x - anchor.x) * 180 / Math.PI;
       renderCadDimensionPill({
         x: rect.left + (anchorScreen.x + endScreen.x) / 2 + 12,
-        y: rect.top + (anchorScreen.y + endScreen.y) / 2 - 14,
+        y: rect.top + (anchorScreen.y + endScreen.y) / 2 - 38,
         primaryLabel: "Length",
         primaryValue: length,
         primaryAriaLabel: "Segment length",
         secondaryLabel: "Angle",
         secondaryValue: angle,
         secondaryAriaLabel: "Segment angle",
+        secondaryUnit: "deg",
+      });
+      return;
+    }
+    if (draft.tool === "arc") {
+      const chordEnd = draft.points[1];
+      const arc = draft.arcPreview || arcThroughThreePoints(start, chordEnd, end);
+      if (!arc) {
+        return;
+      }
+      const chordMidpoint = {
+        x: (start.x + chordEnd.x) / 2,
+        y: (start.y + chordEnd.y) / 2,
+      };
+      const midpointScreen = worldToScreen(chordMidpoint);
+      const bulge = Math.abs((end.x - chordMidpoint.x) * (chordEnd.y - start.y) - (end.y - chordMidpoint.y) * (chordEnd.x - start.x)) /
+        Math.max(Math.hypot(chordEnd.x - start.x, chordEnd.y - start.y), 1e-9);
+      renderCadDimensionPill({
+        x: rect.left + midpointScreen.x + 12,
+        y: rect.top + midpointScreen.y - 36,
+        primaryLabel: "Bulge",
+        primaryValue: bulge,
+        primaryAriaLabel: "Arc bulge distance",
+        secondaryLabel: "Sweep",
+        secondaryValue: arc.sweep * 180 / Math.PI,
+        secondaryAriaLabel: "Arc sweep angle",
         secondaryUnit: "deg",
       });
       return;
@@ -3392,7 +3418,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   function setLinearDraftDimensions(length, angleDegrees) {
     const draft = state.cadDraft;
     const anchor = draft?.tool === "polyline" ? draft.points[draft.points.length - 1] : draft?.points?.[0];
-    if (!anchor || !["line", "polyline"].includes(draft.tool)) {
+    if (!anchor || !["line", "polyline"].includes(draft.tool) && !(draft.tool === "arc" && draft.points.length === 1)) {
       return;
     }
     const radians = angleDegrees * Math.PI / 180;
@@ -3404,10 +3430,77 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     renderCadDraftDimensions();
   }
 
+  function defaultArcBulge(start, end) {
+    const chord = { x: end.x - start.x, y: end.y - start.y };
+    const length = Math.hypot(chord.x, chord.y);
+    if (length < 1e-8) {
+      return { ...end };
+    }
+    return {
+      x: (start.x + end.x) / 2 - (chord.y / length) * Math.max(length * 0.2, 1),
+      y: (start.y + end.y) / 2 + (chord.x / length) * Math.max(length * 0.2, 1),
+    };
+  }
+
+  function updateArcDraftPreview() {
+    const draft = state.cadDraft;
+    if (draft?.tool !== "arc" || draft.points.length < 2 || !draft.preview) {
+      return null;
+    }
+    draft.arcPreview = arcThroughThreePoints(draft.points[0], draft.points[1], draft.preview);
+    return draft.arcPreview;
+  }
+
+  function setArcDraftBulgeDistance(distance) {
+    const draft = state.cadDraft;
+    const [start, end] = draft?.points || [];
+    if (!start || !end || draft.tool !== "arc") {
+      return;
+    }
+    const chord = { x: end.x - start.x, y: end.y - start.y };
+    const length = Math.hypot(chord.x, chord.y);
+    if (length < 1e-8) {
+      return;
+    }
+    const midpoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+    const current = draft.preview || defaultArcBulge(start, end);
+    const side = Math.sign(chord.x * (current.y - start.y) - chord.y * (current.x - start.x)) || 1;
+    draft.preview = {
+      x: midpoint.x - (chord.y / length) * side * Math.max(0.001, Math.abs(distance)),
+      y: midpoint.y + (chord.x / length) * side * Math.max(0.001, Math.abs(distance)),
+    };
+    state.cadSnapHover = draft.preview;
+    updateArcDraftPreview();
+    renderCadDraftDimensions();
+  }
+
+  function setArcDraftSweepAngle(angleDegrees) {
+    const draft = state.cadDraft;
+    const [start, end] = draft?.points || [];
+    if (!start || !end || draft.tool !== "arc") {
+      return;
+    }
+    const chordLength = Math.hypot(end.x - start.x, end.y - start.y);
+    if (chordLength < 1e-8) {
+      return;
+    }
+    const angle = Math.min(359, Math.max(1, Math.abs(angleDegrees))) * Math.PI / 180;
+    setArcDraftBulgeDistance((chordLength / 2) * Math.tan(angle / 4));
+  }
+
   function commitCadDimensionDraft() {
     const draft = state.cadDraft;
-    if (!draft || !["circle", "rectangle", "line", "polygon"].includes(draft.tool) || !draft.preview) {
+    if (!draft || !["circle", "rectangle", "line", "polygon", "arc"].includes(draft.tool) || !draft.preview) {
       return false;
+    }
+    if (draft.tool === "arc" && draft.points.length === 1) {
+      draft.points.push({ ...draft.preview });
+      draft.preview = defaultArcBulge(draft.points[0], draft.points[1]);
+      state.cadSnapHover = draft.preview;
+      updateArcDraftPreview();
+      renderCadDraftDimensions();
+      requestDraw();
+      return true;
     }
     if (draft.points.length === 1) {
       draft.points.push({ ...draft.preview });
@@ -3673,15 +3766,18 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       };
     }
     if (tool === "arc") {
-      const [center, start, end] = points;
+      const arc = arcThroughThreePoints(points[0], points[1], points[2]);
+      if (!arc) {
+        return null;
+      }
       return {
         type: "ARC",
         __cadShape: "arc",
-        cx: center.x,
-        cy: center.y,
-        radius: Math.hypot(start.x - center.x, start.y - center.y),
-        startAngleDeg: (Math.atan2(start.y - center.y, start.x - center.x) * 180) / Math.PI,
-        endAngleDeg: (Math.atan2(end.y - center.y, end.x - center.x) * 180) / Math.PI,
+        cx: arc.center.x,
+        cy: arc.center.y,
+        radius: arc.radius,
+        startAngleDeg: arc.startAngle * 180 / Math.PI,
+        endAngleDeg: arc.endAngle * 180 / Math.PI,
       };
     }
     if (tool === "bezier") {
@@ -4352,6 +4448,46 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     return endAngle;
   }
 
+  function arcThroughThreePoints(start, end, bulge) {
+    if (!start || !end || !bulge) {
+      return null;
+    }
+    const ax = start.x;
+    const ay = start.y;
+    const bx = end.x;
+    const by = end.y;
+    const cx = bulge.x;
+    const cy = bulge.y;
+    const determinant = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+    if (Math.abs(determinant) < 1e-8) {
+      return null;
+    }
+    const a2 = ax * ax + ay * ay;
+    const b2 = bx * bx + by * by;
+    const c2 = cx * cx + cy * cy;
+    const center = {
+      x: (a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by)) / determinant,
+      y: (a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax)) / determinant,
+    };
+    const radius = Math.hypot(ax - center.x, ay - center.y);
+    if (!Number.isFinite(radius) || radius < 1e-8) {
+      return null;
+    }
+    const startAngle = normalizeArcAngle(Math.atan2(ay - center.y, ax - center.x));
+    const endAngle = normalizeArcAngle(Math.atan2(by - center.y, bx - center.x));
+    const bulgeAngle = normalizeArcAngle(Math.atan2(cy - center.y, cx - center.x));
+    const ccwSweep = normalizeArcAngle(endAngle - startAngle);
+    const ccwBulge = normalizeArcAngle(bulgeAngle - startAngle);
+    if (ccwSweep < 1e-8) {
+      return null;
+    }
+    if (ccwBulge <= ccwSweep + 1e-8) {
+      return { center, radius, startAngle, endAngle: startAngle + ccwSweep, sweep: ccwSweep };
+    }
+    const reverseSweep = normalizeArcAngle(startAngle - endAngle);
+    return { center, radius, startAngle: endAngle, endAngle: endAngle + reverseSweep, sweep: reverseSweep };
+  }
+
   function pointOnTrimArc(segment, point) {
     const angle = normalizeArcAngle(Math.atan2(point.y - segment.center.y, point.x - segment.center.x));
     const adjusted = angle < segment.startAngle - 1e-8 ? angle + Math.PI * 2 : angle;
@@ -4846,6 +4982,14 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       updatePolygonDraftFromPoint(screenPoint);
     }
     state.cadDraft.points.push(snapped);
+    if (state.cadTool === "arc" && state.cadDraft.points.length === 2) {
+      state.cadDraft.preview = defaultArcBulge(state.cadDraft.points[0], state.cadDraft.points[1]);
+      state.cadSnapHover = state.cadDraft.preview;
+      updateArcDraftPreview();
+      renderCadDraftDimensions();
+      requestDraw();
+      return true;
+    }
     state.cadDraft.preview = snapped;
     const pointsRequired = state.cadTool === "bezier" ? 4 : state.cadTool === "arc" ? 3 : state.cadTool === "polyline" ? Number.POSITIVE_INFINITY : 2;
     if (state.cadDraft.points.length >= pointsRequired) {
@@ -4872,6 +5016,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     state.cadDraft.preview = snapCadPoint(screenPoint);
     state.cadSnapHover = state.cadDraft.preview;
+    if (state.cadDraft.tool === "arc") {
+      updateArcDraftPreview();
+    }
     renderCadDraftDimensions();
     requestDraw();
   }
@@ -6989,6 +7136,13 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     } else if (draft.tool === "line" || draft.tool === "polyline") {
       const angle = Number.parseFloat(ui.guideDistanceSecondaryInput.value);
       setLinearDraftDimensions(value, Number.isFinite(angle) ? angle : 0);
+    } else if (draft.tool === "arc") {
+      if (draft.points.length === 1) {
+        const angle = Number.parseFloat(ui.guideDistanceSecondaryInput.value);
+        setLinearDraftDimensions(value, Number.isFinite(angle) ? angle : 0);
+      } else {
+        setArcDraftBulgeDistance(value);
+      }
     }
     requestDraw();
   });
@@ -7004,6 +7158,13 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     } else if (draft.tool === "line" || draft.tool === "polyline") {
       const length = Math.abs(Number.parseFloat(ui.guideDistanceInput.value) || 0);
       setLinearDraftDimensions(length, value);
+    } else if (draft.tool === "arc") {
+      if (draft.points.length === 1) {
+        const length = Math.abs(Number.parseFloat(ui.guideDistanceInput.value) || 0);
+        setLinearDraftDimensions(length, value);
+      } else {
+        setArcDraftSweepAngle(value);
+      }
     }
     requestDraw();
   });

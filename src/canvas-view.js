@@ -402,25 +402,34 @@ function drawCadDraft(ctx, draft, worldToScreen) {
     ctx.fill();
     ctx.stroke();
   } else if (draft.tool === "arc") {
-    const [center, start, end] = points;
-    if (!end) {
-      const c = worldToScreen(center);
-      const edge = worldToScreen(start);
-      ctx.moveTo(c.x, c.y);
-      ctx.lineTo(edge.x, edge.y);
-      ctx.stroke();
-    } else {
-      const c = worldToScreen(center);
+    const start = draft.points[0];
+    const end = draft.points.length > 1 ? draft.points[1] : draft.preview;
+    if (!start || !end) {
+      ctx.restore();
+      return;
+    }
+    if (draft.points.length === 1) {
       const startScreen = worldToScreen(start);
       const endScreen = worldToScreen(end);
-      const radius = Math.hypot(startScreen.x - c.x, startScreen.y - c.y);
-      const startAngle = Math.atan2(startScreen.y - c.y, startScreen.x - c.x);
-      let endAngle = Math.atan2(endScreen.y - c.y, endScreen.x - c.x);
-      if (endAngle <= startAngle) {
-        endAngle += Math.PI * 2;
-      }
-      ctx.arc(c.x, c.y, radius, startAngle, endAngle, true);
+      ctx.moveTo(startScreen.x, startScreen.y);
+      ctx.lineTo(endScreen.x, endScreen.y);
       ctx.stroke();
+    } else if (draft.arcPreview) {
+      const arc = draft.arcPreview;
+      const center = worldToScreen(arc.center);
+      const screenRadiusPoint = worldToScreen({ x: arc.center.x + arc.radius, y: arc.center.y });
+      ctx.arc(center.x, center.y, Math.abs(screenRadiusPoint.x - center.x), -arc.startAngle, -arc.endAngle, true);
+      ctx.stroke();
+
+      const chordStart = worldToScreen(start);
+      const chordEnd = worldToScreen(end);
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.lineWidth = 1.15;
+      ctx.moveTo(chordStart.x, chordStart.y);
+      ctx.lineTo(chordEnd.x, chordEnd.y);
+      ctx.stroke();
+      ctx.restore();
     }
   } else if (draft.tool === "bezier") {
     const start = worldToScreen(points[0]);
