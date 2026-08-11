@@ -8,7 +8,7 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpat
 import * as Paths from "./src/paths.js?v=20260810-text1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260811-guide-source1";
+import * as CanvasView from "./src/canvas-view.js?v=20260811-dimensions1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
@@ -53,7 +53,13 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     workerBadge: document.getElementById("workerBadge"),
     workerPercent: document.getElementById("workerPercent"),
     guideDistancePill: document.getElementById("guideDistancePill"),
+    guideDistanceLabel: document.getElementById("guideDistanceLabel"),
     guideDistanceInput: document.getElementById("guideDistanceInput"),
+    guideDistanceUnit: document.getElementById("guideDistanceUnit"),
+    guideDistanceSecondary: document.getElementById("guideDistanceSecondary"),
+    guideDistanceSecondaryLabel: document.getElementById("guideDistanceSecondaryLabel"),
+    guideDistanceSecondaryInput: document.getElementById("guideDistanceSecondaryInput"),
+    guideDistanceSecondaryUnit: document.getElementById("guideDistanceSecondaryUnit"),
     statusText: document.getElementById("statusText"),
     toastContainer: document.getElementById("toastContainer"),
     canvasWrap: document.getElementById("canvasWrap"),
@@ -268,6 +274,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     cadTool: null,
     cadDraft: null,
     guideSourceHover: null,
+    cadSnapHover: null,
     cadTextPlacement: null,
     cadSnapEnabled: true,
     gridVisible: true,
@@ -3170,22 +3177,172 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
   function renderGuideDistancePill() {
     const guide = state.cadDraft?.guide;
-    const pill = ui.guideDistancePill;
-    if (!guide || !pill) {
-      pill?.classList.add("d-none");
+    if (!guide) {
+      hideGuideDistancePill();
       return;
     }
     const source = worldToScreen(guide.source);
     const anchor = worldToScreen(guide.anchor);
     const rect = canvas.getBoundingClientRect();
+    renderCadDimensionPill({
+      x: rect.left + (source.x + anchor.x) / 2 + 12,
+      y: rect.top + (source.y + anchor.y) / 2 - 14,
+      primaryLabel: "Offset",
+      primaryValue: Math.abs(guide.offset || 0),
+      primaryAriaLabel: "Guide offset distance",
+    });
+  }
+
+  function renderCadDimensionPill({ x, y, primaryLabel, primaryValue, primaryAriaLabel, primaryUnit = "mm", secondaryLabel = "", secondaryValue = null, secondaryAriaLabel = "", secondaryUnit = "mm" }) {
+    const pill = ui.guideDistancePill;
+    if (!pill) {
+      return;
+    }
     pill.classList.remove("d-none");
-    pill.style.left = `${Math.round(rect.left + (source.x + anchor.x) / 2 + 12)}px`;
-    pill.style.top = `${Math.round(rect.top + (source.y + anchor.y) / 2 - 14)}px`;
-    ui.guideDistanceInput.value = String(Number(Math.abs(guide.offset || 0).toFixed(3)));
+    pill.style.left = `${Math.round(x)}px`;
+    pill.style.top = `${Math.round(y)}px`;
+    ui.guideDistanceLabel.textContent = primaryLabel;
+    ui.guideDistanceUnit.textContent = primaryUnit;
+    ui.guideDistanceInput.setAttribute("aria-label", primaryAriaLabel || primaryLabel);
+    if (document.activeElement !== ui.guideDistanceInput) {
+      ui.guideDistanceInput.value = String(Number(primaryValue.toFixed(3)));
+    }
+    const showSecondary = Number.isFinite(secondaryValue);
+    ui.guideDistanceSecondary.classList.toggle("d-none", !showSecondary);
+    if (showSecondary) {
+      ui.guideDistanceSecondaryLabel.textContent = secondaryLabel;
+      ui.guideDistanceSecondaryUnit.textContent = secondaryUnit;
+      ui.guideDistanceSecondaryInput.setAttribute("aria-label", secondaryAriaLabel || secondaryLabel);
+      if (document.activeElement !== ui.guideDistanceSecondaryInput) {
+        ui.guideDistanceSecondaryInput.value = String(Number(secondaryValue.toFixed(3)));
+      }
+    }
   }
 
   function hideGuideDistancePill() {
     ui.guideDistancePill?.classList.add("d-none");
+  }
+
+  function renderCadDraftDimensions() {
+    const draft = state.cadDraft;
+    const start = draft?.points?.[0];
+    const end = draft?.preview;
+    if (!draft || !start || !end || !["circle", "rectangle", "line", "polyline"].includes(draft.tool)) {
+      return;
+    }
+    const startScreen = worldToScreen(start);
+    const endScreen = worldToScreen(end);
+    const rect = canvas.getBoundingClientRect();
+    if (draft.tool === "circle") {
+      renderCadDimensionPill({
+        x: rect.left + (startScreen.x + endScreen.x) / 2 + 12,
+        y: rect.top + (startScreen.y + endScreen.y) / 2 - 14,
+        primaryLabel: "Radius",
+        primaryValue: Math.hypot(end.x - start.x, end.y - start.y),
+        primaryAriaLabel: "Circle radius",
+      });
+      return;
+    }
+    if (draft.tool === "line" || draft.tool === "polyline") {
+      const anchor = draft.tool === "polyline" ? draft.points[draft.points.length - 1] : start;
+      const anchorScreen = worldToScreen(anchor);
+      const length = Math.hypot(end.x - anchor.x, end.y - anchor.y);
+      const angle = Math.atan2(end.y - anchor.y, end.x - anchor.x) * 180 / Math.PI;
+      renderCadDimensionPill({
+        x: rect.left + (anchorScreen.x + endScreen.x) / 2 + 12,
+        y: rect.top + (anchorScreen.y + endScreen.y) / 2 - 14,
+        primaryLabel: "Length",
+        primaryValue: length,
+        primaryAriaLabel: "Segment length",
+        secondaryLabel: "Angle",
+        secondaryValue: angle,
+        secondaryAriaLabel: "Segment angle",
+        secondaryUnit: "deg",
+      });
+      return;
+    }
+    renderCadDimensionPill({
+      x: rect.left + (startScreen.x + endScreen.x) / 2 + 12,
+      y: rect.top + Math.min(startScreen.y, endScreen.y) - 38,
+      primaryLabel: "Width",
+      primaryValue: Math.abs(end.x - start.x),
+      primaryAriaLabel: "Rectangle width",
+      secondaryLabel: "Height",
+      secondaryValue: Math.abs(end.y - start.y),
+      secondaryAriaLabel: "Rectangle height",
+    });
+  }
+
+  function setCircleDraftRadius(radius) {
+    const draft = state.cadDraft;
+    const center = draft?.points?.[0];
+    if (!center || draft.tool !== "circle") {
+      return;
+    }
+    const current = draft.preview || { x: center.x + 1, y: center.y };
+    const direction = normalizeVector({ x: current.x - center.x, y: current.y - center.y }) || { x: 1, y: 0 };
+    draft.preview = {
+      x: center.x + direction.x * Math.max(0, radius),
+      y: center.y + direction.y * Math.max(0, radius),
+    };
+    state.cadSnapHover = draft.preview;
+    renderCadDraftDimensions();
+  }
+
+  function setRectangleDraftDimensions(width, height) {
+    const draft = state.cadDraft;
+    const start = draft?.points?.[0];
+    if (!start || draft.tool !== "rectangle") {
+      return;
+    }
+    const current = draft.preview || start;
+    const horizontal = Math.sign(current.x - start.x) || 1;
+    const vertical = Math.sign(current.y - start.y) || 1;
+    draft.preview = {
+      x: start.x + horizontal * Math.max(0, width),
+      y: start.y + vertical * Math.max(0, height),
+    };
+    state.cadSnapHover = draft.preview;
+    renderCadDraftDimensions();
+  }
+
+  function setLinearDraftDimensions(length, angleDegrees) {
+    const draft = state.cadDraft;
+    const anchor = draft?.tool === "polyline" ? draft.points[draft.points.length - 1] : draft?.points?.[0];
+    if (!anchor || !["line", "polyline"].includes(draft.tool)) {
+      return;
+    }
+    const radians = angleDegrees * Math.PI / 180;
+    draft.preview = {
+      x: anchor.x + Math.cos(radians) * Math.max(0, length),
+      y: anchor.y + Math.sin(radians) * Math.max(0, length),
+    };
+    state.cadSnapHover = draft.preview;
+    renderCadDraftDimensions();
+  }
+
+  function commitCadDimensionDraft() {
+    const draft = state.cadDraft;
+    if (!draft || !["circle", "rectangle", "line"].includes(draft.tool) || !draft.preview) {
+      return false;
+    }
+    if (draft.points.length === 1) {
+      draft.points.push({ ...draft.preview });
+    }
+    commitCadDraft();
+    return true;
+  }
+
+  function commitPolylineDraftSegment() {
+    const draft = state.cadDraft;
+    const start = draft?.points?.[draft.points.length - 1];
+    if (!start || draft.tool !== "polyline" || !draft.preview || Math.hypot(draft.preview.x - start.x, draft.preview.y - start.y) < 1e-6) {
+      return false;
+    }
+    draft.points.push({ ...draft.preview });
+    renderCadDraftDimensions();
+    requestDraw();
+    return true;
   }
 
   function beginGuideDrag(screenPoint) {
@@ -3757,8 +3914,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       return beginGuideDrag(screenPoint);
     }
     const snapped = snapCadPoint(screenPoint);
+    state.cadSnapHover = snapped;
     if (!state.cadDraft) {
       state.cadDraft = { tool: state.cadTool, points: [snapped], preview: snapped };
+      renderCadDraftDimensions();
       requestDraw();
       return true;
     }
@@ -3784,6 +3943,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       return;
     }
     state.cadDraft.preview = snapCadPoint(screenPoint);
+    state.cadSnapHover = state.cadDraft.preview;
+    renderCadDraftDimensions();
     requestDraw();
   }
 
@@ -3792,6 +3953,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadEditMode = false;
     state.cadDraft = null;
     state.guideSourceHover = null;
+    state.cadSnapHover = null;
     hideGuideDistancePill();
     hideCadTextPanel();
     state.transformTool = null;
@@ -3812,6 +3974,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadTool = null;
     state.cadDraft = null;
     state.guideSourceHover = null;
+    state.cadSnapHover = null;
     hideGuideDistancePill();
     hideCadTextPanel();
     state.transformTool = null;
@@ -3830,6 +3993,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadEditMode = !state.cadEditMode;
     state.cadTool = null;
     state.cadDraft = null;
+    state.guideSourceHover = null;
+    state.cadSnapHover = null;
+    hideGuideDistancePill();
     hideCadTextPanel();
     state.transformTool = null;
     state.addTabsMode = false;
@@ -5832,21 +5998,71 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   ui.cadTextAddBtn.addEventListener("click", commitCadText);
   ui.cadTextCancelBtn.addEventListener("click", hideCadTextPanel);
   ui.guideDistanceInput?.addEventListener("input", () => {
-    const guide = state.cadDraft?.guide;
     const value = Number.parseFloat(ui.guideDistanceInput.value);
-    if (!guide || !Number.isFinite(value)) {
+    const draft = state.cadDraft;
+    if (!draft || !Number.isFinite(value)) {
       return;
     }
-    const sign = value < 0 ? -1 : guide.offset < 0 ? -1 : 1;
-    setGuideDraftOffset(sign * Math.abs(value), "typed");
+    if (draft.guide) {
+      const sign = value < 0 ? -1 : draft.guide.offset < 0 ? -1 : 1;
+      setGuideDraftOffset(sign * Math.abs(value), "typed");
+    } else if (draft.tool === "circle") {
+      setCircleDraftRadius(value);
+    } else if (draft.tool === "rectangle") {
+      const height = Math.abs(Number.parseFloat(ui.guideDistanceSecondaryInput.value) || 0);
+      setRectangleDraftDimensions(value, height);
+    } else if (draft.tool === "line" || draft.tool === "polyline") {
+      const angle = Number.parseFloat(ui.guideDistanceSecondaryInput.value);
+      setLinearDraftDimensions(value, Number.isFinite(angle) ? angle : 0);
+    }
+    requestDraw();
+  });
+  ui.guideDistanceSecondaryInput?.addEventListener("input", () => {
+    const value = Number.parseFloat(ui.guideDistanceSecondaryInput.value);
+    const draft = state.cadDraft;
+    if (!draft || !Number.isFinite(value)) {
+      return;
+    }
+    if (draft.tool === "rectangle") {
+      const width = Math.abs(Number.parseFloat(ui.guideDistanceInput.value) || 0);
+      setRectangleDraftDimensions(width, value);
+    } else if (draft.tool === "line" || draft.tool === "polyline") {
+      const length = Math.abs(Number.parseFloat(ui.guideDistanceInput.value) || 0);
+      setLinearDraftDimensions(length, value);
+    }
     requestDraw();
   });
   ui.guideDistanceInput?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && state.cadDraft?.guide?.hasMoved) {
+    if (event.key === "Enter") {
       event.preventDefault();
       event.stopPropagation();
-      commitCadDraft();
+      if (state.cadDraft?.guide?.hasMoved) {
+        commitCadDraft();
+      } else if (state.cadDraft?.tool === "polyline") {
+        commitPolylineDraftSegment();
+      } else {
+        commitCadDimensionDraft();
+      }
       return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      state.cadDraft = null;
+      hideGuideDistancePill();
+      setCadTool(null);
+      requestDraw();
+    }
+  });
+  ui.guideDistanceSecondaryInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (state.cadDraft?.tool === "polyline") {
+        commitPolylineDraftSegment();
+      } else {
+        commitCadDimensionDraft();
+      }
     }
     if (event.key === "Escape") {
       event.preventDefault();
@@ -6318,6 +6534,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     if (state.cadTool === "guide") {
       state.guideSourceHover = guideSourceAtScreenPoint(point);
+      updateCanvasCursor(point);
+      requestDraw();
+      return;
+    }
+    if (state.cadTool) {
+      state.cadSnapHover = snapCadPoint(point);
       updateCanvasCursor(point);
       requestDraw();
       return;

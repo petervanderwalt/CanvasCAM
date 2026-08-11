@@ -20,6 +20,7 @@ export function drawScene({
 
   drawConstructionGuides(ctx, rect, state, worldToScreen);
   drawGuideSourceHover(ctx, rect, state, worldToScreen);
+  drawCadSnapMarker(ctx, state, worldToScreen);
 
   for (const loop of state.loops) {
     if (loop.sourceEntityIndexes?.length && loop.sourceEntityIndexes.every((index) => state.entities[index]?.__treeHidden)) {
@@ -198,6 +199,20 @@ function drawGuideSourceHover(ctx, rect, state, worldToScreen) {
   ctx.font = "700 11px Trebuchet MS, sans-serif";
   ctx.textBaseline = "bottom";
   ctx.fillText(`Guide from ${source.label}`, anchor.x + 8, anchor.y - 7);
+  ctx.restore();
+}
+
+function drawCadSnapMarker(ctx, state, worldToScreen) {
+  if (!state.cadTool || state.cadTool === "guide" || !state.cadSnapHover) {
+    return;
+  }
+  const point = worldToScreen(state.cadSnapHover);
+  ctx.save();
+  ctx.fillStyle = "#fffdf4";
+  ctx.strokeStyle = "#e8590c";
+  ctx.lineWidth = 1.8;
+  ctx.fillRect(point.x - 4, point.y - 4, 8, 8);
+  ctx.strokeRect(point.x - 4, point.y - 4, 8, 8);
   ctx.restore();
 }
 

@@ -944,8 +944,9 @@ body {
   font-weight: 900;
 }
 
-.guide-distance-pill > span,
-.guide-distance-pill > strong {
+.guide-dimension-label,
+.guide-distance-pill > strong,
+.guide-distance-secondary > strong {
   align-self: stretch;
   display: grid;
   place-items: center;
@@ -953,9 +954,17 @@ body {
   background: #ffcaa4;
 }
 
-.guide-distance-pill > strong {
+.guide-distance-pill > strong,
+.guide-distance-secondary > strong {
   border-left: 2px solid var(--funky-ink);
   background: #fff3bd;
+}
+
+.guide-distance-secondary {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  border-left: 2px solid var(--funky-ink);
 }
 
 .guide-distance-pill input {
@@ -3042,6 +3051,11 @@ body {
 #expandModal .input-group > .input-group-text {
   border: 3px solid var(--funky-ink);
   box-shadow: none;
+}
+
+#expandModal .drawing-dimension-input {
+  border-radius: 0.72rem;
+  box-shadow: 3px 3px 0 rgba(17, 17, 17, 0.86);
 }
 
 #expandModal .input-group > .form-control {
