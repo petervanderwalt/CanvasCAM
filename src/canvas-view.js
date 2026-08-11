@@ -21,6 +21,7 @@ export function drawScene({
   drawConstructionGuides(ctx, rect, state, worldToScreen);
   drawGuideSourceHover(ctx, rect, state, worldToScreen);
   drawCadSnapMarker(ctx, state, worldToScreen);
+  drawTrimHover(ctx, state, worldToScreen);
 
   for (const loop of state.loops) {
     if (loop.sourceEntityIndexes?.length && loop.sourceEntityIndexes.every((index) => state.entities[index]?.__treeHidden)) {
@@ -213,6 +214,44 @@ function drawCadSnapMarker(ctx, state, worldToScreen) {
   ctx.lineWidth = 1.8;
   ctx.fillRect(point.x - 4, point.y - 4, 8, 8);
   ctx.strokeRect(point.x - 4, point.y - 4, 8, 8);
+  ctx.restore();
+}
+
+function drawTrimHover(ctx, state, worldToScreen) {
+  const candidate = state.cadTool === "trim" ? state.trimHover : null;
+  if (!candidate) {
+    return;
+  }
+  const start = worldToScreen(candidate.trimStart);
+  const end = worldToScreen(candidate.trimEnd);
+  ctx.save();
+  ctx.strokeStyle = "#dc2626";
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.setLineDash([7, 5]);
+  ctx.beginPath();
+  if (candidate.kind === "arc") {
+    const center = worldToScreen(candidate.center);
+    const edge = worldToScreen({ x: candidate.center.x + candidate.radius, y: candidate.center.y });
+    const radius = Math.hypot(edge.x - center.x, edge.y - center.y);
+    const startAngle = -candidate.startAngle - (candidate.endAngle - candidate.startAngle) * candidate.startT;
+    const endAngle = -candidate.startAngle - (candidate.endAngle - candidate.startAngle) * candidate.endT;
+    ctx.arc(center.x, center.y, radius, startAngle, endAngle, true);
+  } else {
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#fffdf4";
+  ctx.strokeStyle = "#dc2626";
+  ctx.lineWidth = 1.8;
+  for (const point of [start, end]) {
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -843,6 +882,10 @@ function angleLiesOnCounterClockwiseSweep(start, end, target) {
 
 export function updateCanvasCursor({ canvas, state, screenPoint, findTabHit, findLoopHit, transformCursor = "" }) {
   if (state.cadTool) {
+    if (state.cadTool === "trim") {
+      canvas.style.cursor = "crosshair";
+      return;
+    }
     canvas.style.cursor = "crosshair";
     return;
   }

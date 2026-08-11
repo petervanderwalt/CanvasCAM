@@ -8,7 +8,7 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpat
 import * as Paths from "./src/paths.js?v=20260810-text1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260811-dimensions1";
+import * as CanvasView from "./src/canvas-view.js?v=20260811-trim3";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
@@ -275,6 +275,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     cadDraft: null,
     guideSourceHover: null,
     cadSnapHover: null,
+    trimHover: null,
+    trimming: false,
     cadTextPlacement: null,
     cadSnapEnabled: true,
     gridVisible: true,
@@ -3902,7 +3904,464 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     requestDraw();
   }
 
+  function trimEditableSegments() {
+    const segments = [];
+    for (let entityIndex = 0; entityIndex < state.entities.length; entityIndex += 1) {
+      const entity = state.entities[entityIndex];
+      if (!entity || entity.__treeHidden) {
+        continue;
+      }
+      if (entity.type === "LINE") {
+        segments.push({
+          kind: "line",
+          entityIndex,
+          segmentIndex: 0,
+          start: { x: entity.x1, y: entity.y1 },
+          end: { x: entity.x2, y: entity.y2 },
+        });
+        continue;
+      }
+      if (entity.type === "ARC" || entity.type === "CIRCLE") {
+        const startAngle = entity.type === "CIRCLE" ? 0 : normalizeArcAngle((entity.startAngleDeg || 0) * Math.PI / 180);
+        const endAngle = entity.type === "CIRCLE"
+          ? startAngle + Math.PI * 2
+          : arcEndAngle(startAngle, (entity.endAngleDeg || 0) * Math.PI / 180);
+        if (Number.isFinite(entity.radius) && entity.radius > 1e-8) {
+          segments.push({
+            kind: "arc",
+            entityIndex,
+            segmentIndex: 0,
+            center: { x: entity.cx, y: entity.cy },
+            radius: entity.radius,
+            startAngle,
+            endAngle,
+            isCircle: entity.type === "CIRCLE",
+          });
+        }
+        continue;
+      }
+      if (!["LWPOLYLINE", "POLYLINE"].includes(entity.type) || !Array.isArray(entity.vertices) || entity.vertices.length < 2) {
+        continue;
+      }
+      const count = entity.closed ? entity.vertices.length : entity.vertices.length - 1;
+      for (let segmentIndex = 0; segmentIndex < count; segmentIndex += 1) {
+        const startVertex = entity.vertices[segmentIndex];
+        const endVertex = entity.vertices[(segmentIndex + 1) % entity.vertices.length];
+        if (Math.abs(Number(startVertex.bulge) || 0) > 1e-9) {
+          continue;
+        }
+        segments.push({
+          kind: "line",
+          entityIndex,
+          segmentIndex,
+          start: { x: startVertex.x, y: startVertex.y },
+          end: { x: endVertex.x, y: endVertex.y },
+        });
+      }
+    }
+    return segments;
+  }
+
+  function segmentPointAt(segment, t) {
+    if (segment.kind === "arc") {
+      const angle = segment.startAngle + (segment.endAngle - segment.startAngle) * t;
+      return {
+        x: segment.center.x + Math.cos(angle) * segment.radius,
+        y: segment.center.y + Math.sin(angle) * segment.radius,
+      };
+    }
+    return {
+      x: segment.start.x + (segment.end.x - segment.start.x) * t,
+      y: segment.start.y + (segment.end.y - segment.start.y) * t,
+    };
+  }
+
+  function segmentParameter(point, segment) {
+    if (segment.kind === "arc") {
+      const angle = normalizeArcAngle(Math.atan2(point.y - segment.center.y, point.x - segment.center.x));
+      const candidate = angle < segment.startAngle - 1e-8 ? angle + Math.PI * 2 : angle;
+      return clamp((candidate - segment.startAngle) / (segment.endAngle - segment.startAngle), 0, 1);
+    }
+    const dx = segment.end.x - segment.start.x;
+    const dy = segment.end.y - segment.start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared <= 1e-12) {
+      return 0;
+    }
+    return clamp(((point.x - segment.start.x) * dx + (point.y - segment.start.y) * dy) / lengthSquared, 0, 1);
+  }
+
+  function finiteSegmentIntersection(left, right) {
+    const ax = left.end.x - left.start.x;
+    const ay = left.end.y - left.start.y;
+    const bx = right.end.x - right.start.x;
+    const by = right.end.y - right.start.y;
+    const determinant = ax * by - ay * bx;
+    if (Math.abs(determinant) <= 1e-9) {
+      return null;
+    }
+    const dx = right.start.x - left.start.x;
+    const dy = right.start.y - left.start.y;
+    const t = (dx * by - dy * bx) / determinant;
+    const u = (dx * ay - dy * ax) / determinant;
+    if (t < -1e-8 || t > 1 + 1e-8 || u < -1e-8 || u > 1 + 1e-8) {
+      return null;
+    }
+    return { t: clamp(t, 0, 1), point: segmentPointAt(left, clamp(t, 0, 1)) };
+  }
+
+  function normalizeArcAngle(angle) {
+    const fullTurn = Math.PI * 2;
+    const normalized = angle % fullTurn;
+    return normalized < 0 ? normalized + fullTurn : normalized;
+  }
+
+  function arcEndAngle(startAngle, rawEndAngle) {
+    let endAngle = normalizeArcAngle(rawEndAngle);
+    if (endAngle <= startAngle + 1e-10) {
+      endAngle += Math.PI * 2;
+    }
+    return endAngle;
+  }
+
+  function pointOnTrimArc(segment, point) {
+    const angle = normalizeArcAngle(Math.atan2(point.y - segment.center.y, point.x - segment.center.x));
+    const adjusted = angle < segment.startAngle - 1e-8 ? angle + Math.PI * 2 : angle;
+    return adjusted >= segment.startAngle - 1e-7 && adjusted <= segment.endAngle + 1e-7;
+  }
+
+  function nearestPointOnTrimSegment(point, segment) {
+    if (segment.kind === "line") {
+      const dx = segment.end.x - segment.start.x;
+      const dy = segment.end.y - segment.start.y;
+      const lengthSquared = dx * dx + dy * dy;
+      if (lengthSquared <= 1e-12) {
+        return { ...segment.start };
+      }
+      const t = clamp(((point.x - segment.start.x) * dx + (point.y - segment.start.y) * dy) / lengthSquared, 0, 1);
+      return {
+        x: segment.start.x + dx * t,
+        y: segment.start.y + dy * t,
+      };
+    }
+    const radial = Math.hypot(point.x - segment.center.x, point.y - segment.center.y);
+    const projected = radial <= 1e-9
+      ? segmentPointAt(segment, 0)
+      : {
+        x: segment.center.x + ((point.x - segment.center.x) / radial) * segment.radius,
+        y: segment.center.y + ((point.y - segment.center.y) / radial) * segment.radius,
+      };
+    if (pointOnTrimArc(segment, projected)) {
+      return projected;
+    }
+    const start = segmentPointAt(segment, 0);
+    const end = segmentPointAt(segment, 1);
+    return Math.hypot(point.x - start.x, point.y - start.y) <= Math.hypot(point.x - end.x, point.y - end.y) ? start : end;
+  }
+
+  function lineCircleIntersections(line, arc) {
+    const dx = line.end.x - line.start.x;
+    const dy = line.end.y - line.start.y;
+    const fx = line.start.x - arc.center.x;
+    const fy = line.start.y - arc.center.y;
+    const a = dx * dx + dy * dy;
+    const b = 2 * (fx * dx + fy * dy);
+    const c = fx * fx + fy * fy - arc.radius * arc.radius;
+    const discriminant = b * b - 4 * a * c;
+    if (a <= 1e-12 || discriminant < -1e-9) {
+      return [];
+    }
+    const root = Math.sqrt(Math.max(0, discriminant));
+    const results = [];
+    for (const t of [(-b - root) / (2 * a), (-b + root) / (2 * a)]) {
+      if (t < -1e-8 || t > 1 + 1e-8) {
+        continue;
+      }
+      const point = segmentPointAt(line, clamp(t, 0, 1));
+      if (pointOnTrimArc(arc, point)) {
+        results.push(point);
+      }
+    }
+    return uniqueTrimPoints(results);
+  }
+
+  function circleCircleIntersections(left, right) {
+    const dx = right.center.x - left.center.x;
+    const dy = right.center.y - left.center.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= 1e-9 || distance > left.radius + right.radius + 1e-8 || distance < Math.abs(left.radius - right.radius) - 1e-8) {
+      return [];
+    }
+    const along = (left.radius * left.radius - right.radius * right.radius + distance * distance) / (2 * distance);
+    const heightSquared = left.radius * left.radius - along * along;
+    if (heightSquared < -1e-8) {
+      return [];
+    }
+    const base = { x: left.center.x + (along * dx) / distance, y: left.center.y + (along * dy) / distance };
+    const height = Math.sqrt(Math.max(0, heightSquared));
+    const offset = { x: (-dy * height) / distance, y: (dx * height) / distance };
+    const points = [
+      { x: base.x + offset.x, y: base.y + offset.y },
+      { x: base.x - offset.x, y: base.y - offset.y },
+    ].filter((point) => pointOnTrimArc(left, point) && pointOnTrimArc(right, point));
+    return uniqueTrimPoints(points);
+  }
+
+  function trimIntersectionParameters(left, right) {
+    let points = [];
+    if (left.kind === "line" && right.kind === "line") {
+      const hit = finiteSegmentIntersection(left, right);
+      points = hit ? [hit.point] : [];
+    } else if (left.kind === "line" && right.kind === "arc") {
+      points = lineCircleIntersections(left, right);
+    } else if (left.kind === "arc" && right.kind === "line") {
+      points = lineCircleIntersections(right, left);
+    } else if (left.kind === "arc" && right.kind === "arc") {
+      points = circleCircleIntersections(left, right);
+    }
+    return points.map((point) => ({ point, t: segmentParameter(point, left) }));
+  }
+
+  function trimRangeForSegment(segment, point) {
+    const cuts = [0, 1];
+    for (const other of trimEditableSegments()) {
+      if (other.entityIndex === segment.entityIndex && other.segmentIndex === segment.segmentIndex) {
+        continue;
+      }
+      for (const intersection of trimIntersectionParameters(segment, other)) {
+        if (intersection.t > 1e-7 && intersection.t < 1 - 1e-7) {
+          cuts.push(intersection.t);
+        }
+      }
+    }
+    const sorted = [...new Set(cuts.map((value) => Math.round(value * 1e9) / 1e9))].sort((a, b) => a - b);
+    const cursor = segmentParameter(point, segment);
+    for (let index = 1; index < sorted.length; index += 1) {
+      if (cursor <= sorted[index] + 1e-8) {
+        return { startT: sorted[index - 1], endT: sorted[index] };
+      }
+    }
+    return { startT: sorted[sorted.length - 2], endT: sorted[sorted.length - 1] };
+  }
+
+  function findTrimCandidate(screenPoint) {
+    const world = screenToWorld(screenPoint);
+    const hitRadius = 12 / Math.max(state.camera.zoom, 0.01);
+    let closest = null;
+    for (const segment of trimEditableSegments()) {
+      const point = nearestPointOnTrimSegment(world, segment);
+      const distance = Math.hypot(point.x - world.x, point.y - world.y);
+      if (distance > hitRadius || (closest && distance >= closest.distance)) {
+        continue;
+      }
+      closest = { ...segment, point, distance };
+    }
+    if (!closest) {
+      return null;
+    }
+    const range = trimRangeForSegment(closest, closest.point);
+    if (range.endT - range.startT <= 1e-7) {
+      return null;
+    }
+    return {
+      ...closest,
+      ...range,
+      trimStart: segmentPointAt(closest, range.startT),
+      trimEnd: segmentPointAt(closest, range.endT),
+    };
+  }
+
+  function uniqueTrimPoints(points) {
+    return points.filter((point, index) => index === 0 || Math.hypot(point.x - points[index - 1].x, point.y - points[index - 1].y) > 1e-7);
+  }
+
+  function trimPolylineReplacement(entity, candidate) {
+    const vertices = entity.vertices.map((vertex) => ({ x: vertex.x, y: vertex.y }));
+    const makeEntity = (points, keepTreeId) => {
+      const clean = uniqueTrimPoints(points);
+      if (clean.length < 2) {
+        return null;
+      }
+      const replacement = {
+        ...deepClone(entity),
+        closed: false,
+        vertices: clean.map((point) => ({ x: point.x, y: point.y, bulge: 0 })),
+      };
+      if (!keepTreeId) {
+        replacement.__treeId = crypto.randomUUID();
+      }
+      return replacement;
+    };
+    if (entity.closed) {
+      const points = [candidate.trimEnd];
+      for (let offset = 1; offset <= vertices.length; offset += 1) {
+        points.push(vertices[(candidate.segmentIndex + offset) % vertices.length]);
+      }
+      points.push(candidate.trimStart);
+      return [makeEntity(points, true)].filter(Boolean);
+    }
+    const before = makeEntity([
+      ...vertices.slice(0, candidate.segmentIndex + 1),
+      candidate.trimStart,
+    ], true);
+    const after = makeEntity([
+      candidate.trimEnd,
+      ...vertices.slice(candidate.segmentIndex + 1),
+    ], !before);
+    return [before, after].filter(Boolean);
+  }
+
+  function trimLineReplacement(entity, candidate) {
+    const makeLine = (start, end, keepTreeId) => {
+      if (Math.hypot(end.x - start.x, end.y - start.y) <= 1e-7) {
+        return null;
+      }
+      const replacement = {
+        ...deepClone(entity),
+        x1: start.x,
+        y1: start.y,
+        x2: end.x,
+        y2: end.y,
+      };
+      if (!keepTreeId) {
+        replacement.__treeId = crypto.randomUUID();
+      }
+      return replacement;
+    };
+    return [
+      makeLine(candidate.start, candidate.trimStart, true),
+      makeLine(candidate.trimEnd, candidate.end, false),
+    ].filter(Boolean);
+  }
+
+  function trimArcReplacement(entity, candidate) {
+    const makeArc = (fromT, toT, keepTreeId) => {
+      if (toT - fromT <= 1e-7) {
+        return null;
+      }
+      const startAngle = candidate.startAngle + (candidate.endAngle - candidate.startAngle) * fromT;
+      const endAngle = candidate.startAngle + (candidate.endAngle - candidate.startAngle) * toT;
+      const replacement = {
+        ...deepClone(entity),
+        type: "ARC",
+        __cadShape: entity.__cadShape ? "arc" : entity.__cadShape,
+        startAngleDeg: (startAngle * 180) / Math.PI,
+        endAngleDeg: (endAngle * 180) / Math.PI,
+      };
+      if (!keepTreeId) {
+        replacement.__treeId = crypto.randomUUID();
+      }
+      return replacement;
+    };
+    if (candidate.isCircle) {
+      if (candidate.endT - candidate.startT >= 1 - 1e-7) {
+        return [];
+      }
+      const startAngle = candidate.startAngle + (candidate.endAngle - candidate.startAngle) * candidate.endT;
+      const endAngle = candidate.startAngle + (candidate.endAngle - candidate.startAngle) * (candidate.startT + 1);
+      const replacement = {
+        ...deepClone(entity),
+        type: "ARC",
+        __cadShape: entity.__cadShape ? "arc" : entity.__cadShape,
+        startAngleDeg: (startAngle * 180) / Math.PI,
+        endAngleDeg: (endAngle * 180) / Math.PI,
+      };
+      return [replacement];
+    }
+    return [
+      makeArc(0, candidate.startT, true),
+      makeArc(candidate.endT, 1, false),
+    ].filter(Boolean);
+  }
+
+  async function rebuildToolpathsAfterTrim(snapshots, activeToolpathId) {
+    if (!snapshots.length) {
+      return;
+    }
+    const loopMap = new Map(state.loops.map((loop) => [loopSignature(loop), loop]));
+    const rebuiltToolpaths = [];
+    startWorkerJob("trim", { label: "Updating toolpaths", percent: 8, priority: 1 });
+    try {
+      for (let index = 0; index < snapshots.length; index += 1) {
+        const snapshot = snapshots[index];
+        const sourceLoops = snapshot.sourceLoopSignatures.map((signature) => loopMap.get(signature)).filter(Boolean);
+        if (!sourceLoops.length) {
+          continue;
+        }
+        updateWorkerJob("trim", {
+          label: "Updating toolpaths",
+          percent: 12 + Math.round((index / Math.max(1, snapshots.length)) * 80),
+          priority: 1,
+        });
+        const rebuilt = await createToolpathFromLoopsAsync(sourceLoops, snapshot.config, { id: snapshot.id, label: snapshot.label });
+        rebuilt.sourceLoops = sourceLoops;
+        rebuilt.tabs = normalizeTabsForToolpath(rebuilt, snapshot.tabs);
+        rebuiltToolpaths.push(rebuilt);
+      }
+      state.toolpaths = rebuiltToolpaths;
+      state.activeToolpathId = rebuiltToolpaths.some((toolpath) => toolpath.id === activeToolpathId)
+        ? activeToolpathId
+        : rebuiltToolpaths[0]?.id || null;
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Failed to update toolpaths after trimming.", "danger");
+    } finally {
+      finishWorkerJob("trim");
+    }
+  }
+
+  async function trimCandidate(candidate) {
+    if (state.trimming) {
+      return;
+    }
+    const entity = state.entities[candidate.entityIndex];
+    if (!entity) {
+      return;
+    }
+    const replacements = candidate.kind === "arc"
+      ? trimArcReplacement(entity, candidate)
+      : entity.type === "LINE"
+        ? trimLineReplacement(entity, candidate)
+        : trimPolylineReplacement(entity, candidate);
+    const historyBefore = captureHistorySnapshot();
+    const snapshots = snapshotToolpathsForRebuild();
+    const activeToolpathId = state.activeToolpathId;
+    state.trimming = true;
+    state.trimHover = null;
+    try {
+      if (replacements.length) {
+        state.entities[candidate.entityIndex] = replacements[0];
+        state.entities.push(...replacements.slice(1));
+      } else {
+        state.entities.splice(candidate.entityIndex, 1);
+      }
+      state.selectionFrameAngles.clear();
+      state.selectedLoopIds.clear();
+      clearToolpathEditing();
+      clearDraftToolpath();
+      rebuildLoopsFromEntities(new Set());
+      await rebuildToolpathsAfterTrim(snapshots, activeToolpathId);
+      pushHistorySnapshot(historyBefore);
+      refreshSelectionUi();
+      refreshToolpathUi();
+      refreshWorkspaceUi();
+      showToast("Trimmed vector segment.", "success", { duration: 1600 });
+      setSelectMode();
+    } finally {
+      state.trimming = false;
+      requestDraw();
+    }
+  }
+
   function handleCadPointerDown(screenPoint) {
+    if (state.cadTool === "trim") {
+      const candidate = findTrimCandidate(screenPoint);
+      if (!candidate) {
+        showToast("Hover a line, arc, circle, or polyline edge to trim it.", "warning", { duration: 1800 });
+        return true;
+      }
+      void trimCandidate(candidate);
+      return true;
+    }
     if (state.cadTool === "text") {
       showCadTextPanel(screenPoint);
       return true;
@@ -3960,6 +4419,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadDraft = null;
     state.guideSourceHover = null;
     state.cadSnapHover = null;
+    state.trimHover = null;
     hideGuideDistancePill();
     hideCadTextPanel();
     state.transformTool = null;
@@ -3981,6 +4441,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadDraft = null;
     state.guideSourceHover = null;
     state.cadSnapHover = null;
+    state.trimHover = null;
     hideGuideDistancePill();
     hideCadTextPanel();
     state.transformTool = null;
@@ -4001,6 +4462,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     state.cadDraft = null;
     state.guideSourceHover = null;
     state.cadSnapHover = null;
+    state.trimHover = null;
     hideGuideDistancePill();
     hideCadTextPanel();
     state.transformTool = null;
@@ -6531,6 +6993,13 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     if (state.geometryTransform) {
       updateGeometryTransform(point);
+      return;
+    }
+    if (state.cadTool === "trim") {
+      state.trimHover = findTrimCandidate(point);
+      state.cadSnapHover = null;
+      updateCanvasCursor(point);
+      requestDraw();
       return;
     }
     if (state.cadTool && state.cadDraft) {
