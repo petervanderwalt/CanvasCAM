@@ -5097,6 +5097,23 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
         if (distance <= tolerance && (!best || distance < best.distance)) best = { entityIndex, index, distance };
       }
     });
+    if (best) return best;
+    const endpoints = [];
+    state.entities.forEach((entity, entityIndex) => {
+      if (entity.type !== "LINE") return;
+      [["start", entity.x1, entity.y1, entity.x2, entity.y2], ["end", entity.x2, entity.y2, entity.x1, entity.y1]].forEach(([end, x, y, otherX, otherY]) => {
+        const distance = Math.hypot(x - world.x, y - world.y);
+        if (distance <= tolerance) endpoints.push({ entityIndex, end, point: { x, y }, other: { x: otherX, y: otherY }, distance });
+      });
+    });
+    for (let left = 0; left < endpoints.length; left += 1) {
+      for (let right = left + 1; right < endpoints.length; right += 1) {
+        const a = endpoints[left]; const b = endpoints[right];
+        if (a.entityIndex === b.entityIndex || Math.hypot(a.point.x - b.point.x, a.point.y - b.point.y) > tolerance) continue;
+        const cross = (a.other.x - a.point.x) * (b.other.y - b.point.y) - (a.other.y - a.point.y) * (b.other.x - b.point.x);
+        if (Math.abs(cross) > 1e-6) return { kind: "line-junction", left: a, right: b, distance: Math.max(a.distance, b.distance) };
+      }
+    }
     return best;
   }
 
@@ -5107,12 +5124,13 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       showToast("Click a rectangle or vector corner.", "warning", { duration: 1600 });
       return;
     }
-    const entity = state.entities[candidate.entityIndex];
-    const count = entity.vertices.length;
-    const previous = entity.vertices[(candidate.index - 1 + count) % count];
-    const corner = entity.vertices[candidate.index];
-    const next = entity.vertices[(candidate.index + 1) % count];
-    if (Math.abs(previous.bulge || 0) > 1e-8 || Math.abs(corner.bulge || 0) > 1e-8) {
+    const isJunction = candidate.kind === "line-junction";
+    const entity = isJunction ? null : state.entities[candidate.entityIndex];
+    const count = entity?.vertices?.length || 0;
+    const previous = isJunction ? candidate.left.other : entity.vertices[(candidate.index - 1 + count) % count];
+    const corner = isJunction ? candidate.left.point : entity.vertices[candidate.index];
+    const next = isJunction ? candidate.right.other : entity.vertices[(candidate.index + 1) % count];
+    if (!isJunction && (Math.abs(previous.bulge || 0) > 1e-8 || Math.abs(corner.bulge || 0) > 1e-8)) {
       showToast("Fillet and chamfer currently need two straight edges at the selected corner.", "warning");
       return;
     }
@@ -5140,7 +5158,23 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
         const outgoing = { x: next.x - corner.x, y: next.y - corner.y };
         a.bulge = Math.sign(incoming.x * outgoing.y - incoming.y * outgoing.x) * Math.tan((Math.PI - cornerAngle) / 4);
       }
-      entity.vertices.splice(candidate.index, 1, a, b);
+      if (isJunction) {
+        const updateEndpoint = (endpoint, point) => {
+          const target = state.entities[endpoint.entityIndex];
+          target[endpoint.end === "start" ? "x1" : "x2"] = point.x;
+          target[endpoint.end === "start" ? "y1" : "y2"] = point.y;
+        };
+        updateEndpoint(candidate.left, a);
+        updateEndpoint(candidate.right, b);
+        state.entities.push(assignObjectTreeMetadata(
+          state.cadTool === "fillet"
+            ? { type: "LWPOLYLINE", closed: false, vertices: [a, b], __cadShape: "fillet" }
+            : { type: "LINE", __cadShape: "chamfer", x1: a.x, y1: a.y, x2: b.x, y2: b.y },
+          { id: "cad", name: "CAD", source: "CAD" }
+        ));
+      } else {
+        entity.vertices.splice(candidate.index, 1, a, b);
+      }
     }
     state.cornerProcessing = true;
     rebuildLoopsFromEntities(new Set());
@@ -7914,7 +7948,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       const corner = findCornerAtScreenPoint(point);
       state.cornerHover = corner;
       if (corner) {
-        const screen = worldToScreen(state.entities[corner.entityIndex].vertices[corner.index]);
+        const cornerPoint = corner.kind === "line-junction"
+          ? corner.left.point
+          : state.entities[corner.entityIndex].vertices[corner.index];
+        const screen = worldToScreen(cornerPoint);
         const rect = canvas.getBoundingClientRect();
         renderCadDimensionPill({ x: rect.left + screen.x + 14, y: rect.top + screen.y - 34, primaryLabel: "Corner size", primaryValue: state.cornerToolRadius, primaryAriaLabel: "Corner size" });
       } else {
