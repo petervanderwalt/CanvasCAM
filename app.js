@@ -294,6 +294,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     trimPointer: null,
     trimBrushMode: false,
     trimming: false,
+    cornerToolRadius: 3,
+    cornerProcessing: false,
     cadTextPlacement: null,
     cadSnapEnabled: true,
     openEndpointCache: [],
@@ -5082,7 +5084,73 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     addTrimStrokeCandidate(screenPoint);
   }
 
+  function findCornerAtScreenPoint(screenPoint) {
+    const world = screenToWorld(screenPoint);
+    const tolerance = 10 / Math.max(state.camera.zoom, 0.01);
+    let best = null;
+    state.entities.forEach((entity, entityIndex) => {
+      if (entity.type !== "LWPOLYLINE" || !entity.vertices || entity.vertices.length < 3) return;
+      const limit = entity.closed ? entity.vertices.length : entity.vertices.length - 1;
+      for (let index = entity.closed ? 0 : 1; index < limit; index += 1) {
+        const point = entity.vertices[index];
+        const distance = Math.hypot(point.x - world.x, point.y - world.y);
+        if (distance <= tolerance && (!best || distance < best.distance)) best = { entityIndex, index, distance };
+      }
+    });
+    return best;
+  }
+
+  async function applyCornerToolAt(screenPoint) {
+    if (state.cornerProcessing) return;
+    const candidate = findCornerAtScreenPoint(screenPoint);
+    if (!candidate) {
+      showToast("Click a polyline corner.", "warning", { duration: 1600 });
+      return;
+    }
+    const entity = state.entities[candidate.entityIndex];
+    const count = entity.vertices.length;
+    const previous = entity.vertices[(candidate.index - 1 + count) % count];
+    const corner = entity.vertices[candidate.index];
+    const next = entity.vertices[(candidate.index + 1) % count];
+    const left = Math.hypot(previous.x - corner.x, previous.y - corner.y);
+    const right = Math.hypot(next.x - corner.x, next.y - corner.y);
+    const radius = Math.min(Math.max(0.01, state.cornerToolRadius), left / 2, right / 2);
+    if (radius <= 0.01) return;
+    const towardPrevious = { x: (previous.x - corner.x) / left, y: (previous.y - corner.y) / left };
+    const towardNext = { x: (next.x - corner.x) / right, y: (next.y - corner.y) / right };
+    const historyBefore = captureHistorySnapshot();
+    const toolpathSnapshots = snapshotToolpathsForRebuild();
+    const activeToolpathId = state.activeToolpathId;
+    if (state.cadTool === "dogbone") {
+      const bisectorLength = Math.hypot(towardPrevious.x + towardNext.x, towardPrevious.y + towardNext.y) || 1;
+      const center = { x: corner.x + (towardPrevious.x + towardNext.x) / bisectorLength * radius, y: corner.y + (towardPrevious.y + towardNext.y) / bisectorLength * radius };
+      const dogbone = assignObjectTreeMetadata({ type: "CIRCLE", __cadShape: "dogbone", cx: center.x, cy: center.y, radius }, { id: "cad", name: "CAD", source: "CAD" });
+      state.entities.push(dogbone);
+    } else {
+      const cornerAngle = Math.acos(Math.max(-1, Math.min(1, towardPrevious.x * towardNext.x + towardPrevious.y * towardNext.y)));
+      const trim = state.cadTool === "fillet" ? Math.min(radius / Math.tan(cornerAngle / 2), left / 2, right / 2) : radius;
+      const a = { x: corner.x + towardPrevious.x * trim, y: corner.y + towardPrevious.y * trim, bulge: 0 };
+      const b = { x: corner.x + towardNext.x * trim, y: corner.y + towardNext.y * trim, bulge: 0 };
+      if (state.cadTool === "fillet") {
+        const incoming = { x: corner.x - previous.x, y: corner.y - previous.y };
+        const outgoing = { x: next.x - corner.x, y: next.y - corner.y };
+        a.bulge = Math.sign(incoming.x * outgoing.y - incoming.y * outgoing.x) * Math.tan((Math.PI - cornerAngle) / 4);
+      }
+      entity.vertices.splice(candidate.index, 1, a, b);
+    }
+    state.cornerProcessing = true;
+    rebuildLoopsFromEntities(new Set());
+    await rebuildToolpathsAfterTrim(toolpathSnapshots, activeToolpathId);
+    pushHistorySnapshot(historyBefore);
+    state.cornerProcessing = false;
+    refreshSelectionUi(); refreshToolpathUi(); refreshWorkspaceUi(); requestDraw();
+  }
+
   function handleCadPointerDown(screenPoint, options = {}) {
+    if (["fillet", "chamfer", "dogbone"].includes(state.cadTool)) {
+      applyCornerToolAt(screenPoint);
+      return true;
+    }
     if (state.cadTool === "trim") {
       if (state.trimming) {
         showToast("Finishing the previous trim stroke.", "warning", { duration: 1600 });
@@ -7273,6 +7341,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const value = Number.parseFloat(ui.guideDistanceInput.value);
     const draft = state.cadDraft;
     if (!draft || !Number.isFinite(value)) {
+      if (["fillet", "chamfer", "dogbone"].includes(state.cadTool) && Number.isFinite(value)) {
+        state.cornerToolRadius = Math.max(0.01, value);
+      }
       return;
     }
     if (draft.guide) {
@@ -7831,6 +7902,20 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       state.trimPointer = point;
       state.trimBrushMode = isTrimBrushModifier(event);
       state.cadSnapHover = null;
+      updateCanvasCursor(point);
+      requestDraw();
+      return;
+    }
+    if (["fillet", "chamfer", "dogbone"].includes(state.cadTool)) {
+      const corner = findCornerAtScreenPoint(point);
+      state.cornerHover = corner;
+      if (corner) {
+        const screen = worldToScreen(state.entities[corner.entityIndex].vertices[corner.index]);
+        const rect = canvas.getBoundingClientRect();
+        renderCadDimensionPill({ x: rect.left + screen.x + 14, y: rect.top + screen.y - 34, primaryLabel: "Corner size", primaryValue: state.cornerToolRadius, primaryAriaLabel: "Corner size" });
+      } else {
+        hideGuideDistancePill();
+      }
       updateCanvasCursor(point);
       requestDraw();
       return;
