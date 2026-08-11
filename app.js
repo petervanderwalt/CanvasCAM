@@ -1464,7 +1464,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
   function refreshExpandPreview() {
     const amount = Number.parseFloat(ui.expandAmountInput.value);
-    const union = Number.isFinite(amount) && amount > 0
+    const union = Number.isFinite(amount) && Math.abs(amount) > 1e-7
       ? CamOps.compositePocketSeedPaths(getBooleanEligibleLoops())
       : [];
     const preview = union.length ? CamOps.offsetCompositePolygons(union, amount) : [];
@@ -1479,7 +1479,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       showToast("Select at least one closed vector to expand.", "warning");
       return;
     }
-    ui.expandModalSummary.textContent = `${loops.length} closed vector${loops.length === 1 ? "" : "s"} selected. They will be unioned before expanding.`;
+    ui.expandModalSummary.textContent = `${loops.length} closed vector${loops.length === 1 ? "" : "s"} selected. They will be unioned before offsetting.`;
     refreshExpandPreview();
     getExpandModalInstance()?.show();
     ui.expandAmountInput.focus();
@@ -1489,7 +1489,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   function applyExpandOperation() {
     const result = state.expandPreviewContours || [];
     if (!result.length) {
-      showToast("Enter an expansion greater than zero.", "warning");
+      showToast("Enter a non-zero offset amount.", "warning");
       return;
     }
 
