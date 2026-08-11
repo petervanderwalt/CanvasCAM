@@ -4409,19 +4409,20 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     return { startT: sorted[sorted.length - 2], endT: sorted[sorted.length - 1] };
   }
 
-  function findClosestTrimSegment(screenPoint, segments) {
+  function findTrimSegmentsInBrush(screenPoint, segments) {
     const world = screenToWorld(screenPoint);
     const hitRadius = trimEraserRadius();
-    let closest = null;
-    for (const segment of segments) {
-      const point = nearestPointOnTrimSegment(world, segment);
-      const distance = Math.hypot(point.x - world.x, point.y - world.y);
-      if (distance > hitRadius || (closest && distance >= closest.distance)) {
-        continue;
-      }
-      closest = { ...segment, point, distance };
-    }
-    return closest;
+    return segments
+      .map((segment) => {
+        const point = nearestPointOnTrimSegment(world, segment);
+        return { ...segment, point, distance: Math.hypot(point.x - world.x, point.y - world.y) };
+      })
+      .filter((candidate) => candidate.distance <= hitRadius)
+      .sort((a, b) => a.distance - b.distance);
+  }
+
+  function findClosestTrimSegment(screenPoint, segments) {
+    return findTrimSegmentsInBrush(screenPoint, segments)[0] || null;
   }
 
   function finalizeTrimCandidate(closest, segments) {
@@ -4689,8 +4690,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
         x: stroke.lastPoint.x + (dx * step) / steps,
         y: stroke.lastPoint.y + (dy * step) / steps,
       };
-      const candidate = findClosestTrimSegment(probe, stroke.segments);
-      if (candidate) {
+      for (const candidate of findTrimSegmentsInBrush(probe, stroke.segments)) {
         queueTrimStrokeCandidate(stroke, candidate);
       }
     }
