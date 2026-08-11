@@ -253,10 +253,8 @@ body {
 
 .ribbon-tab[data-ribbon-tab="file"]:hover,
 .ribbon-tab[data-ribbon-tab="file"]:focus-visible { background: var(--ribbon-file-soft); }
-.ribbon-tab[data-ribbon-tab="cad"]:hover,
-.ribbon-tab[data-ribbon-tab="cad"]:focus-visible { background: var(--ribbon-draw-soft); }
-.ribbon-tab[data-ribbon-tab="edit"]:hover,
-.ribbon-tab[data-ribbon-tab="edit"]:focus-visible { background: var(--ribbon-edit-soft); }
+.ribbon-tab[data-ribbon-tab="design"]:hover,
+.ribbon-tab[data-ribbon-tab="design"]:focus-visible { background: var(--ribbon-draw-soft); }
 .ribbon-tab[data-ribbon-tab="view"]:hover,
 .ribbon-tab[data-ribbon-tab="view"]:focus-visible { background: var(--ribbon-view-soft); }
 
@@ -268,8 +266,7 @@ body {
 }
 
 .ribbon-tab[data-ribbon-tab="file"].is-active { background: var(--ribbon-file); }
-.ribbon-tab[data-ribbon-tab="cad"].is-active { background: var(--ribbon-draw); }
-.ribbon-tab[data-ribbon-tab="edit"].is-active { background: var(--ribbon-edit); }
+.ribbon-tab[data-ribbon-tab="design"].is-active { background: var(--ribbon-draw); }
 .ribbon-tab[data-ribbon-tab="view"].is-active { background: var(--ribbon-view); }
 
 .ribbon-tab.is-active::after {
@@ -291,7 +288,7 @@ body {
 .ribbon-panel {
   display: none;
   min-width: max-content;
-  min-height: 4.8rem;
+  min-height: 4.25rem;
   align-items: stretch;
   border: 0;
   border-top: 2px solid rgba(17, 17, 17, 0.58);
@@ -299,8 +296,7 @@ body {
 }
 
 .ribbon-panel[data-ribbon-panel="file"] { background: var(--ribbon-file-soft); }
-.ribbon-panel[data-ribbon-panel="cad"] { background: var(--ribbon-draw-soft); }
-.ribbon-panel[data-ribbon-panel="edit"] { background: var(--ribbon-edit-soft); }
+.ribbon-panel[data-ribbon-panel="design"] { background: linear-gradient(90deg, var(--ribbon-draw-soft) 0%, #f2edff 100%); }
 .ribbon-panel[data-ribbon-panel="view"] { background: var(--ribbon-view-soft); }
 
 .ribbon-panel.is-active {
@@ -312,8 +308,8 @@ body {
   display: flex;
   align-items: center;
   gap: 0.28rem;
-  min-width: 5.25rem;
-  padding: 0.34rem 0.58rem 1.12rem;
+  min-width: 4.5rem;
+  padding: 0.28rem 0.46rem 0.95rem;
   border-right: 1px solid rgba(17, 17, 17, 0.22);
 }
 
@@ -324,32 +320,32 @@ body {
 .ribbon-command-grid {
   display: grid;
   grid-template-columns: repeat(12, max-content);
-  gap: 0.25rem;
+  gap: 0.2rem;
 }
 
 .ribbon-command {
-  min-width: 3.8rem;
-  min-height: 2.55rem;
+  min-width: 3.2rem;
+  min-height: 2.2rem;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.16rem;
-  padding: 0.22rem 0.46rem;
+  gap: 0.1rem;
+  padding: 0.16rem 0.36rem;
   border: 2px solid var(--funky-ink);
   border-radius: 0.48rem;
   background: #fffdf4;
   color: var(--funky-ink);
   box-shadow: 0 2px 0 rgba(17, 17, 17, 0.84);
   font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
-  font-size: 0.64rem;
+  font-size: 0.59rem;
   font-weight: 900;
   line-height: 1;
   white-space: nowrap;
 }
 
 .ribbon-command i {
-  font-size: 0.94rem;
+  font-size: 0.82rem;
 }
 
 .ribbon-command:hover,
@@ -367,13 +363,13 @@ body {
 .ribbon-panel[data-ribbon-panel="file"] .ribbon-command:focus-visible,
 .ribbon-panel[data-ribbon-panel="file"] .ribbon-command.is-active { background: var(--ribbon-file); }
 
-.ribbon-panel[data-ribbon-panel="cad"] .ribbon-command:hover,
-.ribbon-panel[data-ribbon-panel="cad"] .ribbon-command:focus-visible,
-.ribbon-panel[data-ribbon-panel="cad"] .ribbon-command.is-active { background: var(--ribbon-draw); }
+.ribbon-panel[data-ribbon-panel="design"] .ribbon-command:hover,
+.ribbon-panel[data-ribbon-panel="design"] .ribbon-command:focus-visible,
+.ribbon-panel[data-ribbon-panel="design"] .ribbon-command.is-active { background: var(--ribbon-draw); }
 
-.ribbon-panel[data-ribbon-panel="edit"] .ribbon-command:hover,
-.ribbon-panel[data-ribbon-panel="edit"] .ribbon-command:focus-visible,
-.ribbon-panel[data-ribbon-panel="edit"] .ribbon-command.is-active { background: var(--ribbon-edit); }
+#vectorActionGroup .ribbon-command:hover,
+#vectorActionGroup .ribbon-command:focus-visible,
+#vectorActionGroup .ribbon-command.is-active { background: var(--ribbon-edit); }
 
 .ribbon-panel[data-ribbon-panel="view"] .ribbon-command:hover,
 .ribbon-panel[data-ribbon-panel="view"] .ribbon-command:focus-visible,

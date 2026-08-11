@@ -5166,7 +5166,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
   ui.loadSampleBtn.addEventListener("click", loadBundledSample);
   ui.ribbonTabs.forEach((tab) => {
-    tab.addEventListener("click", () => setRibbonTab(tab.dataset.ribbonTab || "cad"));
+    tab.addEventListener("click", () => setRibbonTab(tab.dataset.ribbonTab || "design"));
   });
   ui.browseVectorBtn.addEventListener("click", openFilePicker);
   ui.newEmptyCanvasBtn.addEventListener("click", startNewEmptyCanvas);
