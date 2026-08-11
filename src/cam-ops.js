@@ -155,19 +155,11 @@ export function booleanPolygons(selectedLoops, operation = "union") {
     return [];
   }
 
-  records.sort((a, b) => b.area - a.area);
-  const paths = records.map((record) => {
-    const sample = polygonCentroid(record.points);
-    const nestingDepth = records.reduce((depth, candidate) => (
-      candidate === record || candidate.area <= record.area || !pointInPolygon(sample, candidate.points)
-        ? depth
-        : depth + 1
-    ), 0);
-    const oriented = nestingDepth % 2 === 0
-      ? ensurePositiveOrientation(record.points)
-      : ensureNegativeOrientation(record.points);
-    return clipperPathFromPoints(oriented);
-  });
+  // Boolean inputs represent selected filled vectors. Do not infer holes from
+  // centroid nesting: overlapping shapes can have their centroid inside a peer.
+  const paths = records.map((record) => clipperPathFromPoints(
+    ensurePositiveOrientation(record.points)
+  ));
   const fill = ClipperLib.PolyFillType.pftNonZero;
   const execute = (clipType, subject, clip = []) => {
     const clipper = new ClipperLib.Clipper();
