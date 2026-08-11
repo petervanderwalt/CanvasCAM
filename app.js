@@ -5104,7 +5104,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (state.cornerProcessing) return;
     const candidate = findCornerAtScreenPoint(screenPoint);
     if (!candidate) {
-      showToast("Click a polyline corner.", "warning", { duration: 1600 });
+      showToast("Click a rectangle or vector corner.", "warning", { duration: 1600 });
       return;
     }
     const entity = state.entities[candidate.entityIndex];
