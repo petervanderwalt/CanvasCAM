@@ -266,6 +266,7 @@ function buildEntity(type, data) {
       ...common,
       degree,
       flags,
+      closed: (flags & 1) === 1,
       knots,
       controlPoints,
     };

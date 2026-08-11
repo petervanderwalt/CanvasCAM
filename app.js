@@ -4070,7 +4070,15 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
         }
         continue;
       }
+      if (entity.type === "SPLINE") {
+        appendFlattenedTrimSegments(segments, entityIndex, flattenTrimEntity(entity));
+        continue;
+      }
       if (!["LWPOLYLINE", "POLYLINE"].includes(entity.type) || !Array.isArray(entity.vertices) || entity.vertices.length < 2) {
+        continue;
+      }
+      if (entity.vertices.some((vertex) => Math.abs(Number(vertex.bulge) || 0) > 1e-9)) {
+        appendFlattenedTrimSegments(segments, entityIndex, flattenTrimEntity(entity));
         continue;
       }
       const count = entity.closed ? entity.vertices.length : entity.vertices.length - 1;
@@ -4090,6 +4098,61 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       }
     }
     return segments;
+  }
+
+  // Preserve imported curves until an edit: trimming replaces only that source
+  // with a close-tolerance polyline so it can be split at the visible cut.
+  function flattenTrimEntity(entity) {
+    if (entity.type === "SPLINE") {
+      const curve = entityToSegment(entity);
+      const points = curve?.flatten?.(0.5) || [];
+      const closed = Boolean(entity.closed) || (points.length > 2 && dist(points[0], points[points.length - 1]) <= 1e-6);
+      return { points: closed ? points.slice(0, -1) : points, closed };
+    }
+    const vertices = entity.vertices || [];
+    const edgeCount = entity.closed ? vertices.length : vertices.length - 1;
+    const points = [];
+    for (let index = 0; index < edgeCount; index += 1) {
+      const edge = flattenTrimBulgeEdge(vertices[index], vertices[(index + 1) % vertices.length], Number(vertices[index].bulge) || 0);
+      points.push(...(points.length ? edge.slice(1) : edge));
+    }
+    if (entity.closed && points.length > 1 && dist(points[0], points[points.length - 1]) <= 1e-6) {
+      points.pop();
+    }
+    return { points, closed: Boolean(entity.closed) };
+  }
+
+  function flattenTrimBulgeEdge(start, end, bulge) {
+    if (Math.abs(bulge) <= 1e-9) return [{ x: start.x, y: start.y }, { x: end.x, y: end.y }];
+    const chord = Math.hypot(end.x - start.x, end.y - start.y);
+    if (chord <= 1e-9) return [{ x: start.x, y: start.y }, { x: end.x, y: end.y }];
+    const midpoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+    const normal = { x: -(end.y - start.y) / chord, y: (end.x - start.x) / chord };
+    const center = {
+      x: midpoint.x + normal.x * (chord * (1 - bulge * bulge)) / (4 * bulge),
+      y: midpoint.y + normal.y * (chord * (1 - bulge * bulge)) / (4 * bulge),
+    };
+    const radius = Math.hypot(start.x - center.x, start.y - center.y);
+    const startAngle = Math.atan2(start.y - center.y, start.x - center.x);
+    let endAngle = Math.atan2(end.y - center.y, end.x - center.x);
+    if (bulge > 0 && endAngle <= startAngle) endAngle += Math.PI * 2;
+    if (bulge < 0 && endAngle >= startAngle) endAngle -= Math.PI * 2;
+    const steps = Math.max(12, Math.ceil((radius * Math.abs(endAngle - startAngle)) / 0.5));
+    return Array.from({ length: steps + 1 }, (_, index) => {
+      const angle = startAngle + (endAngle - startAngle) * (index / steps);
+      return { x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius };
+    });
+  }
+
+  function appendFlattenedTrimSegments(segments, entityIndex, flattened) {
+    const { points, closed } = flattened;
+    const count = closed ? points.length : points.length - 1;
+    for (let segmentIndex = 0; segmentIndex < count; segmentIndex += 1) {
+      const start = points[segmentIndex];
+      const end = points[(segmentIndex + 1) % points.length];
+      if (dist(start, end) <= 1e-9) continue;
+      segments.push({ kind: "line", entityIndex, segmentIndex, start: { ...start }, end: { ...end }, flattened });
+    }
   }
 
   function segmentPointAt(segment, t) {
@@ -4252,9 +4315,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     return points.map((point) => ({ point, t: segmentParameter(point, left) }));
   }
 
-  function trimRangeForSegment(segment, point) {
+  function trimRangeForSegment(segment, point, segments) {
     const cuts = [0, 1];
-    for (const other of trimEditableSegments()) {
+    for (const other of segments) {
       if (other.entityIndex === segment.entityIndex && other.segmentIndex === segment.segmentIndex) {
         continue;
       }
@@ -4278,7 +4341,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     const world = screenToWorld(screenPoint);
     const hitRadius = 12 / Math.max(state.camera.zoom, 0.01);
     let closest = null;
-    for (const segment of trimEditableSegments()) {
+    const segments = trimEditableSegments();
+    for (const segment of segments) {
       const point = nearestPointOnTrimSegment(world, segment);
       const distance = Math.hypot(point.x - world.x, point.y - world.y);
       if (distance > hitRadius || (closest && distance >= closest.distance)) {
@@ -4289,7 +4353,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (!closest) {
       return null;
     }
-    const range = trimRangeForSegment(closest, closest.point);
+    const range = trimRangeForSegment(closest, closest.point, segments);
     if (range.endT - range.startT <= 1e-7) {
       return null;
     }
@@ -4306,7 +4370,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   }
 
   function trimPolylineReplacement(entity, candidate) {
-    const vertices = entity.vertices.map((vertex) => ({ x: vertex.x, y: vertex.y }));
+    const source = candidate.flattened;
+    const vertices = (source?.points || entity.vertices).map((vertex) => ({ x: vertex.x, y: vertex.y }));
+    const closed = source ? source.closed : entity.closed;
     const makeEntity = (points, keepTreeId) => {
       const clean = uniqueTrimPoints(points);
       if (clean.length < 2) {
@@ -4314,15 +4380,21 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       }
       const replacement = {
         ...deepClone(entity),
+        type: source ? "LWPOLYLINE" : entity.type,
         closed: false,
         vertices: clean.map((point) => ({ x: point.x, y: point.y, bulge: 0 })),
       };
+      if (source) {
+        delete replacement.controlPoints;
+        delete replacement.degree;
+        delete replacement.knots;
+      }
       if (!keepTreeId) {
         replacement.__treeId = crypto.randomUUID();
       }
       return replacement;
     };
-    if (entity.closed) {
+    if (closed) {
       const points = [candidate.trimEnd];
       for (let offset = 1; offset <= vertices.length; offset += 1) {
         points.push(vertices[(candidate.segmentIndex + offset) % vertices.length]);
@@ -4485,7 +4557,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     if (state.cadTool === "trim") {
       const candidate = findTrimCandidate(screenPoint);
       if (!candidate) {
-        showToast("Hover a line, arc, circle, or polyline edge to trim it.", "warning", { duration: 1800 });
+        showToast("Hover a vector edge to trim it.", "warning", { duration: 1800 });
         return true;
       }
       void trimCandidate(candidate);
