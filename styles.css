@@ -3206,6 +3206,7 @@ body {
 }
 
 #expandModal .input-group > .form-control,
+#expandModal .input-group > .form-select,
 #expandModal .input-group > .input-group-text {
   border: 3px solid var(--funky-ink);
   box-shadow: none;
@@ -3225,9 +3226,18 @@ body {
 
 #expandModal .input-group > .input-group-text {
   border-left: 0;
-  border-radius: 0 0.72rem 0.72rem 0;
+  border-radius: 0;
   background: #fff8d8;
   color: rgba(17, 17, 17, 0.72);
+  font-weight: 900;
+}
+
+#expandModal .input-group > .form-select {
+  flex: 0 0 8rem;
+  border-left: 0;
+  border-radius: 0 0.72rem 0.72rem 0;
+  background-color: #ffd67b;
+  color: var(--funky-ink);
   font-weight: 900;
 }
 

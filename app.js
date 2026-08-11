@@ -140,6 +140,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     expandModal: document.getElementById("expandModal"),
     expandModalSummary: document.getElementById("expandModalSummary"),
     expandAmountInput: document.getElementById("expandAmountInput"),
+    expandDirectionInput: document.getElementById("expandDirectionInput"),
     applyExpandBtn: document.getElementById("applyExpandBtn"),
     transformSidebarPanel: document.getElementById("transformSidebarPanel"),
     transformInspector: document.getElementById("transformInspector"),
@@ -1463,8 +1464,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   }
 
   function refreshExpandPreview() {
-    const amount = Number.parseFloat(ui.expandAmountInput.value);
-    const union = Number.isFinite(amount) && Math.abs(amount) > 1e-7
+    const enteredAmount = Number.parseFloat(ui.expandAmountInput.value);
+    const amount = ui.expandDirectionInput.value === "inward" ? -enteredAmount : enteredAmount;
+    const union = Number.isFinite(enteredAmount) && enteredAmount > 1e-7
       ? CamOps.compositePocketSeedPaths(getBooleanEligibleLoops())
       : [];
     const preview = union.length ? CamOps.offsetCompositePolygons(union, amount) : [];
@@ -1476,7 +1478,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   function openExpandDialog() {
     const loops = getBooleanEligibleLoops();
     if (!loops.length) {
-      showToast("Select at least one closed vector to expand.", "warning");
+      showToast("Select at least one closed vector to offset.", "warning");
       return;
     }
     ui.expandModalSummary.textContent = `${loops.length} closed vector${loops.length === 1 ? "" : "s"} selected. They will be unioned before offsetting.`;
@@ -6654,6 +6656,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     requestDraw();
   });
   ui.expandAmountInput?.addEventListener("input", refreshExpandPreview);
+  ui.expandDirectionInput?.addEventListener("change", refreshExpandPreview);
   ui.applyExpandBtn?.addEventListener("click", applyExpandOperation);
   ui.expandModal?.querySelectorAll("[data-bs-dismiss='modal']").forEach((button) => {
     button.addEventListener("click", () => {
