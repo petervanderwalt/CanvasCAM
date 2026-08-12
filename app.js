@@ -2852,8 +2852,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     ui.canvasWrap.classList.toggle("is-drop-target", state.dragImportActive);
     if (ui.emptyStateDropNote) {
       ui.emptyStateDropNote.textContent = state.dragImportActive
-        ? "Drop DXF/SVG to open"
-        : "or drag DXF/SVG here";
+        ? "Drop DXF/SVG/Bitmap to open"
+        : "or drag DXF/SVG/Bitmap here";
     }
     ui.vectorActionGroup.classList.remove("d-none");
     ui.cadActionGroup.classList.toggle("d-none", false);
