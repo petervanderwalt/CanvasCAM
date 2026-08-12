@@ -16,19 +16,18 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   >
-  <link rel="stylesheet" href="styles.css?v=20260812-trace-contrast1">
+  <link rel="stylesheet" href="styles.css?v=20260812-ribbon-scrollbar1">
 </head>
 <body>
   <div class="workspace-shell">
     <div class="workspace-main">
       <header class="workspace-header">
         <nav class="ribbon-tabs" aria-label="Workspace commands">
-          <button type="button" class="ribbon-tab is-active" data-ribbon-tab="file">File</button>
-          <button type="button" class="ribbon-tab" data-ribbon-tab="design">Design</button>
+          <button type="button" class="ribbon-tab is-active" data-ribbon-tab="design">Design</button>
           <button type="button" class="ribbon-tab" data-ribbon-tab="view">View</button>
         </nav>
         <div class="ribbon-panels">
-          <section class="ribbon-panel is-active" data-ribbon-panel="file" aria-label="File commands">
+          <section class="ribbon-panel is-active" data-ribbon-panel="design" aria-label="Design commands">
             <div class="ribbon-group">
               <div class="ribbon-command-grid">
                 <button id="newCanvasBtn" type="button" class="btn ribbon-command" title="Start a new empty canvas"><i class="fa-regular fa-file"></i><span>New Canvas</span></button>
@@ -36,14 +35,6 @@
               </div>
               <span class="ribbon-group-label">Project</span>
             </div>
-            <div class="ribbon-group">
-              <div class="ribbon-command-grid">
-                <button id="toggleSettingsBtn" type="button" class="btn ribbon-command" title="Workspace settings"><i class="fa-solid fa-gear"></i><span>Settings</span></button>
-              </div>
-              <span class="ribbon-group-label">Workspace</span>
-            </div>
-          </section>
-          <section class="ribbon-panel" data-ribbon-panel="design" aria-label="Design commands">
             <div class="ribbon-group">
               <div class="ribbon-command-grid">
                 <button type="button" id="selectModeBtn" class="btn ribbon-command is-active" title="Select vectors" aria-label="Select vectors" aria-pressed="true"><i class="fa-solid fa-arrow-pointer"></i><span>Select</span></button>
@@ -96,6 +87,12 @@
                 <button type="button" id="redoBtn" class="btn ribbon-command" title="Redo (Ctrl+Y)" disabled><i class="fa-solid fa-rotate-right"></i><span>Redo</span></button>
               </div>
               <span class="ribbon-group-label">History</span>
+            </div>
+            <div class="ribbon-group">
+              <div class="ribbon-command-grid">
+                <button id="toggleSettingsBtn" type="button" class="btn ribbon-command" title="Workspace settings"><i class="fa-solid fa-gear"></i><span>Settings</span></button>
+              </div>
+              <span class="ribbon-group-label">Workspace</span>
             </div>
           </section>
           <section class="ribbon-panel" data-ribbon-panel="view" aria-label="View commands">
@@ -468,7 +465,7 @@
       </div>
 
       <div class="sidebar-dock">
-        <div class="dock-status" id="statusText">Import a DXF or SVG to begin.</div>
+        <div class="dock-status" id="statusText">Import a DXF, SVG, or bitmap to begin.</div>
         <button id="generateGcodeBtn" class="btn btn-success btn-lg dock-export-btn" disabled title="Add at least 1 toolpath to export">Generate G-code</button>
       </div>
     </aside>
@@ -781,6 +778,6 @@
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"
   ></script>
-  <script type="module" src="app.js?v=20260812-drag-bitmap1"></script>
+  <script type="module" src="app.js?v=20260812-duplicate-move3"></script>
 </body>
 </html>

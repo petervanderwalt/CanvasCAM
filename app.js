@@ -362,7 +362,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
   function updateDockStatus() {
     if (!state.loops.length) {
-      ui.statusText.textContent = "Import a DXF or SVG to begin.";
+      ui.statusText.textContent = "Import a DXF, SVG, or bitmap to begin.";
       return;
     }
     if (!state.toolpaths.length) {
@@ -1012,6 +1012,39 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     ui.drawMenuBtn?.setAttribute("aria-pressed", String(drawActive));
   }
 
+  function closeDrawMenu() {
+    if (!ui.drawMenu || !ui.drawMenuBtn) {
+      return;
+    }
+    ui.drawMenu.classList.add("d-none");
+    ui.drawMenu.classList.remove("ribbon-menu-popover");
+    ui.drawMenu.style.removeProperty("top");
+    ui.drawMenu.style.removeProperty("left");
+    const host = ui.drawMenuBtn.parentElement;
+    if (host && ui.drawMenu.parentElement !== host) {
+      host.append(ui.drawMenu);
+    }
+    ui.drawMenuBtn.setAttribute("aria-expanded", "false");
+  }
+
+  function openDrawMenu() {
+    if (!ui.drawMenu || !ui.drawMenuBtn) {
+      return;
+    }
+    document.body.append(ui.drawMenu);
+    ui.drawMenu.classList.add("ribbon-menu-popover");
+    ui.drawMenu.style.visibility = "hidden";
+    ui.drawMenu.classList.remove("d-none");
+    const triggerRect = ui.drawMenuBtn.getBoundingClientRect();
+    const menuRect = ui.drawMenu.getBoundingClientRect();
+    const left = Math.max(8, Math.min(triggerRect.left, window.innerWidth - menuRect.width - 8));
+    const top = Math.min(triggerRect.bottom + 6, window.innerHeight - menuRect.height - 8);
+    ui.drawMenu.style.left = `${left}px`;
+    ui.drawMenu.style.top = `${Math.max(8, top)}px`;
+    ui.drawMenu.style.visibility = "";
+    ui.drawMenuBtn.setAttribute("aria-expanded", "true");
+  }
+
   function setRibbonTab(tabName) {
     for (const tab of ui.ribbonTabs) {
       const active = tab.dataset.ribbonTab === tabName;
@@ -1095,8 +1128,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       return;
     }
     const historyBefore = captureHistorySnapshot();
-    const offset = state.cadSnapEnabled ? getGridSpacing() : 5;
     const startIndex = state.entities.length;
+    // Exact overlapping copies are removed while rebuilding selectable loops.
+    // Start slightly offset, then leave the copy selected for normal Move mode.
+    const offset = state.cadSnapEnabled ? getGridSpacing() : 5;
     const copies = indexes.map((index) => {
       const copy = translateEntity(deepClone(state.entities[index]), offset, offset);
       copy.__treeId = crypto.randomUUID();
@@ -1112,7 +1147,18 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
         state.selectedLoopIds.add(loop.id);
       }
     }
+    if (!state.selectedLoopIds.size) {
+      // Keep duplication reliable for imported geometry that gets stitched into
+      // a shared loop during rebuild. The copy is still selected as a whole.
+      for (const loop of state.loops) {
+        if (loop.sourceEntityIndexes?.some((index) => index >= startIndex)) {
+          state.selectedLoopIds.add(loop.id);
+        }
+      }
+    }
     pushHistorySnapshot(historyBefore);
+    state.transformTool = "move";
+    updateTransformToolUi();
     refreshSelectionUi();
     refreshToolpathUi();
     refreshWorkspaceUi();
@@ -7454,21 +7500,22 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   ui.selectModeBtn.addEventListener("click", setSelectMode);
   ui.cadEditModeBtn.addEventListener("click", () => {
     setCadEditMode();
-    ui.drawMenu?.classList.add("d-none");
-    ui.drawMenuBtn?.setAttribute("aria-expanded", "false");
+    closeDrawMenu();
   });
   ui.drawMenuBtn?.addEventListener("click", () => {
     const isOpen = !ui.drawMenu?.classList.contains("d-none");
-    ui.drawMenu?.classList.toggle("d-none", isOpen);
-    ui.drawMenuBtn.setAttribute("aria-expanded", String(!isOpen));
+    if (isOpen) {
+      closeDrawMenu();
+    } else {
+      openDrawMenu();
+    }
   });
   document.addEventListener("click", (event) => {
     if (!ui.drawMenu || !ui.drawMenuBtn || ui.drawMenu.classList.contains("d-none")) {
       return;
     }
-    if (!ui.cadActionGroup?.contains(event.target)) {
-      ui.drawMenu.classList.add("d-none");
-      ui.drawMenuBtn.setAttribute("aria-expanded", "false");
+    if (!ui.cadActionGroup?.contains(event.target) && !ui.drawMenu.contains(event.target)) {
+      closeDrawMenu();
     }
   });
   ui.transformToolButtons.forEach((button) => {
@@ -7701,8 +7748,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   ui.cadToolButtons.forEach((button) => {
     button.addEventListener("click", () => {
       setCadTool(button.dataset.cadTool || null);
-      ui.drawMenu?.classList.add("d-none");
-      ui.drawMenuBtn?.setAttribute("aria-expanded", "false");
+      closeDrawMenu();
     });
   });
   ui.clearGuidesBtn.addEventListener("click", clearConstructionGuides);
@@ -8237,6 +8283,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 
   canvas.addEventListener("mousedown", (event) => {
     const point = { x: event.offsetX, y: event.offsetY };
+    if (event.button === 0 && state.geometryTransform?.placement) {
+      updateGeometryTransform(point);
+      void finalizeGeometryTransform();
+      updateCanvasCursor(point);
+      return;
+    }
     if (event.button === 0 && state.cadTool === "trim") {
       handleCadPointerDown(point, { trimBrush: isTrimBrushModifier(event) });
       updateCanvasCursor(point);

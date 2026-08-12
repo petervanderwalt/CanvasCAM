@@ -292,6 +292,9 @@ body {
   min-width: 0;
   min-height: 4.25rem;
   align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
   border: 0;
   border-top: 2px solid rgba(17, 17, 17, 0.58);
   border-radius: 0;
@@ -303,6 +306,25 @@ body {
 
 .ribbon-panel.is-active {
   display: flex;
+}
+
+.ribbon-panel::-webkit-scrollbar {
+  height: 6px;
+}
+
+.ribbon-panel::-webkit-scrollbar-track {
+  background: #1d2b40;
+  border-top: 1px solid #334b69;
+}
+
+.ribbon-panel::-webkit-scrollbar-thumb {
+  background: #496783;
+  border: 1px solid #1d2b40;
+  border-radius: 999px;
+}
+
+.ribbon-panel::-webkit-scrollbar-thumb:hover {
+  background: #6388aa;
 }
 
 .ribbon-group {
@@ -377,6 +399,11 @@ body {
   border-radius: 0.5rem;
   background: #fffdf4;
   box-shadow: 3px 3px 0 rgba(17, 17, 17, 0.84);
+}
+
+.ribbon-menu.ribbon-menu-popover {
+  position: fixed;
+  z-index: 5000;
 }
 
 .ribbon-menu button {
@@ -5110,4 +5137,51 @@ body,
 /* The start panel should sit over the real canvas, not wash it out. */
 .canvas-empty-state {
   background: transparent !important;
+}
+
+/* Dark UI typography contract: Bootstrap helper classes must never fall back to dark ink. */
+:is(.modal-content, .cad-text-panel, .cad-inspector, .object-tree-panel, .guide-distance-pill, .sidebar, .ribbon-panel) {
+  color: #edf2f8 !important;
+}
+
+:is(.modal-content, .cad-text-panel, .cad-inspector, .object-tree-panel, .guide-distance-pill, .sidebar, .ribbon-panel) :is(.text-muted, .text-dark, .form-text, .small, .form-check-label, label, summary, output, .form-label) {
+  color: #d6e1ef !important;
+  opacity: 1 !important;
+}
+
+:is(.modal-content, .cad-text-panel, .cad-inspector, .object-tree-panel, .guide-distance-pill, .sidebar, .ribbon-panel) :is(h1, h2, h3, h4, h5, h6, strong, .fw-semibold, .fw-bold) {
+  color: #f4f7fb !important;
+}
+
+#gridSettingsModal .modal-header .text-muted,
+#workspaceSettingsModal .modal-header .text-muted,
+#bitmapTraceModal .modal-header .text-muted,
+#booleanModal .modal-header .text-muted,
+#expandModal .modal-header .text-muted,
+#nestModal .modal-header .text-muted,
+#myEndmillsModal .modal-header .text-muted {
+  color: #cbd8e8 !important;
+  opacity: 1 !important;
+}
+
+/* Keep command groups intact. Narrow windows scroll the ribbon rather than compressing commands. */
+.ribbon-panel.is-active {
+  flex-wrap: nowrap;
+}
+
+.ribbon-panel > .ribbon-group {
+  flex: 0 0 auto !important;
+  min-width: max-content !important;
+}
+
+.ribbon-panel .ribbon-command-grid,
+.ribbon-panel .ribbon-draw-menu {
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+
+.ribbon-panel .ribbon-command,
+.ribbon-panel .ribbon-menu-trigger {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
