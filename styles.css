@@ -349,6 +349,7 @@ body {
 
 .ribbon-command {
   min-width: 2.9rem;
+  height: 2.05rem;
   min-height: 2.05rem;
   display: inline-flex;
   flex-direction: column;
@@ -378,7 +379,9 @@ body {
 
 .ribbon-menu-trigger {
   min-width: 3.55rem;
+  height: 2.05rem;
   flex-direction: row;
+  align-self: center;
   gap: 0.24rem;
 }
 
@@ -5184,4 +5187,11 @@ body,
 .ribbon-panel .ribbon-menu-trigger {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+/* Intentional square UI: CAD geometry keeps its own authored corner radii. */
+html body *:not(#square-ui-override):not(#square-ui-override),
+html body *:not(#square-ui-override):not(#square-ui-override)::before,
+html body *:not(#square-ui-override):not(#square-ui-override)::after {
+  border-radius: 0 !important;
 }
