@@ -8,7 +8,7 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpat
 import * as Paths from "./src/paths.js?v=20260811-spline-corners1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260811-mixed-nesting2";
+import * as CanvasView from "./src/canvas-view.js?v=20260812-dark-pastel2";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
@@ -406,7 +406,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
         toast.remove();
       }, 180);
     };
-    toast.querySelector(".btn-close")?.addEventListener("click", removeToast);
+    toast.querySelector(".toast-close")?.addEventListener("click", removeToast);
     ui.toastContainer.appendChild(toast);
     const duration = options.duration ?? 4200;
     window.setTimeout(removeToast, duration);
@@ -1006,6 +1006,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     ui.selectModeBtn.setAttribute("aria-pressed", String(active));
     ui.cadEditModeBtn.classList.toggle("is-active", state.cadEditMode);
     ui.cadEditModeBtn.setAttribute("aria-pressed", String(state.cadEditMode));
+    // Trim is a standalone editing mode. Only drawing tools light the Draw menu.
+    const drawActive = Boolean(state.cadTool && state.cadTool !== "trim");
+    ui.drawMenuBtn?.classList.toggle("is-active", drawActive);
+    ui.drawMenuBtn?.setAttribute("aria-pressed", String(drawActive));
   }
 
   function setRibbonTab(tabName) {

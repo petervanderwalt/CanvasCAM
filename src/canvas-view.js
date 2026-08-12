@@ -39,14 +39,14 @@ export function drawScene({
         ? "rgba(13, 110, 253, 0.14)"
         : isPreviewed
           ? "rgba(13, 110, 253, 0.10)"
-          : "rgba(108, 117, 125, 0.06)";
+        : "rgba(174, 190, 211, 0.025)";
     ctx.strokeStyle = isSelected
       ? "#0d6efd"
       : isHovered
         ? "#3b82f6"
         : isPreviewed
         ? "#60a5fa"
-        : "#495057";
+        : "#aebacd";
     ctx.lineWidth = isSelected ? 2.2 : isHovered ? 1.9 : isPreviewed ? 1.8 : 1.2;
     if (isClosed) {
       ctx.fill(loop.path2d);
@@ -413,21 +413,9 @@ function drawCadDraft(ctx, draft, worldToScreen) {
     ctx.lineWidth = 1.3;
     ctx.fillRect(source.x - 4, source.y - 4, 8, 8);
     ctx.strokeRect(source.x - 4, source.y - 4, 8, 8);
-
-    const offset = Math.abs(guide.offset || 0);
-    const suffix = guide.snapLabel ? ` · ${guide.snapLabel}` : "";
-    ctx.font = "700 12px Trebuchet MS, sans-serif";
-    ctx.textBaseline = "bottom";
-    const label = `${Number(offset.toFixed(3))} mm${suffix}`;
-    const labelX = (source.x + anchor.x) / 2 + 8;
-    const labelY = (source.y + anchor.y) / 2 - 7;
-    const width = ctx.measureText(label).width;
-    ctx.fillStyle = "rgba(255, 253, 244, 0.94)";
-    ctx.fillRect(labelX - 4, labelY - 15, width + 8, 19);
-    ctx.fillStyle = "#9c3a0b";
-    ctx.fillText(label, labelX, labelY);
     ctx.restore();
     return;
+
   }
   const points = [...draft.points];
   if (draft.preview) {
@@ -579,7 +567,7 @@ function drawWorldGrid(ctx, rect, state, worldToScreen) {
   const majorStep = minorStep * 5;
 
   ctx.save();
-  ctx.fillStyle = "#fbfcfd";
+  ctx.fillStyle = "#141a24";
   ctx.fillRect(0, 0, rect.width, rect.height);
   if (!state.gridVisible) {
     ctx.restore();
@@ -590,10 +578,10 @@ function drawWorldGrid(ctx, rect, state, worldToScreen) {
   if (state.gridStyle === "dots") {
     drawGridDots(ctx, rect, worldToScreen, minX, maxX, minY, maxY, minorStep, majorStep);
   } else {
-    drawGridAxisSet(ctx, rect, worldToScreen, minX, maxX, minorStep, "x", "rgba(176, 186, 198, 0.22)");
-    drawGridAxisSet(ctx, rect, worldToScreen, minY, maxY, minorStep, "y", "rgba(176, 186, 198, 0.22)");
-    drawGridAxisSet(ctx, rect, worldToScreen, minX, maxX, majorStep, "x", "rgba(122, 138, 156, 0.46)");
-    drawGridAxisSet(ctx, rect, worldToScreen, minY, maxY, majorStep, "y", "rgba(122, 138, 156, 0.46)");
+    drawGridAxisSet(ctx, rect, worldToScreen, minX, maxX, minorStep, "x", "rgba(118, 142, 175, 0.16)");
+    drawGridAxisSet(ctx, rect, worldToScreen, minY, maxY, minorStep, "y", "rgba(118, 142, 175, 0.16)");
+    drawGridAxisSet(ctx, rect, worldToScreen, minX, maxX, majorStep, "x", "rgba(145, 171, 207, 0.38)");
+    drawGridAxisSet(ctx, rect, worldToScreen, minY, maxY, majorStep, "y", "rgba(145, 171, 207, 0.38)");
   }
 
   ctx.restore();
@@ -642,7 +630,7 @@ function drawGridDots(ctx, rect, worldToScreen, minX, maxX, minY, maxY, minorSte
       const isMajor = Math.abs((x / majorStep) - Math.round(x / majorStep)) < majorEpsilon
         && Math.abs((y / majorStep) - Math.round(y / majorStep)) < majorEpsilon;
       const screen = worldToScreen({ x, y });
-      ctx.fillStyle = isMajor ? "rgba(122, 138, 156, 0.65)" : "rgba(176, 186, 198, 0.42)";
+      ctx.fillStyle = isMajor ? "rgba(167, 192, 225, 0.68)" : "rgba(119, 143, 177, 0.48)";
       const size = isMajor ? 2 : 1;
       ctx.fillRect(Math.round(screen.x) - size / 2, Math.round(screen.y) - size / 2, size, size);
     }
@@ -678,9 +666,9 @@ function drawHorizontalRuler(ctx, canvas, state, worldToScreen, formatNumber) {
   const majorStep = 50;
 
   ctx.clearRect(0, 0, rect.width, rect.height);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
+  ctx.fillStyle = "rgba(32, 39, 53, 0.98)";
   ctx.fillRect(0, 0, rect.width, rect.height);
-  ctx.strokeStyle = "rgba(208, 216, 226, 0.95)";
+  ctx.strokeStyle = "rgba(94, 111, 139, 0.95)";
   ctx.beginPath();
   ctx.moveTo(0, rect.height - 0.5);
   ctx.lineTo(rect.width, rect.height - 0.5);
@@ -700,9 +688,9 @@ function drawVerticalRuler(ctx, canvas, state, worldToScreen, formatNumber) {
   const majorStep = 50;
 
   ctx.clearRect(0, 0, rect.width, rect.height);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
+  ctx.fillStyle = "rgba(32, 39, 53, 0.98)";
   ctx.fillRect(0, 0, rect.width, rect.height);
-  ctx.strokeStyle = "rgba(208, 216, 226, 0.95)";
+  ctx.strokeStyle = "rgba(94, 111, 139, 0.95)";
   ctx.beginPath();
   ctx.moveTo(rect.width - 0.5, 0);
   ctx.lineTo(rect.width - 0.5, rect.height);
@@ -714,7 +702,7 @@ function drawRulerTicks(ctx, rect, worldToScreen, min, max, minorStep, majorStep
   const epsilon = minorStep * 1e-6;
   const start = Math.floor(min / minorStep) * minorStep;
   ctx.font = "10px Segoe UI, sans-serif";
-  ctx.fillStyle = "#7b8795";
+  ctx.fillStyle = "#c5d1e2";
   ctx.textBaseline = axis === "x" ? "top" : "middle";
   ctx.textAlign = axis === "x" ? "center" : "right";
 
@@ -727,7 +715,7 @@ function drawRulerTicks(ctx, rect, worldToScreen, min, max, minorStep, majorStep
     const tickStart = axis === "x" ? rect.height : rect.width;
     const tickLength = isMajor ? 11 : 5;
 
-    ctx.strokeStyle = isMajor ? "rgba(122, 138, 156, 0.8)" : "rgba(176, 186, 198, 0.75)";
+    ctx.strokeStyle = isMajor ? "rgba(181, 202, 232, 0.84)" : "rgba(115, 137, 170, 0.78)";
     ctx.beginPath();
     if (axis === "x") {
       ctx.moveTo(screen + 0.5, tickStart);

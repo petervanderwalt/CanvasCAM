@@ -99,7 +99,7 @@ body {
 
 body {
   overflow: hidden;
-  background: linear-gradient(180deg, #56515d 0%, #403c46 100%);
+  background: #403c46;
   color: var(--text-main);
 }
 
@@ -126,7 +126,7 @@ body {
   gap: 0.85rem;
   padding: 0.55rem 0.9rem;
   border-bottom: 3px solid var(--funky-ink);
-  background: linear-gradient(180deg, #fff3ba 0%, #ffe16e 100%);
+  background: #ffe16e;
   box-shadow: 0 4px 0 rgba(17, 17, 17, 0.94);
 }
 
@@ -144,7 +144,7 @@ body {
   place-items: center;
   border-radius: 0.6rem;
   border: 3px solid var(--funky-ink);
-  background: linear-gradient(135deg, #313039, #111111);
+  background: #25242a;
   color: #fff;
   font-size: 0.72rem;
   font-weight: 900;
@@ -208,7 +208,7 @@ body {
   gap: 0 1rem;
   padding: 0.42rem 0 0.28rem;
   border-bottom: 3px solid var(--funky-ink);
-  background: linear-gradient(180deg, #f6f8fc 0%, #e9edf5 100%);
+  background: #e9edf5;
   box-shadow: 0 3px 0 rgba(17, 17, 17, 0.88);
 }
 
@@ -298,7 +298,7 @@ body {
 }
 
 .ribbon-panel[data-ribbon-panel="file"] { background: var(--ribbon-file-soft); }
-.ribbon-panel[data-ribbon-panel="design"] { background: linear-gradient(90deg, var(--ribbon-draw-soft) 0%, #f2edff 100%); }
+.ribbon-panel[data-ribbon-panel="design"] { background: var(--ribbon-draw-soft); }
 .ribbon-panel[data-ribbon-panel="view"] { background: var(--ribbon-view-soft); }
 
 .ribbon-panel.is-active {
@@ -465,7 +465,7 @@ body {
   min-width: 0;
   min-height: 0;
   padding: 0.75rem;
-  background: linear-gradient(180deg, rgba(255, 224, 111, 0.18), rgba(203, 196, 255, 0.12));
+  background: #f2f4f7;
 }
 
 .canvas-stage {
@@ -474,7 +474,7 @@ body {
   border: 3px solid var(--funky-ink);
   border-radius: 1.15rem;
   overflow: hidden;
-  background: linear-gradient(180deg, #c3d3ff 0%, #dbe6ff 100%);
+  background: #dbe6ff;
   box-shadow: var(--funky-shadow);
 }
 
@@ -813,27 +813,29 @@ body {
 .toast-stack .toast {
   display: block;
   pointer-events: auto;
-  border: 3px solid var(--funky-ink);
-  border-radius: 0.95rem;
-  box-shadow: 0 6px 0 rgba(17, 17, 17, 0.94);
+  border: 1px solid #61738e;
+  border-radius: 4px;
+  background: #263141;
+  color: #edf2f8;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
   overflow: hidden;
 }
 
 .toast-stack .toast.toast-funky {
-  background: #fff8d8;
-  color: var(--funky-ink);
+  background: #263141;
+  color: #edf2f8;
 }
 
 .toast-stack .toast.toast-funky.is-danger {
-  background: #ffb087;
+  border-left: 4px solid #f07478;
 }
 
 .toast-stack .toast.toast-funky.is-warning {
-  background: #ffe06f;
+  border-left: 4px solid #f3b65d;
 }
 
 .toast-stack .toast.toast-funky.is-success {
-  background: #b8ff78;
+  border-left: 4px solid #47c788;
 }
 
 .toast-stack .toast-inner {
@@ -849,11 +851,23 @@ body {
   flex: 0 0 1.8rem;
   display: grid;
   place-items: center;
-  border: 3px solid var(--funky-ink);
-  border-radius: 0.55rem;
-  background: rgba(255,255,255,0.5);
+  border: 1px solid #61738e;
+  border-radius: 3px;
+  background: #1a2230;
+  color: #dce7f5;
   font-size: 0.8rem;
-  box-shadow: 0 3px 0 rgba(17, 17, 17, 0.88);
+}
+
+.toast-stack .toast.is-danger .toast-icon {
+  color: #ff9da0;
+}
+
+.toast-stack .toast.is-warning .toast-icon {
+  color: #ffd083;
+}
+
+.toast-stack .toast.is-success .toast-icon {
+  color: #7ce1ad;
 }
 
 .toast-stack .toast-copy {
@@ -880,10 +894,9 @@ body {
   flex: 0 0 auto;
   position: relative;
   margin-left: 0.25rem;
-  border: 3px solid var(--funky-ink);
-  border-radius: 0.68rem;
-  background: rgba(255,255,255,0.55);
-  box-shadow: 0 3px 0 rgba(17, 17, 17, 0.88);
+  border: 1px solid #61738e;
+  border-radius: 3px;
+  background: #2d3a4e;
 }
 
 .toast-stack .toast-close::before,
@@ -894,8 +907,8 @@ body {
   left: 50%;
   width: 0.78rem;
   height: 0.14rem;
-  border-radius: 999px;
-  background: var(--funky-ink);
+  border-radius: 1px;
+  background: #e4edf8;
 }
 
 .toast-stack .toast-close::before {
@@ -908,8 +921,8 @@ body {
 
 .toast-stack .toast-close:hover,
 .toast-stack .toast-close:focus-visible {
-  transform: translateY(1px);
-  box-shadow: 0 2px 0 rgba(17, 17, 17, 0.88);
+  background: #465a76;
+  border-color: #9db3d0;
 }
 
 .worker-spinner {
@@ -1409,10 +1422,7 @@ body {
   margin-left: var(--ruler-size);
   min-height: 0;
   z-index: 1;
-  background:
-    radial-gradient(circle at top left, rgba(255,255,255,0.3), rgba(255,255,255,0) 24%),
-    linear-gradient(180deg, rgba(255,255,255,0.12), rgba(160, 170, 255, 0.03)),
-    var(--canvas-bg);
+  background: var(--canvas-bg);
 }
 
 .canvas-wrap.is-drop-target::after {
@@ -1598,7 +1608,7 @@ body {
   display: grid;
   place-items: center;
   padding: 2rem;
-  background: radial-gradient(circle at top, rgba(255,255,255,0.84), rgba(255,255,255,0.54));
+  background: rgba(255,255,255,0.68);
 }
 
 .empty-state-card {
@@ -1606,7 +1616,7 @@ body {
   padding: 1.8rem 1.9rem;
   border: 3px solid var(--funky-ink);
   border-radius: 1.45rem;
-  background: linear-gradient(180deg, rgba(255, 248, 216, 0.98), rgba(255, 229, 142, 0.95));
+  background: #ffedaa;
   text-align: center;
   box-shadow: 0 8px 0 rgba(17, 17, 17, 0.96);
   /* The canvas starts below the ribbon; offset the welcome card toward the viewport center. */
@@ -1705,7 +1715,7 @@ body {
   min-height: 0;
   height: 100vh;
   border-left: 2px solid var(--funky-ink);
-  background: linear-gradient(180deg, #45424c 0%, #38353e 100%);
+  background: #38353e;
   overflow: hidden;
 }
 
@@ -1790,7 +1800,7 @@ body {
   padding: 0.95rem 0.82rem;
   border: 3px solid var(--funky-ink);
   border-radius: 0.82rem;
-  background: linear-gradient(180deg, #fffdf4, #fff3c4);
+  background: #fff3c4;
   text-align: center;
   box-shadow: 0 4px 0 rgba(17, 17, 17, 0.92);
 }
@@ -1866,7 +1876,7 @@ body {
   border: 3px solid var(--funky-ink);
   border-radius: 0.85rem;
   padding: 0.62rem;
-  background: linear-gradient(180deg, #fff8d8 0%, #ffe8a6 100%);
+  background: #ffe8a6;
   box-shadow: 0 4px 0 rgba(17, 17, 17, 0.92);
 }
 
@@ -2023,6 +2033,7 @@ body {
 }
 
 #myEndmillSelect,
+#myEndmillSelect.is-recommended,
 #editMyEndmillsBtn,
 .compact-form .form-control-sm,
 .compact-form .input-group-sm > .form-control {
@@ -2045,7 +2056,7 @@ body {
   border: 3px solid var(--funky-ink);
   border-radius: 0.82rem;
   padding: 0.58rem;
-  background: linear-gradient(180deg, #fff8d8 0%, #ffe8a6 100%);
+  background: #ffe8a6;
   box-shadow: 0 4px 0 rgba(17, 17, 17, 0.92);
 }
 
@@ -2093,7 +2104,7 @@ body {
   padding: 0.82rem 0.95rem;
   border: 3px solid var(--funky-ink);
   border-radius: 0.9rem !important;
-  background: linear-gradient(180deg, #fff8d8 0%, #ffe8a6 100%);
+  background: #ffe8a6;
   color: var(--funky-ink);
   box-shadow: 0 4px 0 rgba(17, 17, 17, 0.92);
   font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
@@ -2125,7 +2136,7 @@ body {
 }
 
 .my-endmills-accordion .accordion-button:not(.collapsed) {
-  background: linear-gradient(180deg, #adc4ff 0%, #8fb0ff 100%);
+  background: #8fb0ff;
   color: var(--funky-ink);
 }
 
@@ -2240,7 +2251,7 @@ body {
 #myEndmillsModal .modal-content {
   border: 4px solid var(--funky-ink);
   border-radius: 1.25rem;
-  background: linear-gradient(180deg, #ffe998 0%, #fff7d6 100%);
+  background: #fff7d6;
   box-shadow: 0 10px 0 rgba(17, 17, 17, 0.96);
   overflow: hidden;
 }
@@ -2261,9 +2272,7 @@ body {
 
 #myEndmillsModal .modal-body {
   padding: 1rem 1.1rem 1.15rem;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.25), rgba(255,255,255,0)),
-    rgba(255, 252, 239, 0.92);
+  background: rgba(255, 252, 239, 0.92);
 }
 
 #myEndmillsModal .modal-footer {
@@ -2332,7 +2341,7 @@ body {
 #bitmapTraceModal .modal-content {
   border: 4px solid var(--funky-ink);
   border-radius: 1.25rem;
-  background: linear-gradient(180deg, #ffe998 0%, #fff7d6 100%);
+  background: #fff7d6;
   box-shadow: 0 10px 0 rgba(17, 17, 17, 0.96);
   overflow: hidden;
 }
@@ -3044,7 +3053,7 @@ body {
   border: 4px solid var(--funky-ink);
   border-radius: 1.25rem;
   overflow: hidden;
-  background: linear-gradient(180deg, #ffc58f 0%, #fff3cd 100%);
+  background: #fff3cd;
   box-shadow: 0 10px 0 rgba(17, 17, 17, 0.96);
 }
 
@@ -3150,7 +3159,7 @@ body {
   border: 4px solid var(--funky-ink);
   border-radius: 1.25rem;
   overflow: hidden;
-  background: linear-gradient(180deg, #b8d0ff 0%, #fff3cd 100%);
+  background: #e2e7f5;
   box-shadow: 0 10px 0 rgba(17, 17, 17, 0.96);
 }
 
@@ -3356,7 +3365,7 @@ body:has(.live-canvas-preview-modal.show) .modal-backdrop {
   border: 4px solid var(--funky-ink);
   border-radius: 1.25rem;
   overflow: hidden;
-  background: linear-gradient(180deg, #adc4ff 0%, #e8edff 100%);
+  background: #e8edff;
   box-shadow: 0 10px 0 rgba(17, 17, 17, 0.96);
 }
 
@@ -3437,7 +3446,7 @@ body:has(.live-canvas-preview-modal.show) .modal-backdrop {
   border: 4px solid var(--funky-ink);
   border-radius: 1.25rem;
   overflow: hidden;
-  background: linear-gradient(180deg, #d8ccff 0%, #f0ecff 100%);
+  background: #f0ecff;
   box-shadow: 0 10px 0 rgba(17, 17, 17, 0.96);
 }
 
@@ -3507,7 +3516,7 @@ body:has(.live-canvas-preview-modal.show) .modal-backdrop {
 #confirmationModal .modal-content {
   border: 4px solid var(--funky-ink);
   border-radius: 1.1rem;
-  background: linear-gradient(180deg, #ffe998 0%, #fff7d6 100%);
+  background: #fff7d6;
   box-shadow: 0 9px 0 rgba(17, 17, 17, 0.96);
   overflow: hidden;
 }
@@ -3632,6 +3641,568 @@ body:has(.live-canvas-preview-modal.show) .modal-backdrop {
   color: var(--funky-ink);
 }
 
+/* Modern surface pass: keep the pastel hierarchy without the heavy retro framing. */
+:root {
+  --funky-ink: #243044;
+  --funky-shadow: 0 4px 14px rgba(28, 39, 56, 0.14);
+  --surface-border: rgba(36, 48, 68, 0.28);
+  --surface-border-strong: rgba(36, 48, 68, 0.5);
+  --surface-shadow: 0 3px 12px rgba(28, 39, 56, 0.12);
+  --surface-radius: 4px;
+}
+
+.workspace-header {
+  border-bottom: 1px solid var(--surface-border-strong);
+  box-shadow: 0 1px 0 rgba(36, 48, 68, 0.1);
+}
+
+.ribbon-tab {
+  border-width: 1px;
+  border-radius: 4px 4px 0 0;
+}
+
+.ribbon-panel {
+  border-top-width: 1px;
+}
+
+.ribbon-command,
+.ribbon-menu,
+.ribbon-menu button,
+.header-actions .btn {
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 3px;
+  box-shadow: none;
+}
+
+.ribbon-command:hover,
+.ribbon-menu button:hover,
+.header-actions .btn:hover {
+  box-shadow: 0 2px 5px rgba(28, 39, 56, 0.16);
+  transform: none;
+}
+
+.canvas-stage {
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 5px;
+  box-shadow: 0 3px 12px rgba(28, 39, 56, 0.13);
+}
+
+.canvas-ruler-top,
+.canvas-ruler-left {
+  border-color: var(--surface-border-strong);
+}
+
+.sidebar {
+  border-left: 1px solid var(--surface-border-strong);
+}
+
+.sidebar-panel {
+  border: 1px solid var(--surface-border-strong);
+  border-radius: var(--surface-radius);
+  box-shadow: var(--surface-shadow);
+}
+
+.sidebar-flow-section,
+.workspace-settings-card,
+.workspace-settings-check,
+.selection-empty {
+  border: 1px solid var(--surface-border);
+  border-radius: var(--surface-radius);
+  box-shadow: none;
+}
+
+.selection-empty {
+  border-style: dashed;
+}
+
+.operation-option,
+.toolpath-card,
+.action-btn,
+.grid-settings-choice {
+  border-width: 1px;
+  border-radius: var(--surface-radius);
+  box-shadow: 0 2px 5px rgba(28, 39, 56, 0.1);
+}
+
+.operation-option.active,
+.toolpath-card.active {
+  box-shadow: 0 2px 6px rgba(28, 39, 56, 0.16);
+}
+
+.sidebar .btn,
+.modal .btn,
+.form-actions-sticky .btn,
+#addTabsBtn,
+.toolpath-card-footer .btn,
+.dock-export-btn {
+  border-width: 1px;
+  border-radius: var(--surface-radius);
+  box-shadow: 0 2px 5px rgba(28, 39, 56, 0.14);
+}
+
+.sidebar .btn:hover:not(:disabled),
+.modal .btn:hover:not(:disabled),
+.form-actions-sticky .btn:hover:not(:disabled),
+#addTabsBtn:hover:not(:disabled),
+.toolpath-card-footer .btn:hover:not(:disabled),
+.dock-export-btn:hover:not(:disabled) {
+  box-shadow: 0 3px 8px rgba(28, 39, 56, 0.18);
+  transform: translateY(-1px);
+}
+
+.sidebar .form-control,
+.sidebar .form-select,
+.sidebar .input-group-text,
+.modal .form-control,
+.modal .form-select,
+.modal .input-group-text,
+.cad-text-panel input,
+.cad-text-panel select,
+.font-picker-toggle {
+  border-color: var(--surface-border-strong);
+  border-width: 1px;
+  border-radius: 3px;
+  box-shadow: none !important;
+}
+
+.sidebar .input-group > .form-control:not(:last-child),
+.sidebar .input-group > .form-select:not(:last-child),
+.modal .input-group > .form-control:not(:last-child),
+.modal .input-group > .form-select:not(:last-child) {
+  border-right: 0;
+  border-radius: 3px 0 0 3px;
+}
+
+.sidebar .input-group > .input-group-text:not(:first-child),
+.modal .input-group > .input-group-text:not(:first-child) {
+  border-left: 1px solid var(--surface-border-strong);
+  border-radius: 0 3px 3px 0;
+}
+
+.modal-content,
+#myEndmillsModal .modal-content,
+#bitmapTraceModal .modal-content,
+#booleanModal .modal-content,
+#expandModal .modal-content,
+#nestModal .modal-content,
+#workspaceSettingsModal .modal-content,
+#gridSettingsModal .modal-content,
+#confirmationModal .modal-content {
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 5px;
+  box-shadow: 0 16px 38px rgba(20, 28, 42, 0.2);
+}
+
+.modal-header,
+.modal-footer {
+  border-color: var(--surface-border);
+}
+
+.modal .btn-close {
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 3px;
+  box-shadow: none;
+}
+
+.objects-panel,
+.transform-inspector,
+.cad-text-panel,
+.cad-inspector {
+  border-color: var(--surface-border-strong);
+  border-radius: 4px;
+  box-shadow: var(--surface-shadow);
+}
+
+/* Component-specific styles previously reintroduced the heavy frame treatment. */
+.compact-form .input-group-sm,
+.compact-form .input-group-sm > .form-control,
+.compact-form .input-group-sm > .form-select,
+.compact-form .input-group-text,
+#myEndmillSelect,
+#editMyEndmillsBtn,
+.my-endmill-summary,
+.tool-library-toggle,
+.tool-library-menu,
+.tool-library-summary,
+.tool-library-option,
+.tool-library-option-image,
+.tool-library-preview-thumb,
+.tool-library-summary-image,
+.tool-library-empty {
+  border-width: 1px !important;
+  border-color: var(--surface-border-strong) !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.compact-form .input-group-sm {
+  overflow: visible;
+}
+
+.my-endmills-accordion .form-control,
+.my-endmills-accordion .form-select,
+.my-endmills-accordion .input-group-text,
+.my-endmills-accordion .input-group,
+.my-endmills-accordion .btn,
+.my-endmills-accordion .clear-slot-btn {
+  border-width: 1px !important;
+  border-color: var(--surface-border-strong) !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+
+.my-endmills-accordion .input-group > .form-control,
+.my-endmills-accordion .input-group > .form-select {
+  border-right: 0 !important;
+  border-radius: 3px 0 0 3px !important;
+}
+
+.my-endmills-accordion .input-group > .input-group-text {
+  border-left: 1px solid var(--surface-border-strong) !important;
+  border-radius: 0 3px 3px 0 !important;
+}
+
+.compact-form .input-group-sm > .form-control,
+.compact-form .input-group-sm > .form-select {
+  border-right: 0 !important;
+  border-radius: 3px 0 0 3px !important;
+}
+
+.compact-form .input-group-text {
+  border-left: 1px solid var(--surface-border-strong) !important;
+  border-radius: 0 3px 3px 0 !important;
+}
+
+#transformMoveGroup,
+#transformAngleGroup,
+#transformSizeGroup,
+.boolean-operation-option,
+#expandModal .input-group,
+#nestModal .input-group,
+#expandModal .expand-direction-select,
+#expandModal .modal-footer .btn,
+#nestModal .modal-footer .btn,
+#booleanModal .modal-footer .btn,
+#workspaceSettingsModal .modal-footer .btn,
+#gridSettingsModal .modal-footer .btn,
+#confirmationModal .btn,
+#confirmationModal .btn-close,
+#booleanModal .btn-close,
+#expandModal .btn-close,
+#nestModal .btn-close,
+#workspaceSettingsModal .btn-close,
+#gridSettingsModal .btn-close {
+  border-width: 1px !important;
+  border-color: var(--surface-border-strong) !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+#expandModal .input-group > .form-control,
+#expandModal .input-group > .form-select,
+#expandModal .input-group > .input-group-text,
+#nestModal .input-group > .form-control,
+#nestModal .input-group > .input-group-text {
+  border-width: 1px !important;
+  border-color: var(--surface-border-strong) !important;
+  box-shadow: none !important;
+}
+
+#expandModal .input-group > .form-control,
+#nestModal .input-group > .form-control {
+  border-right: 0 !important;
+  border-radius: 3px 0 0 3px !important;
+}
+
+#expandModal .input-group > .input-group-text,
+#nestModal .input-group > .input-group-text {
+  border-left: 1px solid var(--surface-border-strong) !important;
+  border-radius: 0 3px 3px 0 !important;
+}
+
+#booleanModal .modal-content,
+#expandModal .modal-content,
+#nestModal .modal-content,
+#workspaceSettingsModal .modal-content,
+#gridSettingsModal .modal-content,
+#confirmationModal .modal-content {
+  border-width: 1px !important;
+  border-color: var(--surface-border-strong) !important;
+  border-radius: 5px !important;
+  box-shadow: 0 16px 38px rgba(20, 28, 42, 0.2) !important;
+}
+
+#booleanModal .modal-header,
+#expandModal .modal-header,
+#nestModal .modal-header,
+#workspaceSettingsModal .modal-header,
+#gridSettingsModal .modal-header,
+#confirmationModal .modal-header,
+#booleanModal .modal-footer,
+#expandModal .modal-footer,
+#nestModal .modal-footer,
+#workspaceSettingsModal .modal-footer,
+#gridSettingsModal .modal-footer,
+#confirmationModal .modal-footer {
+  border-color: var(--surface-border) !important;
+}
+
+.empty-state-card,
+.empty-state-actions .btn,
+.empty-state-icon,
+.tool-library-preview-thumb,
+.tool-library-summary-image,
+.tool-library-option-image,
+.transform-handle,
+.drawing-dimension-input {
+  border-width: 1px !important;
+  border-color: var(--surface-border-strong) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 3px 10px rgba(28, 39, 56, 0.13) !important;
+}
+
+.empty-state-card {
+  background: #ffedaa;
+}
+
+.empty-state-actions .btn {
+  font-weight: 800;
+}
+
+.empty-state-actions .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(28, 39, 56, 0.18) !important;
+}
+
+.my-endmills-accordion .accordion-item,
+.my-endmills-accordion .accordion-button,
+.my-endmills-accordion .accordion-body,
+.cad-font-picker,
+.font-picker-menu,
+.font-picker-option {
+  border-width: 1px !important;
+  border-color: var(--surface-border) !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+/* Tie the ribbon to the canvas and sidebar shell without sacrificing command contrast. */
+.workspace-header {
+  background: #403c46;
+  border-bottom-color: rgba(18, 25, 37, 0.78);
+  box-shadow: 0 2px 8px rgba(20, 28, 42, 0.22);
+}
+
+.ribbon-tabs {
+  background: transparent;
+  border-bottom-color: rgba(255, 255, 255, 0.28);
+}
+
+.ribbon-tab {
+  color: #f7f8fb;
+}
+
+.ribbon-tab:hover,
+.ribbon-tab:focus-visible {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.ribbon-tab.is-active {
+  color: var(--funky-ink);
+  background: #f5f7fb;
+  border-color: rgba(255, 255, 255, 0.56);
+}
+
+.ribbon-panels {
+  background: rgba(246, 248, 252, 0.92);
+  border-top-color: rgba(255, 255, 255, 0.28);
+}
+
+.ribbon-panel[data-ribbon-panel="file"],
+.ribbon-panel[data-ribbon-panel="design"],
+.ribbon-panel[data-ribbon-panel="view"] {
+  background: rgba(246, 248, 252, 0.92);
+}
+
+.ribbon-panel[data-ribbon-panel="file"] {
+  background: #a9c8f6;
+}
+
+.ribbon-panel[data-ribbon-panel="design"] {
+  background: #bde4ae;
+}
+
+.ribbon-panel[data-ribbon-panel="view"] {
+  background: #c9c0ee;
+}
+
+.sidebar-scroll {
+  background: #38353e;
+}
+
+.selection-badge {
+  border-width: 1px;
+  border-color: var(--surface-border-strong);
+  box-shadow: 0 1px 3px rgba(28, 39, 56, 0.14);
+}
+
+#loadSampleBtn {
+  border-width: 1px !important;
+  border-color: var(--surface-border-strong) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 5px rgba(28, 39, 56, 0.14) !important;
+}
+
+/* Active tool modes stay in the same family as their Design ribbon, not a separate button system. */
+.ribbon-panel[data-ribbon-panel="design"] .ribbon-command.is-active,
+.ribbon-panel[data-ribbon-panel="design"] .ribbon-command:focus-visible {
+  border-color: var(--surface-border-strong);
+  background: #b9e5aa;
+  color: var(--funky-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.64), 0 1px 3px rgba(28, 39, 56, 0.16);
+  transform: none;
+}
+
+.ribbon-panel[data-ribbon-panel="design"] .ribbon-command:hover:not(.is-active) {
+  border-color: var(--surface-border-strong);
+  background: #d9f3d0;
+  color: var(--funky-ink);
+  box-shadow: 0 1px 3px rgba(28, 39, 56, 0.13);
+  transform: none;
+}
+
+#myEndmillsModal .modal-content {
+  border-width: 1px !important;
+  border-color: var(--surface-border-strong) !important;
+  border-radius: 5px !important;
+  box-shadow: 0 16px 38px rgba(20, 28, 42, 0.2) !important;
+}
+
+#myEndmillsModal .modal-footer .btn,
+#myEndmillsModal .btn-close,
+#saveMyEndmillsBtn {
+  border-width: 1px !important;
+  border-color: var(--surface-border-strong) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 5px rgba(28, 39, 56, 0.14) !important;
+  transform: none !important;
+}
+
+#myEndmillsModal .modal-footer .btn:hover:not(:disabled),
+#myEndmillsModal .btn-close:hover,
+#myEndmillsModal .btn-close:focus-visible {
+  box-shadow: 0 3px 8px rgba(28, 39, 56, 0.18) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* One action language outside the ribbon: colour conveys intent, not component origin. */
+.empty-state-actions .btn,
+.sidebar .btn,
+.modal .btn:not(.btn-close),
+.form-actions-sticky .btn,
+.toolpath-card-footer .btn,
+.dock-export-btn,
+.header-actions .btn {
+  border-width: 1px !important;
+  border-color: var(--surface-border-strong) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 5px rgba(28, 39, 56, 0.14) !important;
+  font-family: inherit !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.empty-state-actions .btn,
+.form-actions-sticky .btn,
+.dock-export-btn {
+  min-height: 2.45rem;
+}
+
+.sidebar .btn:hover:not(:disabled),
+.modal .btn:not(.btn-close):hover:not(:disabled),
+.form-actions-sticky .btn:hover:not(:disabled),
+.toolpath-card-footer .btn:hover:not(:disabled),
+.dock-export-btn:hover:not(:disabled),
+.header-actions .btn:hover:not(:disabled) {
+  box-shadow: 0 3px 8px rgba(28, 39, 56, 0.18) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Form language uses readable title case rather than mixed all-caps labels. */
+.form-label,
+.compact-form .form-label.small,
+.my-endmills-accordion .form-label,
+.grid-settings-label,
+.panel-group-title,
+.workspace-settings-card .panel-group-title,
+#expandModal .form-label {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-family: inherit !important;
+  font-weight: 700 !important;
+}
+
+/* Tool rack: a dark structural frame with light working surfaces. */
+#myEndmillsModal .modal-content {
+  background: #2f3440 !important;
+}
+
+#myEndmillsModal .modal-header,
+#myEndmillsModal .modal-footer {
+  background: #3a4150 !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: #f7f9fc !important;
+}
+
+#myEndmillsModal .modal-header .modal-title,
+#myEndmillsModal .modal-header .text-muted {
+  color: #f7f9fc !important;
+}
+
+#myEndmillsModal .modal-body {
+  background: #2f3440 !important;
+  color: #273246;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-item {
+  background: transparent !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-button {
+  background: #f7f8fb !important;
+  color: #273246 !important;
+  border-color: #c7cfdb !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-button:not(.collapsed) {
+  background: #e7f3e3 !important;
+  color: #223042 !important;
+  border-color: #a8cc9b !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-button::after {
+  filter: none !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-button:not(.collapsed)::after {
+  filter: none !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-body {
+  background: #f7f8fb !important;
+  color: #273246 !important;
+}
+
+/* The neutral selection mode belongs to the Design tool family, not Bootstrap blue. */
+#selectModeBtn.is-active {
+  background: #b9e5aa !important;
+  border-color: var(--surface-border-strong) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.64), 0 1px 3px rgba(28, 39, 56, 0.14) !important;
+}
+
 @media (max-width: 1100px) {
   .workspace-shell {
     grid-template-columns: 1fr;
@@ -3651,4 +4222,892 @@ body:has(.live-canvas-preview-modal.show) .modal-backdrop {
     border-left: 0;
     border-top: 1px solid var(--panel-border);
   }
+}
+
+/* Dark industrial theme: graphite foundations, low-saturation pastels for meaning. */
+:root {
+  --bg-shell: #181b23;
+  --panel: #252b38;
+  --panel-soft: #202631;
+  --panel-border: #3c4658;
+  --panel-border-strong: #64728a;
+  --text-main: #edf2f8;
+  --text-muted: #aab6c7;
+  --text-soft: #8996aa;
+  --canvas-bg: #141a24;
+  --canvas-grid: rgba(130, 154, 187, 0.12);
+  --canvas-grid-major: rgba(150, 177, 211, 0.28);
+  --ruler-bg: #202735;
+  --ruler-border: #46536a;
+  --ruler-text: #c6d0df;
+  --surface-border: rgba(148, 163, 184, 0.28);
+  --surface-border-strong: rgba(191, 204, 222, 0.5);
+  --surface-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  --funky-ink: #edf2f8;
+  --funky-shadow: 0 8px 20px rgba(0, 0, 0, 0.26);
+}
+
+html,
+body {
+  background: #181b23;
+  color: var(--text-main);
+}
+
+body,
+.workspace-shell,
+.workspace-main {
+  background: #181b23;
+}
+
+.workspace-header {
+  background: #222733 !important;
+  border-bottom-color: #526079 !important;
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.26) !important;
+}
+
+.ribbon-tabs {
+  border-bottom-color: #3e495d !important;
+}
+
+.ribbon-tab {
+  color: #aebbd0 !important;
+}
+
+.ribbon-tab:hover,
+.ribbon-tab:focus-visible {
+  background: #303a4b !important;
+  color: #f7f9fc !important;
+}
+
+.ribbon-tab.is-active {
+  border-color: #64728a !important;
+  color: #f7f9fc !important;
+  background: #303a4b !important;
+}
+
+.ribbon-tab.is-active::after {
+  background: #303a4b !important;
+}
+
+.ribbon-panels {
+  background: #283141 !important;
+  border-top-color: #3e495d !important;
+}
+
+.ribbon-panel[data-ribbon-panel="file"],
+.ribbon-panel[data-ribbon-panel="design"],
+.ribbon-panel[data-ribbon-panel="view"] {
+  border-top-color: #536177 !important;
+}
+
+.ribbon-panel[data-ribbon-panel="file"] { background: #27384f !important; }
+.ribbon-panel[data-ribbon-panel="design"] { background: #2d413a !important; }
+.ribbon-panel[data-ribbon-panel="view"] { background: #38344c !important; }
+
+.ribbon-group {
+  border-right-color: rgba(198, 210, 227, 0.18) !important;
+}
+
+.ribbon-group-label {
+  color: #b7c4d5 !important;
+}
+
+.ribbon-command,
+.ribbon-menu,
+.ribbon-menu button,
+.header-actions .btn {
+  background: #252c39 !important;
+  border-color: #66738a !important;
+  color: #edf2f8 !important;
+}
+
+.ribbon-command:hover,
+.ribbon-command:focus-visible,
+.ribbon-menu button:hover,
+.ribbon-menu button:focus-visible,
+.header-actions .btn:hover,
+.header-actions .btn:focus-visible {
+  background: #3b495f !important;
+  border-color: #a6b7d1 !important;
+  color: #ffffff !important;
+}
+
+.ribbon-panel[data-ribbon-panel="design"] .ribbon-command.is-active,
+.ribbon-panel[data-ribbon-panel="design"] .ribbon-command:focus-visible,
+#selectModeBtn.is-active,
+#drawMenuBtn.is-active {
+  background: #8fcf9c !important;
+  border-color: #b8e8bf !important;
+  color: #16231d !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.48) !important;
+}
+
+.ribbon-panel[data-ribbon-panel="file"] .ribbon-command.is-active { background: #8db8e8 !important; color: #182233 !important; }
+.ribbon-panel[data-ribbon-panel="view"] .ribbon-command.is-active { background: #c1a8e8 !important; color: #251d35 !important; }
+
+.canvas-panel {
+  background: #1b202b !important;
+}
+
+.canvas-stage {
+  background: #141a24 !important;
+  border-color: #536077 !important;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28) !important;
+}
+
+.canvas-ruler,
+.canvas-ruler-corner {
+  background: #202735 !important;
+  border-color: #536077 !important;
+}
+
+.sidebar,
+.sidebar-scroll,
+.action-dock {
+  background: #1d212b !important;
+}
+
+.sidebar {
+  border-left-color: #46536a !important;
+}
+
+.sidebar-panel {
+  background: #293142 !important;
+  border-color: #58677f !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24) !important;
+}
+
+.funky-panel-selection { background: #30476a !important; }
+.funky-panel-toolpaths { background: #342e48 !important; }
+.funky-panel-settings { background: #3e354d !important; }
+
+.sidebar-title,
+.selection-mode-copy,
+.selection-subprompt,
+.panel-group-title,
+.form-label,
+.compact-form .form-label.small,
+.sidebar-kicker,
+.sidebar .form-check-label {
+  color: #edf2f8 !important;
+}
+
+.selection-badge {
+  background: #1b2230 !important;
+  border-color: #8ea0bb !important;
+  color: #eef4ff !important;
+  box-shadow: none !important;
+}
+
+.selection-empty,
+.workspace-settings-check {
+  background: #202735 !important;
+  border-color: #536177 !important;
+  color: #dbe6f4 !important;
+  box-shadow: none !important;
+}
+
+.selection-empty-title,
+.selection-empty-icon {
+  color: #f2d68d !important;
+}
+
+.selection-empty-copy,
+.selection-mode-copy,
+.toolpath-hint,
+.dock-status,
+.my-endmill-summary-meta {
+  color: #b8c5d7 !important;
+}
+
+.sidebar-flow-section,
+.workspace-settings-card {
+  border-color: #69788e !important;
+  box-shadow: none !important;
+}
+
+.sidebar-flow-operation { background: #343e55 !important; }
+.sidebar-flow-tool { background: #4a3741 !important; }
+.sidebar-flow-depth { background: #433b52 !important; }
+.sidebar-flow-job { background: #3f4032 !important; }
+.workspace-settings-card { background: #343e55 !important; }
+
+.operation-option {
+  background: #222a37 !important;
+  border-color: #526077 !important;
+  color: #edf2f8 !important;
+  box-shadow: none !important;
+}
+
+.operation-option:hover,
+.operation-option:focus-visible {
+  background: #303c50 !important;
+  border-color: #8da5c4 !important;
+}
+
+.operation-option.active {
+  background: #5b3f39 !important;
+  border-color: #f1a777 !important;
+  box-shadow: inset 3px 0 #f1a777 !important;
+}
+
+.sidebar .form-control,
+.sidebar .form-select,
+.sidebar .input-group-text,
+.modal .form-control,
+.modal .form-select,
+.modal .input-group-text,
+.cad-text-panel input,
+.cad-text-panel select,
+.font-picker-toggle {
+  background: #161c26 !important;
+  border-color: #596980 !important;
+  color: #edf2f8 !important;
+}
+
+.sidebar .input-group-text,
+.modal .input-group-text {
+  background: #2d3748 !important;
+  color: #cbd8e8 !important;
+}
+
+.sidebar .form-control::placeholder,
+.modal .form-control::placeholder {
+  color: #7e8da3 !important;
+}
+
+.sidebar .form-control:focus,
+.sidebar .form-select:focus,
+.modal .form-control:focus,
+.modal .form-select:focus {
+  border-color: #8ba9d6 !important;
+  box-shadow: 0 0 0 0.15rem rgba(139, 169, 214, 0.2) !important;
+}
+
+.my-endmill-summary,
+.my-endmill-summary.empty {
+  background: #222b37 !important;
+  border-color: #6a7890 !important;
+  color: #edf2f8 !important;
+  box-shadow: none !important;
+}
+
+.my-endmill-summary-title { color: #f2d68d !important; }
+.my-endmill-summary-recommendation.is-recommended { color: #9de3ae !important; }
+.my-endmill-summary-recommendation.is-neutral { color: #f0bb82 !important; }
+
+.tool-library-menu,
+.tool-library-summary,
+.tool-library-option,
+.tool-library-empty,
+.cad-font-picker,
+.font-picker-menu,
+.font-picker-option {
+  background: #252d3a !important;
+  border-color: #5d6d84 !important;
+  color: #edf2f8 !important;
+}
+
+.tool-library-option:hover,
+.font-picker-option:hover,
+.font-picker-option.is-selected {
+  background: #3b495f !important;
+}
+
+.toolpath-card {
+  background: #242d3a !important;
+  border-color: #63738a !important;
+  color: #edf2f8 !important;
+  box-shadow: none !important;
+}
+
+.toolpath-card.active {
+  background: #31384a !important;
+  border-color: #a9bde0 !important;
+}
+
+.toolpath-card h3,
+.toolpath-card .meta { color: #edf2f8 !important; }
+
+.empty-state-card {
+  background: #252d3b !important;
+  border-color: #64748b !important;
+  color: #edf2f8 !important;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3) !important;
+}
+
+.empty-state-question,
+.empty-state-drop-note {
+  color: #edf2f8 !important;
+}
+
+.empty-state-actions .btn,
+.sample-link,
+#loadSampleBtn {
+  background: #2d3748 !important;
+  border-color: #7c8fa9 !important;
+  color: #edf2f8 !important;
+  box-shadow: none !important;
+}
+
+#newEmptyCanvasBtn { background: #8fb1eb !important; color: #162233 !important; }
+#browseVectorBtn { background: #9de879 !important; color: #172117 !important; }
+.sample-link { background: #c9b0ee !important; color: #231d33 !important; }
+
+.empty-state-actions .btn:hover,
+.sample-link:hover,
+#loadSampleBtn:hover {
+  background: #f0ae80 !important;
+  border-color: #f7c8a4 !important;
+  color: #241a17 !important;
+  transform: translateY(-1px) !important;
+}
+
+.modal-content,
+#myEndmillsModal .modal-content,
+#bitmapTraceModal .modal-content,
+#booleanModal .modal-content,
+#expandModal .modal-content,
+#nestModal .modal-content,
+#workspaceSettingsModal .modal-content,
+#gridSettingsModal .modal-content,
+#confirmationModal .modal-content {
+  background: #202631 !important;
+  border-color: #5e6d84 !important;
+  color: #edf2f8 !important;
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.46) !important;
+}
+
+.modal-header,
+.modal-footer,
+#myEndmillsModal .modal-header,
+#myEndmillsModal .modal-footer,
+#bitmapTraceModal .modal-header,
+#bitmapTraceModal .modal-footer {
+  background: #2a3240 !important;
+  border-color: #4f5d72 !important;
+  color: #edf2f8 !important;
+}
+
+.modal-title,
+#myEndmillsModal .modal-title,
+#bitmapTraceModal .modal-title,
+#myEndmillsModal .modal-header .text-muted {
+  color: #edf2f8 !important;
+}
+
+.modal-body,
+#myEndmillsModal .modal-body,
+#bitmapTraceModal .modal-body {
+  background: #202631 !important;
+  color: #dce5f0 !important;
+}
+
+.modal .btn-close,
+#myEndmillsModal .btn-close {
+  background-color: #a9c7f8 !important;
+  border-color: #93aad0 !important;
+  box-shadow: none !important;
+}
+
+.my-endmills-accordion .accordion-button {
+  background: #2b3443 !important;
+  border-color: #526178 !important;
+  color: #edf2f8 !important;
+}
+
+.my-endmills-accordion .accordion-button:not(.collapsed) {
+  background: #344939 !important;
+  border-color: #80b58a !important;
+  color: #edf2f8 !important;
+}
+
+.my-endmills-accordion .accordion-body {
+  background: #252d3a !important;
+  color: #edf2f8 !important;
+}
+
+.my-endmill-slot-title { color: #f1d896 !important; }
+.my-endmill-slot-summary { color: #b7c4d6 !important; }
+
+/* The tool rack's previous light accordion rules use an ID selector, so override them at the same level. */
+#myEndmillsModal .my-endmills-accordion .accordion-button {
+  background: #2b3443 !important;
+  border-color: #526178 !important;
+  color: #edf2f8 !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-button:not(.collapsed) {
+  background: #344939 !important;
+  border-color: #80b58a !important;
+  color: #edf2f8 !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-body {
+  background: #252d3a !important;
+  color: #edf2f8 !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-button::after {
+  filter: invert(1) !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-button:not(.collapsed)::after {
+  filter: invert(1) !important;
+}
+
+.trace-controls,
+.trace-preview-panel,
+.trace-preprocess,
+.boolean-operation-option,
+.grid-settings-choice {
+  background: #293241 !important;
+  border-color: #596981 !important;
+  color: #edf2f8 !important;
+  box-shadow: none !important;
+}
+
+/* Bitmap-trace controls carry several native labels and outputs. Keep every one readable on slate. */
+#bitmapTraceModal .trace-controls,
+#bitmapTraceModal .trace-controls label,
+#bitmapTraceModal .trace-controls summary,
+#bitmapTraceModal .trace-controls output,
+#bitmapTraceModal .trace-controls .small,
+#bitmapTraceModal .trace-controls .form-text,
+#bitmapTraceModal .trace-range-value,
+#bitmapTraceModal .trace-range-value strong,
+#bitmapTraceModal .trace-preview-head strong {
+  color: #e5edf7 !important;
+}
+
+#bitmapTraceModal .trace-preprocess-grid label,
+#bitmapTraceModal .trace-preprocess-grid output {
+  color: #d6e1ef !important;
+}
+
+.btn-success,
+#saveMyEndmillsBtn,
+#applyGridSettingsBtn,
+#applyBooleanBtn,
+.dock-export-btn:not(:disabled),
+.form-actions-sticky .btn-success {
+  background: #2fa465 !important;
+  border-color: #56ca88 !important;
+  color: #f6fffa !important;
+}
+
+.btn-outline-secondary,
+.toolpath-card-footer .btn,
+.modal .btn:not(.btn-success):not(.btn-danger):not(.btn-close) {
+  background: #313c4d !important;
+  border-color: #71839d !important;
+  color: #edf2f8 !important;
+}
+
+.btn-danger,
+.action-btn.delete {
+  background: #a94e5d !important;
+  border-color: #e28795 !important;
+  color: #fff5f6 !important;
+}
+
+.btn:disabled,
+.dock-export-btn:disabled {
+  background: #2b313d !important;
+  border-color: #465064 !important;
+  color: #7f8ba0 !important;
+  opacity: 1 !important;
+}
+
+/* Final dark-theme contrast cleanup for the working sidebar and ribbon menu. */
+.selection-empty-title {
+  color: #edf2f8 !important;
+}
+
+.selection-empty-icon {
+  color: #9ebeea !important;
+}
+
+.my-endmill-summary-title {
+  color: #edf2f8 !important;
+}
+
+/* The operation choices are part of the assignment flow, not another nested card. */
+.sidebar-flow-operation {
+  gap: 0.28rem !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.toolpath-card .action-btn,
+.toolpath-card .action-btn.edit {
+  background: #36445a !important;
+  border-color: #8ba0c2 !important;
+  color: #f7faff !important;
+}
+
+.toolpath-card .action-btn i,
+.toolpath-card .action-btn svg {
+  color: inherit !important;
+  fill: currentColor !important;
+}
+
+.toolpath-card .action-btn.edit:hover,
+.toolpath-card .action-btn.edit:focus-visible {
+  background: #4c6384 !important;
+  border-color: #c0d2ed !important;
+  color: #ffffff !important;
+}
+
+#addTabsBtn,
+#addTabsBtn:disabled {
+  background: #303a49 !important;
+  border-color: #71859f !important;
+  color: #eef4fc !important;
+  opacity: 1 !important;
+}
+
+#addTabsBtn:hover:not(:disabled),
+#addTabsBtn:focus-visible:not(:disabled) {
+  background: #475b75 !important;
+  border-color: #a9c0df !important;
+  color: #ffffff !important;
+}
+
+/* Dropdown entries need hierarchy from spacing and hover, not individual frames. */
+.ribbon-menu button,
+.ribbon-menu button:hover,
+.ribbon-menu button:focus-visible,
+.ribbon-menu button.is-active {
+  border: 0 !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+}
+
+.ribbon-menu button {
+  background: transparent !important;
+  color: #edf2f8 !important;
+}
+
+.ribbon-menu button:hover,
+.ribbon-menu button:focus-visible,
+.ribbon-menu button.is-active {
+  background: #3b495f !important;
+  color: #ffffff !important;
+}
+
+/* Tool-rack accordion stays neutral: selected does not need a warning colour. */
+.my-endmill-slot-title {
+  color: #edf2f8 !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-button:not(.collapsed) {
+  background: #354253 !important;
+  border-color: #71839d !important;
+  color: #f6f9fe !important;
+  box-shadow: inset 3px 0 #8da5c4 !important;
+}
+
+.modal .btn-close,
+#myEndmillsModal .btn-close {
+  position: relative;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  padding: 0;
+  background: #364154 !important;
+  background-image: none !important;
+  border-color: #71839d !important;
+  color: #edf2f8 !important;
+  opacity: 1 !important;
+}
+
+.modal .btn-close::before,
+#myEndmillsModal .btn-close::before {
+  content: "\00d7";
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.modal .btn-close:hover,
+.modal .btn-close:focus-visible,
+#myEndmillsModal .btn-close:hover,
+#myEndmillsModal .btn-close:focus-visible {
+  background: #4b5d77 !important;
+  border-color: #a9c0df !important;
+  color: #ffffff !important;
+}
+
+/* Live drawing panels use the same restrained slate surface as dialogs. */
+.cad-text-panel,
+.cad-inspector {
+  background: #263141 !important;
+  border-color: #64748b !important;
+  color: #edf2f8 !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32) !important;
+}
+
+.cad-text-panel label,
+.cad-inspector label,
+.cad-inspector-head {
+  color: #dce7f5 !important;
+}
+
+.cad-inspector-close {
+  background: #364154 !important;
+  border-color: #71839d !important;
+  color: #edf2f8 !important;
+  box-shadow: none !important;
+}
+
+.cad-inspector-close:hover,
+.cad-inspector-close:focus-visible {
+  background: #4b5d77 !important;
+  border-color: #a9c0df !important;
+  color: #ffffff !important;
+}
+
+/* Floating geometry dimensions should read as a compact technical overlay. */
+.guide-distance-pill {
+  border-color: #71839d !important;
+  border-radius: 4px !important;
+  background: #263141 !important;
+  color: #edf2f8 !important;
+  box-shadow: 0 7px 18px rgba(0, 0, 0, 0.32) !important;
+}
+
+.guide-dimension-label,
+.guide-distance-pill > strong,
+.guide-distance-secondary > strong {
+  background: #364154 !important;
+  color: #dce7f5 !important;
+}
+
+.guide-distance-pill > strong,
+.guide-distance-secondary,
+.guide-distance-secondary > strong {
+  border-color: #71839d !important;
+}
+
+.guide-distance-pill input {
+  background: #151b25 !important;
+  color: #f5f8fc !important;
+}
+
+.guide-distance-pill input:focus {
+  background: #1c2532 !important;
+  box-shadow: inset 0 0 0 1px #9ebeea !important;
+}
+
+#booleanModalSummary,
+.boolean-preview-note {
+  color: #b9c9dc !important;
+}
+
+.boolean-operation-option,
+.boolean-operation-option.is-active {
+  background: #293544 !important;
+  border-color: #5d708b !important;
+  color: #edf2f8 !important;
+}
+
+.boolean-operation-option.is-active {
+  box-shadow: inset 3px 0 #8da5c4 !important;
+}
+
+.boolean-operation-option strong,
+.boolean-operation-option small {
+  color: #edf2f8 !important;
+}
+
+.boolean-operation-option small {
+  color: #b9c9dc !important;
+}
+
+.boolean-operation-option input {
+  accent-color: #8da5c4 !important;
+}
+
+/* Object browser follows the same movable slate-panel treatment as CAD tools. */
+.object-tree-panel {
+  background: #263141 !important;
+  border-color: #64748b !important;
+  border-width: 1px !important;
+  border-radius: 4px !important;
+  color: #edf2f8 !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32) !important;
+}
+
+.object-tree-head {
+  background: #354253 !important;
+  border-color: #64748b !important;
+  border-bottom-width: 1px !important;
+  color: #edf2f8 !important;
+}
+
+.object-tree-head button {
+  background: #364154 !important;
+  border-color: #71839d !important;
+  border-width: 1px !important;
+  border-radius: 3px !important;
+  color: #edf2f8 !important;
+  box-shadow: none !important;
+}
+
+.object-tree-head button:hover,
+.object-tree-head button:focus-visible {
+  background: #4b5d77 !important;
+  border-color: #a9c0df !important;
+  color: #ffffff !important;
+}
+
+.object-tree-content {
+  background: #263141 !important;
+}
+
+.object-tree-row:hover,
+.object-tree-row.is-selected {
+  background: #3a4a61 !important;
+}
+
+.object-tree-label,
+.object-tree-expander,
+.object-tree-visibility,
+.object-tree-empty {
+  color: #d9e4f2 !important;
+}
+
+.object-tree-row.is-hidden {
+  opacity: 0.48;
+}
+
+.object-tree-menu {
+  background: #263141 !important;
+  border-color: #64748b !important;
+  border-width: 1px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32) !important;
+}
+
+.object-tree-menu button {
+  border-color: #4d5d74 !important;
+  color: #edf2f8 !important;
+}
+
+.object-tree-menu button:hover {
+  background: #3b495f !important;
+}
+
+.object-tree-menu button.is-danger:hover {
+  background: #6a3c49 !important;
+}
+
+/* Keep dark-modal checkbox rows readable and vertically centred. */
+.modal .workspace-settings-check {
+  align-items: center !important;
+}
+
+.modal .workspace-settings-check .form-check-input {
+  margin: 0 !important;
+}
+
+.modal .workspace-settings-check .form-check-label {
+  color: #e3edf9 !important;
+  line-height: 1.1 !important;
+}
+
+/* Nesting preview helpers need the same contrast as other dark modal copy. */
+#nestModalSummary,
+#nestPreviewNote {
+  color: #c9d7e8 !important;
+}
+
+/* Bootstrap's muted helper tone is too dark on every dark modal surface. */
+.modal .text-muted,
+.modal .form-text,
+.modal .boolean-preview-note,
+.modal .expand-preview-note,
+.modal .trace-preview-head span {
+  color: #c9d7e8 !important;
+}
+
+/* Boolean modal copy must never inherit Bootstrap's dark muted colour. */
+#booleanModal #booleanModalSummary.small.text-muted,
+#booleanModal .boolean-preview-note {
+  color: #d8e5f4 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+/* Text-panel unit addon is a single uninterrupted field, like the modal inputs. */
+.cad-text-height-row input {
+  border: 1px solid #596980 !important;
+  border-right: 0 !important;
+  border-radius: 3px 0 0 3px !important;
+  box-shadow: none !important;
+}
+
+.cad-text-height-row span {
+  border: 1px solid #596980 !important;
+  border-left: 1px solid #596980 !important;
+  border-radius: 0 3px 3px 0 !important;
+  background: #2d3748 !important;
+  color: #cbd8e8 !important;
+}
+
+/* Edit Shape uses the same slate controls and continuous unit addons. */
+.cad-inspector-grid input,
+.cad-inspector-polygon-fields input,
+.cad-inspector-text-field input,
+.cad-inspector-text-field select {
+  background: #161c26 !important;
+  border-color: #596980 !important;
+  color: #edf2f8 !important;
+  box-shadow: none !important;
+}
+
+.cad-inspector-grid input {
+  border-width: 1px !important;
+  border-right: 0 !important;
+  border-radius: 3px 0 0 3px !important;
+}
+
+.cad-inspector-grid > label > span:not(.cad-inspector-label),
+.cad-inspector-input-row > span,
+.cad-inspector-text-size-row > span {
+  border: 1px solid #596980 !important;
+  border-radius: 0 3px 3px 0 !important;
+  background: #2d3748 !important;
+  color: #cbd8e8 !important;
+}
+
+.cad-inspector-input-row input,
+.cad-inspector-text-size-row input {
+  border-width: 1px !important;
+  border-right: 0 !important;
+  border-radius: 3px 0 0 3px !important;
+}
+
+.cad-inspector-polygon-mode button {
+  border: 1px solid #596980 !important;
+  border-radius: 3px !important;
+  background: #2d3748 !important;
+  color: #dce7f5 !important;
+  box-shadow: none !important;
+}
+
+.cad-inspector-polygon-mode button.is-active {
+  background: #385548 !important;
+  border-color: #72a786 !important;
+  color: #effaf2 !important;
+}
+
+/* The start panel should sit over the real canvas, not wash it out. */
+.canvas-empty-state {
+  background: transparent !important;
 }
