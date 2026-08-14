@@ -124,7 +124,6 @@ body {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.85rem;
-  padding: 0.55rem 0.9rem;
   border-bottom: 3px solid var(--funky-ink);
   background: #ffe16e;
   box-shadow: 0 4px 0 rgba(17, 17, 17, 0.94);
@@ -206,7 +205,7 @@ body {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto;
   gap: 0 1rem;
-  padding: 0.42rem 0 0.28rem;
+  padding: 0 0 0.28rem;
   border-bottom: 3px solid var(--funky-ink);
   background: #e9edf5;
   box-shadow: 0 3px 0 rgba(17, 17, 17, 0.88);
@@ -331,6 +330,7 @@ body {
   position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.28rem;
   min-width: 0;
   padding: 0.28rem 0.46rem 0.95rem;
@@ -342,15 +342,16 @@ body {
 }
 
 .ribbon-command-grid {
-  display: grid;
-  grid-template-columns: repeat(8, max-content);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 0.2rem;
 }
 
 .ribbon-command {
   min-width: 2.9rem;
-  height: 2.05rem;
-  min-height: 2.05rem;
+  height: 2.5rem;
+  min-height: 2.5rem;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
@@ -363,14 +364,14 @@ body {
   color: var(--funky-ink);
   box-shadow: 0 2px 0 rgba(17, 17, 17, 0.84);
   font-family: "Trebuchet MS", "Arial Black", "Segoe UI", sans-serif;
-  font-size: 0.56rem;
+  font-size: 0.8rem;
   font-weight: 900;
-  line-height: 1;
+  line-height: 1.2;
   white-space: nowrap;
 }
 
 .ribbon-command i {
-  font-size: 0.76rem;
+  font-size: 0.9rem;
 }
 
 .ribbon-draw-menu {
@@ -442,7 +443,7 @@ body {
   display: block;
   height: 1px;
   margin: 0.24rem 0.14rem;
-  background: rgba(17, 17, 17, 0.25);
+  background: rgba(217, 217, 217, 0.35);
 }
 
 .ribbon-command:hover,
@@ -5049,6 +5050,29 @@ body,
 .modal .workspace-settings-check .form-check-label {
   color: #e3edf9 !important;
   line-height: 1.1 !important;
+}
+
+/* Keep the optional trochoid control part of the job-settings flow, not a nested card. */
+.trochoid-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.15rem 0;
+  color: #e3edf9;
+}
+
+.trochoid-toggle .form-check-input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.trochoid-toggle .form-check-label {
+  margin: 0;
+  color: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 /* Nesting preview helpers need the same contrast as other dark modal copy. */

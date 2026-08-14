@@ -162,9 +162,13 @@ export function drawScene({
       ctx.save();
       ctx.strokeStyle = active ? "#dc3545" : hoveredForTabs ? "#0ea5e9" : "#198754";
       ctx.lineWidth = active ? 2.2 : hoveredForTabs ? 2 : 1.6;
-      ctx.setLineDash([8, 6]);
+      ctx.setLineDash(toolpath.trochoidEnabled ? [] : [8, 6]);
       for (const contour of toolpath.previewContours) {
-        strokePolyline(ctx, contour, worldToScreen);
+        if (toolpath.trochoidEnabled && toolpath.trochoidRadius > 0) {
+          strokeTrochoidPreview(ctx, contour, toolpath.trochoidRadius, worldToScreen);
+        } else {
+          strokePolyline(ctx, contour, worldToScreen);
+        }
       }
       ctx.restore();
       drawTabs(toolpath, { active, hoveredForTabs });
@@ -948,6 +952,71 @@ function strokeMarkerSpine(ctx, points) {
     ctx.lineTo(points[i].x, points[i].y);
   }
   ctx.stroke();
+}
+
+function strokeTrochoidPreview(ctx, contour, radius, worldToScreen) {
+  const total = polylineLength(contour);
+  if (total <= 0 || radius <= 0) {
+    strokePolyline(ctx, contour, worldToScreen);
+    return;
+  }
+
+  // Match the G-code loop pitch. Decimating this made a continuous trochoid
+  // look like isolated dots on long contours.
+  const orbitCount = Math.max(1, Math.ceil(total / Math.max(radius * 0.7, 0.25)));
+  const steps = 18;
+  for (let orbit = 0; orbit <= orbitCount; orbit += 1) {
+    const along = (total * orbit) / orbitCount;
+    const center = pointAtPolylineDistance(contour, along);
+    const before = pointAtPolylineDistance(contour, Math.max(0, along - radius));
+    const after = pointAtPolylineDistance(contour, Math.min(total, along + radius));
+    const length = Math.hypot(after.x - before.x, after.y - before.y) || 1;
+    const tx = (after.x - before.x) / length;
+    const ty = (after.y - before.y) / length;
+    const nx = -ty;
+    const ny = tx;
+    ctx.beginPath();
+    for (let step = 0; step <= steps; step += 1) {
+      const phase = (step / steps) * Math.PI * 2;
+      const point = {
+        x: center.x + (nx * Math.cos(phase) + tx * Math.sin(phase)) * radius,
+        y: center.y + (ny * Math.cos(phase) + ty * Math.sin(phase)) * radius,
+      };
+      const screen = worldToScreen(point);
+      if (step === 0) {
+        ctx.moveTo(screen.x, screen.y);
+      } else {
+        ctx.lineTo(screen.x, screen.y);
+      }
+    }
+    ctx.stroke();
+  }
+}
+
+function polylineLength(points) {
+  let length = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    length += Math.hypot(points[index].x - points[index - 1].x, points[index].y - points[index - 1].y);
+  }
+  return length;
+}
+
+function pointAtPolylineDistance(points, targetDistance) {
+  let walked = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
+    const length = Math.hypot(end.x - start.x, end.y - start.y);
+    if (walked + length >= targetDistance || index === points.length - 1) {
+      const ratio = length ? Math.max(0, Math.min(1, (targetDistance - walked) / length)) : 0;
+      return {
+        x: start.x + (end.x - start.x) * ratio,
+        y: start.y + (end.y - start.y) * ratio,
+      };
+    }
+    walked += length;
+  }
+  return points[0];
 }
 
 function drawConcaveTabBody(ctx, spine, radius, fill, stroke, outline, options) {

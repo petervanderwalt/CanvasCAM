@@ -232,6 +232,12 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
   const reportProgress = options.onProgress || (() => {});
   const previewContours = [];
   const sourceLoops = [];
+  // Shift the loop centerline by the trochoid radius so its inner sweep still
+  // reaches the nominal profile boundary.
+  const trochoidEngagementPercent = Math.min(40, Math.max(2, Number(config.trochoidEngagementPercent) || 10));
+  const trochoidRadius = config.trochoidEnabled
+    ? Math.max(0, Number(config.trochoidRadius) || config.toolDiameter * (trochoidEngagementPercent / 100))
+    : 0;
   reportProgress(10, "Preparing geometry");
   const compositeSelection = compositePocketSeedPaths(selectedLoops);
   reportProgress(32, "Unioning vectors");
@@ -244,10 +250,12 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
   }
 
   if (config.operation === "profile-outside") {
-    previewContours.push(...offsetCompositePolygons(compositeSelection, config.toolRadius));
+    const radius = config.toolRadius + trochoidRadius;
+    previewContours.push(...offsetCompositePolygons(compositeSelection, radius));
     reportProgress(78, "Offsetting outside profile");
   } else if (config.operation === "profile-inside") {
-    previewContours.push(...offsetCompositePolygons(compositeSelection, -config.toolRadius));
+    const radius = config.toolRadius + trochoidRadius;
+    previewContours.push(...offsetCompositePolygons(compositeSelection, -radius));
     reportProgress(78, "Offsetting inside profile");
   }
 
@@ -292,11 +300,14 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
   const chamferWidth = config.operation === "chamfer" && Number.isFinite(config.cutterAngle)
     ? 2 * cutDepth * Math.tan((config.cutterAngle * Math.PI) / 360)
     : null;
+  const trochoidMeta = config.trochoidEnabled && (config.operation === "profile-outside" || config.operation === "profile-inside")
+    ? ` - trochoid ${formatNumber(trochoidEngagementPercent)}% engagement`
+    : "";
   const cardMeta = config.operation === "vcarve"
     ? `${operationLabel} - T${config.toolNumber} - ${formatNumber(config.cutterAngle)}deg - ${formatNumber(cutDepth)}mm max depth - single pass`
     : config.operation === "chamfer"
       ? `${operationLabel} - T${config.toolNumber} - ${formatNumber(config.cutterAngle)}deg - ${formatNumber(cutDepth)}mm deep - ${passDepth.toFixed(2)}mm/pass - ${passDepths.length} passes${Number.isFinite(chamferWidth) ? ` - ${formatNumber(chamferWidth)}mm top width` : ""}`
-      : `${operationLabel} - T${config.toolNumber} - ${config.toolDiameter.toFixed(1)}mm - ${cutDepth.toFixed(2)}mm deep - ${passDepth.toFixed(2)}mm/pass - ${passDepths.length} passes`;
+      : `${operationLabel} - T${config.toolNumber} - ${config.toolDiameter.toFixed(1)}mm - ${cutDepth.toFixed(2)}mm deep - ${passDepth.toFixed(2)}mm/pass - ${passDepths.length} passes${trochoidMeta}`;
 
   reportProgress(96, "Finalizing toolpath");
 
@@ -313,6 +324,9 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
     cutDepth,
     passDepth,
     passDepths,
+    trochoidEnabled: Boolean(config.trochoidEnabled),
+    trochoidRadius,
+    trochoidEngagementPercent,
     tabWidth: config.tabWidth,
     tabHeight: config.tabHeight,
     safeZ: config.safeZ,
@@ -481,7 +495,7 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs, onProgress 
           continue;
         }
 
-        const start = contour[0];
+        const start = getProfileStartPoint(contour, toolpath);
         lines.push(`G0 Z${formatNumber(safeZ)}`);
         lines.push(`G0 X${formatNumber(start.x)} Y${formatNumber(start.y)}`);
         if (!startedThisToolpath || !spindleRunning || currentSpindle !== spindle) {
@@ -500,42 +514,13 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs, onProgress 
 
         if (!passUsesTabs) {
           lines.push(`G1 Z${formatNumber(depth)} F${formatNumber(plunge)}`);
-          emitContourMoves(lines, contour, depth, feed, plunge, forcePolylineArcs);
+          emitProfileContourMoves(lines, contour, depth, feed, plunge, forcePolylineArcs, toolpath);
           reportProgress(`Writing ${toolpath.operationLabel}`);
           continue;
         }
 
-        const total = polylineLength(contour);
-        const segments = [];
-        let cursor = 0;
-        for (const tab of tabsForContour) {
-          const tabWidth = Math.max(toolpath.tabWidth, getMinimumTabWidth(toolpath.toolDiameter));
-          const tabSpan = getTabCenterlineSpan(tabWidth, toolpath.toolDiameter);
-          const tabStart = Math.max(0, tab.along - tabSpan / 2);
-          const tabEnd = Math.min(total, tab.along + tabSpan / 2);
-          if (tabStart > cursor) {
-            segments.push({ from: cursor, to: tabStart, depth });
-          }
-          segments.push({ from: tabStart, to: tabEnd, depth: fixedTabDepth });
-          cursor = tabEnd;
-        }
-        if (cursor < total) {
-          segments.push({ from: cursor, to: total, depth });
-        }
-
-        let firstSegment = true;
-        for (const segment of segments) {
-          const segmentStart = pointAtDistance(contour, segment.from);
-          if (firstSegment) {
-            lines.push(`G1 Z${formatNumber(segment.depth)} F${formatNumber(plunge)}`);
-            firstSegment = false;
-          } else {
-            lines.push(`G1 X${formatNumber(segmentStart.x)} Y${formatNumber(segmentStart.y)} F${formatNumber(feed)}`);
-            lines.push(`G1 Z${formatNumber(segment.depth)} F${formatNumber(plunge)}`);
-          }
-          const segmentPoints = slicePolyline(contour, segment.from, segment.to);
-          emitContourMoves(lines, segmentPoints, segment.depth, feed, plunge, forcePolylineArcs);
-        }
+        lines.push(`G1 Z${formatNumber(depth)} F${formatNumber(plunge)}`);
+        emitContourWithTabRamps(lines, contour, depth, fixedTabDepth, tabsForContour, toolpath, feed, forcePolylineArcs);
         reportProgress(`Writing ${toolpath.operationLabel}`);
       }
     }
@@ -606,6 +591,124 @@ function emitContourMoves(lines, contour, depth, feed, plunge, forcePolylineArcs
     const point = contour[i];
     lines.push(`G1 X${formatNumber(point.x)} Y${formatNumber(point.y)} F${formatNumber(feed)}`);
   }
+}
+
+function emitProfileContourMoves(lines, contour, depth, feed, plunge, forcePolylineArcs, toolpath) {
+  if (toolpath.trochoidEnabled && toolpath.trochoidRadius > 0) {
+    emitTrochoidalContourMoves(lines, contour, depth, feed, toolpath.trochoidRadius, null, forcePolylineArcs);
+    return;
+  }
+  emitContourMoves(lines, contour, depth, feed, plunge, forcePolylineArcs);
+}
+
+function emitContourWithTabRamps(lines, contour, cutDepth, tabDepth, tabs, toolpath, feed, forcePolylineArcs) {
+  const total = polylineLength(contour);
+  const rampLength = Math.max(toolpath.toolDiameter * 0.75, 0.5);
+  const tabZones = tabs.map((tab) => {
+    const width = Math.max(toolpath.tabWidth, getMinimumTabWidth(toolpath.toolDiameter));
+    const span = getTabCenterlineSpan(width, toolpath.toolDiameter);
+    const start = Math.max(0, tab.along - span / 2);
+    const end = Math.min(total, tab.along + span / 2);
+    return {
+      rampStart: Math.max(0, start - rampLength),
+      start,
+      end,
+      rampEnd: Math.min(total, end + rampLength),
+    };
+  });
+  const distances = new Set([0, total]);
+  let walked = 0;
+  for (let index = 1; index < contour.length - 1; index += 1) {
+    walked += dist(contour[index - 1], contour[index]);
+    distances.add(walked);
+  }
+  for (const zone of tabZones) {
+    distances.add(zone.rampStart);
+    distances.add(zone.start);
+    distances.add(zone.end);
+    distances.add(zone.rampEnd);
+  }
+  const lift = tabDepth - cutDepth;
+  const depthAt = (along) => tabZones.reduce((currentDepth, zone) => {
+    let factor = 0;
+    if (along >= zone.rampStart && along < zone.start) {
+      factor = (along - zone.rampStart) / Math.max(0.0001, zone.start - zone.rampStart);
+    } else if (along >= zone.start && along <= zone.end) {
+      factor = 1;
+    } else if (along > zone.end && along <= zone.rampEnd) {
+      factor = 1 - ((along - zone.end) / Math.max(0.0001, zone.rampEnd - zone.end));
+    }
+    return Math.max(currentDepth, cutDepth + lift * factor);
+  }, cutDepth);
+  if (toolpath.trochoidEnabled && toolpath.trochoidRadius > 0) {
+    emitTrochoidalContourMoves(lines, contour, cutDepth, feed, toolpath.trochoidRadius, depthAt, forcePolylineArcs);
+    return;
+  }
+  const points = Array.from(distances).sort((a, b) => a - b);
+  for (const along of points.slice(1)) {
+    const point = pointAtDistance(contour, along);
+    lines.push(`G1 X${formatNumber(point.x)} Y${formatNumber(point.y)} Z${formatNumber(depthAt(along))} F${formatNumber(feed)}`);
+  }
+}
+
+function emitTrochoidalContourMoves(lines, contour, depth, feed, radius, depthAt = null, forcePolylineArcs = false) {
+  const total = polylineLength(contour);
+  const advance = Math.max(radius * 0.7, 0.25);
+  const samples = Math.max(1, Math.ceil(total / advance));
+  const stepsPerLoop = 16;
+  const zAt = (along) => depthAt ? depthAt(along) : depth;
+
+  for (let index = 0; index <= samples; index += 1) {
+    const along = (total * index) / samples;
+    const nextAlong = Math.min(total, (total * (index + 1)) / samples);
+    const before = pointAtDistance(contour, Math.max(0, along - advance));
+    const after = pointAtDistance(contour, Math.min(total, along + advance));
+    const center = pointAtDistance(contour, along);
+    const tangentLength = Math.hypot(after.x - before.x, after.y - before.y) || 1;
+    const tx = (after.x - before.x) / tangentLength;
+    const ty = (after.y - before.y) / tangentLength;
+    const nx = -(after.y - before.y) / tangentLength;
+    const ny = (after.x - before.x) / tangentLength;
+
+    const start = { x: center.x + nx * radius, y: center.y + ny * radius };
+    const opposite = { x: center.x - nx * radius, y: center.y - ny * radius };
+    const midAlong = along + (nextAlong - along) / 2;
+
+    if (index > 0) {
+      lines.push(`G1 X${formatNumber(start.x)} Y${formatNumber(start.y)} Z${formatNumber(zAt(along))} F${formatNumber(feed)}`);
+    }
+
+    if (!forcePolylineArcs) {
+      // Two half arcs reliably express a complete trochoidal circle to GRBL.
+      lines.push(`G3 X${formatNumber(opposite.x)} Y${formatNumber(opposite.y)} Z${formatNumber(zAt(midAlong))} I${formatNumber(-nx * radius)} J${formatNumber(-ny * radius)} F${formatNumber(feed)}`);
+      lines.push(`G3 X${formatNumber(start.x)} Y${formatNumber(start.y)} Z${formatNumber(zAt(nextAlong))} I${formatNumber(nx * radius)} J${formatNumber(ny * radius)} F${formatNumber(feed)}`);
+      continue;
+    }
+
+    for (let step = index === 0 ? 1 : 0; step <= stepsPerLoop; step += 1) {
+      const progress = step / stepsPerLoop;
+      const phase = progress * Math.PI * 2;
+      const point = {
+        x: center.x + (nx * Math.cos(phase) + tx * Math.sin(phase)) * radius,
+        y: center.y + (ny * Math.cos(phase) + ty * Math.sin(phase)) * radius,
+      };
+      const z = zAt(along + (nextAlong - along) * progress);
+      lines.push(`G1 X${formatNumber(point.x)} Y${formatNumber(point.y)} Z${formatNumber(z)} F${formatNumber(feed)}`);
+    }
+  }
+}
+
+function getProfileStartPoint(contour, toolpath) {
+  if (!toolpath.trochoidEnabled || toolpath.trochoidRadius <= 0 || contour.length < 2) {
+    return contour[0];
+  }
+  const start = contour[0];
+  const next = contour[1];
+  const length = Math.hypot(next.x - start.x, next.y - start.y) || 1;
+  return {
+    x: start.x - ((next.y - start.y) / length) * toolpath.trochoidRadius,
+    y: start.y + ((next.x - start.x) / length) * toolpath.trochoidRadius,
+  };
 }
 
 function tryEmitCircleArcs(lines, contour, depth, feed, plunge) {

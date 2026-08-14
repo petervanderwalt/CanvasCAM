@@ -8,7 +8,7 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpat
 import * as Paths from "./src/paths.js?v=20260811-spline-corners1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260812-dark-pastel2";
+import * as CanvasView from "./src/canvas-view.js?v=20260813-trochoid-preview1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
@@ -237,6 +237,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     cutDepthField: document.getElementById("cutDepthField"),
     cutDepthInput: document.getElementById("cutDepthInput"),
     passDepthInput: document.getElementById("passDepthInput"),
+    trochoidSettingsSection: document.getElementById("trochoidSettingsSection"),
+    trochoidEnabledInput: document.getElementById("trochoidEnabledInput"),
+    trochoidEngagementField: document.getElementById("trochoidEngagementField"),
+    trochoidEngagementInput: document.getElementById("trochoidEngagementInput"),
     jobSettingsSection: document.getElementById("jobSettingsSection"),
     tabWidthField: document.getElementById("tabWidthField"),
     tabWidthInput: document.getElementById("tabWidthInput"),
@@ -532,6 +536,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       overlapPercent: toolpath.overlapPercent,
       cutDepth: toolpath.cutDepth,
       passDepth: toolpath.passDepth,
+      trochoidEnabled: Boolean(toolpath.trochoidEnabled),
+      trochoidRadius: toolpath.trochoidRadius,
+      trochoidEngagementPercent: toolpath.trochoidEngagementPercent,
       tabWidth: toolpath.tabWidth,
       tabHeight: toolpath.tabHeight,
       safeZ: toolpath.safeZ,
@@ -624,6 +631,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
         overlapPercent: ui.overlapInput.value,
         cutDepth: ui.cutDepthInput.value,
         passDepth: ui.passDepthInput.value,
+        trochoidEnabled: ui.trochoidEnabledInput.checked,
+        trochoidEngagementPercent: ui.trochoidEngagementInput.value,
         tabWidth: ui.tabWidthInput.value,
         tabHeight: ui.tabHeightInput.value,
         safeZ: ui.safeZInput.value,
@@ -702,6 +711,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     ui.overlapInput.value = formValues.overlapPercent || ui.overlapInput.value;
     ui.cutDepthInput.value = formValues.cutDepth || ui.cutDepthInput.value;
     ui.passDepthInput.value = formValues.passDepth || ui.passDepthInput.value;
+    ui.trochoidEnabledInput.checked = Boolean(formValues.trochoidEnabled);
+    ui.trochoidEngagementInput.value = formValues.trochoidEngagementPercent
+      || getTrochoidEngagementPercent({
+        toolDiameter: Number.parseFloat(formValues.toolDiameter) || 6,
+        trochoidRadius: Number.parseFloat(formValues.trochoidRadius),
+      });
     ui.tabWidthInput.value = formValues.tabWidth || ui.tabWidthInput.value;
     ui.tabHeightInput.value = formValues.tabHeight || ui.tabHeightInput.value;
     ui.safeZInput.value = formValues.safeZ || ui.safeZInput.value;
@@ -6369,6 +6384,19 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     ui.tabHeightInput.value = formatNumber(getDefaultTabHeight(cutDepth));
   }
 
+  function getTrochoidEngagementPercent(toolpath) {
+    const configured = Number.parseFloat(toolpath?.trochoidEngagementPercent);
+    if (Number.isFinite(configured)) {
+      return Math.min(40, Math.max(2, configured));
+    }
+    const radius = Number.parseFloat(toolpath?.trochoidRadius);
+    const diameter = Number.parseFloat(toolpath?.toolDiameter);
+    if (Number.isFinite(radius) && radius > 0 && Number.isFinite(diameter) && diameter > 0) {
+      return Math.min(40, Math.max(2, (radius / diameter) * 100));
+    }
+    return 10;
+  }
+
   function readToolpathConfigFromForm() {
     const slot = getMyEndmillSlot(state.myEndmills.selectedSlot);
     const operation = ui.toolpathTypeInput.value;
@@ -6378,8 +6406,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     applyMyEndmillSlotToInputs(slot);
     const toolDiameter = Number.parseFloat(ui.toolDiameterInput.value) || 6;
     const tabWidth = Math.min(50, Math.max(3, Number.parseFloat(ui.tabWidthInput.value) || 9));
+    const trochoidEngagementPercent = Math.min(40, Math.max(2, Number.parseFloat(ui.trochoidEngagementInput.value) || 10));
     const selectedTool = getSelectedLibraryTool();
     ui.tabWidthInput.value = formatNumber(tabWidth);
+    ui.trochoidEngagementInput.value = formatNumber(trochoidEngagementPercent);
     return {
       operation,
       toolNumber: slot.slot,
@@ -6389,6 +6419,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       overlapPercent: Number.parseFloat(ui.overlapInput.value) || 40,
       cutDepth: Number.parseFloat(ui.cutDepthInput.value) || 18,
       passDepth: Number.parseFloat(ui.passDepthInput.value) || 3,
+      trochoidEnabled: operation === "profile-outside" || operation === "profile-inside"
+        ? ui.trochoidEnabledInput.checked
+        : false,
+      trochoidEngagementPercent,
+      // The orbit radius tracks radial engagement, keeping loop size proportional to the cutter.
+      trochoidRadius: toolDiameter * (trochoidEngagementPercent / 100),
       tabWidth,
       tabHeight: Number.parseFloat(ui.tabHeightInput.value) || 1.5,
       safeZ: Number.parseFloat(ui.safeZInput.value) || 6,
@@ -6422,6 +6458,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     ui.overlapInput.value = toolpath.overlapPercent;
     ui.cutDepthInput.value = toolpath.cutDepth;
+    ui.trochoidEnabledInput.checked = Boolean(toolpath.trochoidEnabled);
+    ui.trochoidEngagementInput.value = formatNumber(getTrochoidEngagementPercent(toolpath));
     ui.tabWidthInput.value = formatNumber(Math.min(50, Math.max(3, toolpath.tabWidth)));
     ui.tabHeightInput.value = toolpath.tabHeight;
     ui.safeZInput.value = toolpath.safeZ;
@@ -8112,6 +8150,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     ui.cutterAngleInput,
     ui.overlapInput,
     ui.passDepthInput,
+    ui.trochoidEngagementInput,
     ui.tabWidthInput,
     ui.safeZInput,
     ui.feedRateInput,
@@ -8123,6 +8162,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       refreshToolpathUi();
       draw();
     });
+  });
+  ui.trochoidEnabledInput.addEventListener("change", () => {
+    refreshToolpathFieldVisibility();
+    rebuildDraftToolpath();
+    refreshToolpathUi();
+    draw();
   });
   ui.cutDepthInput.addEventListener("input", () => {
     syncAutoTabHeight();
@@ -8703,6 +8748,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
         overlapPercent: ui.overlapInput,
         cutDepth: ui.cutDepthInput,
         passDepth: ui.passDepthInput,
+        trochoidEngagementPercent: ui.trochoidEngagementInput,
         tabWidth: ui.tabWidthInput,
         tabHeight: ui.tabHeightInput,
         safeZ: ui.safeZInput,

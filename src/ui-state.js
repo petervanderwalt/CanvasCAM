@@ -18,6 +18,8 @@ export function refreshToolpathFieldVisibility(ui) {
   ui.cutDepthField?.classList.toggle("d-none", isVCarve);
   ui.tabWidthField.classList.toggle("d-none", !usesTabs);
   ui.tabHeightField.classList.toggle("d-none", !usesTabs);
+  ui.trochoidSettingsSection?.classList.toggle("d-none", !usesTabs);
+  ui.trochoidEngagementField?.classList.toggle("d-none", !usesTabs || !ui.trochoidEnabledInput?.checked);
   ui.jobSettingsSection?.classList.toggle("d-none", !usesTabs);
   passDepthGroup?.classList.toggle("d-none", isVCarve);
 }
