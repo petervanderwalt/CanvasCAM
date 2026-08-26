@@ -119,6 +119,11 @@ export function refreshToolpathUi({
   ui.addTabsBtn.disabled = !canEnterAddTabsMode;
   ui.addTabsBtn.classList.toggle("btn-primary", state.addTabsMode);
   ui.addTabsBtn.classList.toggle("btn-outline-primary", !state.addTabsMode);
+  ui.addTabsBtn.classList.toggle("is-active", state.addTabsMode);
+  ui.addTabsBtn.setAttribute("aria-pressed", String(state.addTabsMode));
+  ui.addTabsBtn.title = canEnterAddTabsMode
+    ? (state.addTabsMode ? "Finish placing tabs" : "Add tabs to an Inside or Outside profile")
+    : "Create an Inside or Outside profile toolpath before placing tabs";
 
   if (state.addTabsMode) {
     ui.tabModeHint.textContent = "Add Tabs mode active. Hover any profile toolpath and click to place a tab.";

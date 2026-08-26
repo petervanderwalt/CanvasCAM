@@ -869,6 +869,10 @@ body {
   border-left: 4px solid #47c788;
 }
 
+.toast-stack .toast.toast-funky.is-info {
+  border-left: 4px solid #78a9df;
+}
+
 .toast-stack .toast-inner {
   display: flex;
   align-items: flex-start;
@@ -899,6 +903,10 @@ body {
 
 .toast-stack .toast.is-success .toast-icon {
   color: #7ce1ad;
+}
+
+.toast-stack .toast.is-info .toast-icon {
+  color: #a9d1ff;
 }
 
 .toast-stack .toast-copy {
@@ -1630,6 +1638,7 @@ body {
   height: 100%;
   display: block;
   cursor: default;
+  touch-action: none;
 }
 
 .canvas-empty-state {
@@ -4808,6 +4817,13 @@ body,
   color: #ffffff !important;
 }
 
+#addTabsBtn.is-active {
+  background: #32725a !important;
+  border-color: #79c79d !important;
+  color: #f5fff8 !important;
+  box-shadow: 0 0 0 2px rgba(121, 199, 157, 0.18) !important;
+}
+
 /* Dropdown entries need hierarchy from spacing and hover, not individual frames. */
 .ribbon-menu button,
 .ribbon-menu button:hover,
@@ -5218,4 +5234,1533 @@ html body *:not(#square-ui-override):not(#square-ui-override),
 html body *:not(#square-ui-override):not(#square-ui-override)::before,
 html body *:not(#square-ui-override):not(#square-ui-override)::after {
   border-radius: 0 !important;
+}
+
+/* 3D cut view deliberately stays separate from the Fabric 2D drawing surface. */
+.cut-preview-3d-stage {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #526177;
+  background: #141a24;
+}
+
+.cut-preview-3d-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0.85rem;
+  color: #edf2f8;
+  background: #293447;
+  border-bottom: 1px solid #526177;
+}
+
+.cut-preview-3d-kicker {
+  margin-bottom: 0.1rem;
+  color: #9fb0c9;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cut-preview-3d-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.cut-preview-3d-actions .btn {
+  border: 1px solid #667892;
+  background: #202938;
+  color: #e7eef8;
+  box-shadow: none;
+}
+
+.cut-preview-3d-actions .btn:hover,
+.cut-preview-3d-actions .btn:focus-visible {
+  border-color: #9fb3d1;
+  background: #344259;
+  color: #fff;
+}
+
+.cut-preview-3d-actions .btn.is-active {
+  border-color: #76d8a9;
+  background: #285740;
+  color: #f3fff8;
+}
+
+.cut-preview-speed-group {
+  display: inline-flex;
+}
+
+.cut-preview-speed-group .btn + .btn {
+  border-left: 0;
+}
+
+#cutPreview3dCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+#cutPreview3dCanvas:active { cursor: grabbing; }
+
+.cut-preview-3d-status {
+  padding: 0.52rem 0.85rem;
+  color: #b8c7dc;
+  font-size: 0.8rem;
+  background: #202735;
+  border-top: 1px solid #3f4c61;
+}
+
+/* ========================================================================
+   Operational SaaS interface
+   A single final visual language for the CAD/CAM workbench. This deliberately
+   supersedes the earlier playful / Bootstrap-derived treatments above.
+   ======================================================================== */
+
+@font-face {
+  font-family: "Work Sans";
+  src: url("assets/fonts/WorkSans-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
+:root {
+  --ui-ink: #202a36;
+  --ui-ink-2: #2b3746;
+  --ui-ink-3: #374557;
+  --ui-paper: #fbfaf6;
+  --ui-surface: #f3f1eb;
+  --ui-surface-2: #eae7de;
+  --ui-line: #c9c8c1;
+  --ui-line-strong: #9ea39e;
+  --ui-copy: #26313b;
+  --ui-muted: #68727c;
+  --ui-primary: #2f6f5d;
+  --ui-primary-hover: #255a4b;
+  --ui-primary-soft: #e2eee9;
+  --ui-accent: #b16d3b;
+  --ui-accent-soft: #f5e9df;
+  --ui-danger: #a74e45;
+  --ui-focus: #5a798a;
+  --ui-shadow: 0 12px 28px rgb(25 35 45 / 16%);
+  --ui-radius: 4px;
+}
+
+html,
+body {
+  background: var(--ui-ink) !important;
+  color: var(--ui-copy) !important;
+  font-family: "Work Sans", "Segoe UI", sans-serif !important;
+  font-size: 14px;
+  letter-spacing: 0 !important;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit !important;
+}
+
+.workspace-shell {
+  background: var(--ui-ink) !important;
+}
+
+.workspace-main {
+  background: var(--ui-surface) !important;
+}
+
+/* Command area: concise, structural, and made to scroll rather than overlap. */
+.workspace-header {
+  background: var(--ui-ink) !important;
+  border: 0 !important;
+  border-bottom: 1px solid #495564 !important;
+  box-shadow: none !important;
+}
+
+.ribbon-tabs {
+  min-height: 36px;
+  padding: 0 12px !important;
+  gap: 3px !important;
+  border-bottom: 1px solid #465362 !important;
+  background: #1d2631 !important;
+}
+
+.ribbon-tab {
+  min-height: 35px !important;
+  padding: 0 13px !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #c5ccd2 !important;
+  font-size: 0.78rem !important;
+  font-weight: 650 !important;
+  box-shadow: none !important;
+}
+
+.ribbon-tab:hover {
+  background: #2b3643 !important;
+  color: #fff !important;
+}
+
+.ribbon-tab.is-active {
+  border-bottom-color: #8bbba6 !important;
+  background: #263340 !important;
+  color: #fff !important;
+}
+
+.ribbon-panels {
+  min-height: 68px !important;
+  max-width: 100%;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  background: #26313e !important;
+  scrollbar-color: #718092 #26313e;
+}
+
+.ribbon-panel {
+  min-width: max-content !important;
+  min-height: 68px !important;
+  padding: 7px 10px 5px !important;
+  background: transparent !important;
+  border: 0 !important;
+  gap: 0 !important;
+  align-items: stretch !important;
+}
+
+.ribbon-group {
+  min-width: max-content !important;
+  padding: 0 10px 14px !important;
+  border: 0 !important;
+  border-right: 1px solid #465463 !important;
+  position: relative;
+}
+
+.ribbon-group:first-child { padding-left: 0 !important; }
+.ribbon-group:last-child { border-right: 0 !important; }
+
+.ribbon-group-label {
+  bottom: 0 !important;
+  color: #9ba8b3 !important;
+  font-size: 0.6rem !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+.ribbon-command-grid {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  height: 40px !important;
+}
+
+.ribbon-command,
+.ribbon-menu-trigger {
+  min-width: 54px !important;
+  height: 40px !important;
+  padding: 5px 8px !important;
+  border: 1px solid #526174 !important;
+  border-radius: var(--ui-radius) !important;
+  background: transparent !important;
+  color: #dfe6ea !important;
+  font-size: 0.68rem !important;
+  font-weight: 650 !important;
+  line-height: 1.05 !important;
+  box-shadow: none !important;
+}
+
+.ribbon-command i,
+.ribbon-menu-trigger i { color: #a6b7c3 !important; }
+.ribbon-command:hover:not(:disabled),
+.ribbon-menu-trigger:hover,
+.ribbon-command:focus-visible,
+.ribbon-menu-trigger:focus-visible {
+  border-color: #8ba0ae !important;
+  background: #344253 !important;
+  color: #fff !important;
+}
+
+.ribbon-command:hover i,
+.ribbon-menu-trigger:hover i { color: #dce8e5 !important; }
+
+.ribbon-command.is-active,
+.ribbon-command[aria-pressed="true"],
+.ribbon-menu-trigger.is-active {
+  border-color: #7aab94 !important;
+  background: #315948 !important;
+  color: #f6fffa !important;
+  box-shadow: inset 0 -2px 0 #9bcdb5 !important;
+}
+
+.ribbon-command.is-active i,
+.ribbon-command[aria-pressed="true"] i,
+.ribbon-menu-trigger.is-active i { color: #b8e3cc !important; }
+
+.ribbon-command:disabled {
+  border-color: #3e4b5a !important;
+  background: transparent !important;
+  color: #71808f !important;
+  opacity: 1 !important;
+}
+
+.ribbon-command:disabled i { color: #657486 !important; }
+
+.ribbon-menu {
+  z-index: 1200 !important;
+  min-width: 190px !important;
+  padding: 5px !important;
+  border: 1px solid #5a6a7d !important;
+  border-radius: var(--ui-radius) !important;
+  background: #283440 !important;
+  box-shadow: var(--ui-shadow) !important;
+}
+
+.ribbon-menu button {
+  min-height: 31px !important;
+  padding: 6px 8px !important;
+  border: 0 !important;
+  border-radius: 2px !important;
+  background: transparent !important;
+  color: #e4eaee !important;
+  font-size: 0.79rem !important;
+  font-weight: 550 !important;
+}
+
+.ribbon-menu button:hover,
+.ribbon-menu button:focus-visible {
+  background: #3b4b59 !important;
+  color: #fff !important;
+}
+
+/* Neutral SaaS ribbon: deliberately separate from the drawing surface. */
+.workspace-header {
+  background: #f3f4f1 !important;
+  border-bottom-color: #cbd1cb !important;
+}
+
+.ribbon-tabs {
+  background: #e9ece8 !important;
+  border-bottom-color: #cbd1cb !important;
+}
+
+.ribbon-tab {
+  color: #56615d !important;
+}
+
+.ribbon-tab:hover {
+  background: #dfe6e1 !important;
+  color: #203a33 !important;
+}
+
+.ribbon-tab.is-active {
+  border-bottom-color: #397b68 !important;
+  background: #f8faf7 !important;
+  color: #183f35 !important;
+}
+
+.ribbon-panels {
+  background: #f3f4f1 !important;
+  scrollbar-color: #aab5ae #e4e7e3;
+}
+
+.ribbon-panel,
+.ribbon-panel[data-ribbon-panel="file"],
+.ribbon-panel[data-ribbon-panel="design"],
+.ribbon-panel[data-ribbon-panel="view"] {
+  background: #f3f4f1 !important;
+}
+
+.ribbon-group {
+  border-right-color: #d0d6d1 !important;
+}
+
+.ribbon-group-label {
+  color: #6d7973 !important;
+}
+
+.ribbon-command,
+.ribbon-menu-trigger {
+  border-color: #c5cdc7 !important;
+  border-radius: 0 !important;
+  background: #ffffff !important;
+  color: #2a3d38 !important;
+}
+
+.ribbon-command i,
+.ribbon-menu-trigger i {
+  color: #58756b !important;
+}
+
+.ribbon-command:hover:not(:disabled),
+.ribbon-menu-trigger:hover,
+.ribbon-command:focus-visible,
+.ribbon-menu-trigger:focus-visible {
+  border-color: #76a191 !important;
+  background: #f3f8f5 !important;
+  color: #1d4c40 !important;
+}
+
+.ribbon-command:hover i,
+.ribbon-menu-trigger:hover i {
+  color: #286753 !important;
+}
+
+.ribbon-command.is-active,
+.ribbon-command[aria-pressed="true"],
+.ribbon-menu-trigger.is-active {
+  border-color: #4d8c77 !important;
+  background: #dceee4 !important;
+  color: #174d3d !important;
+  box-shadow: inset 0 -2px 0 #4d8c77 !important;
+}
+
+.ribbon-command.is-active i,
+.ribbon-command[aria-pressed="true"] i,
+.ribbon-menu-trigger.is-active i {
+  color: #1e6652 !important;
+}
+
+.ribbon-command:disabled {
+  border-color: #d9dfda !important;
+  background: #f7f8f6 !important;
+  color: #9aa49f !important;
+}
+
+.ribbon-command:disabled i { color: #a9b3ad !important; }
+
+/* Draw has an extra disclosure icon, but keeps the same icon-over-label rhythm. */
+.ribbon-menu-trigger {
+  position: relative !important;
+  display: grid !important;
+  grid-template-rows: 19px 13px !important;
+  place-items: center !important;
+  gap: 0 !important;
+}
+
+.ribbon-menu-trigger > i:not(.ribbon-menu-chevron) { grid-row: 1 !important; }
+.ribbon-menu-trigger > span { grid-row: 2 !important; }
+.ribbon-menu-trigger .ribbon-menu-chevron {
+  position: absolute !important;
+  right: 5px !important;
+  bottom: 6px !important;
+  color: #6a7771 !important;
+  font-size: 0.55rem !important;
+}
+
+.ribbon-menu {
+  border-color: #c5cdc7 !important;
+  border-radius: 0 !important;
+  background: #ffffff !important;
+  box-shadow: 0 12px 24px rgb(29 43 37 / 14%) !important;
+}
+
+.ribbon-menu button {
+  border-radius: 0 !important;
+  color: #2d403b !important;
+}
+
+.ribbon-menu button:hover,
+.ribbon-menu button:focus-visible {
+  background: #edf5f0 !important;
+  color: #194e40 !important;
+}
+
+.ribbon-menu-divider { border-color: #d8ddd9 !important; }
+
+.ribbon-menu-divider { border-color: #526174 !important; }
+
+/* Canvas stays highly legible and separate from application chrome. */
+.canvas-panel {
+  background: #dcdedb !important;
+  border: 0 !important;
+  padding: 10px !important;
+}
+
+.canvas-stage,
+.canvas-wrap {
+  background: #f8f9f7 !important;
+  border: 1px solid #c5ceca !important;
+  border-radius: var(--ui-radius) !important;
+  box-shadow: 0 1px 2px rgb(22 33 41 / 12%) !important;
+}
+
+.canvas-ruler,
+.canvas-ruler-corner {
+  background: #f1f3f1 !important;
+  border-color: #c6cecb !important;
+}
+
+.canvas-empty-state { background: transparent !important; }
+.empty-state-card {
+  width: min(460px, calc(100% - 32px)) !important;
+  padding: 30px !important;
+  border: 1px solid #bfc3be !important;
+  border-radius: var(--ui-radius) !important;
+  background: rgb(255 255 252 / 96%) !important;
+  box-shadow: var(--ui-shadow) !important;
+}
+
+.empty-state-question {
+  color: var(--ui-copy) !important;
+  font-size: 1.35rem !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.empty-state-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  gap: 8px !important;
+}
+
+.empty-state-drop-note {
+  color: var(--ui-muted) !important;
+  font-size: 0.82rem !important;
+  font-weight: 550 !important;
+}
+
+/* One consistent control language. */
+.btn,
+.form-control,
+.form-select,
+.input-group-text,
+.form-check-input,
+.form-range {
+  border-radius: var(--ui-radius) !important;
+  box-shadow: none !important;
+}
+
+.btn {
+  min-height: 34px !important;
+  padding: 6px 11px !important;
+  border: 1px solid #849097 !important;
+  background: #fffefa !important;
+  color: #2a3640 !important;
+  font-weight: 620 !important;
+  line-height: 1.2 !important;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease !important;
+}
+
+.btn:hover:not(:disabled),
+.btn:focus-visible {
+  border-color: #526978 !important;
+  background: #edf3f0 !important;
+  color: #17252d !important;
+}
+
+.btn-primary,
+.btn-success,
+.dock-export-btn,
+#toolpathSubmitBtn {
+  border-color: var(--ui-primary) !important;
+  background: var(--ui-primary) !important;
+  color: #fff !important;
+}
+
+.btn-primary:hover:not(:disabled),
+.btn-success:hover:not(:disabled),
+.dock-export-btn:hover:not(:disabled),
+#toolpathSubmitBtn:hover:not(:disabled) {
+  border-color: var(--ui-primary-hover) !important;
+  background: var(--ui-primary-hover) !important;
+  color: #fff !important;
+}
+
+.btn-outline-secondary,
+.sample-link,
+.toolpath-card-footer .btn,
+.toolbar-mini .btn {
+  background: transparent !important;
+  color: #405260 !important;
+}
+
+.btn-danger,
+.action-btn.delete {
+  border-color: #c27e75 !important;
+  background: #fff9f8 !important;
+  color: var(--ui-danger) !important;
+}
+
+.btn:disabled,
+.btn.disabled {
+  border-color: #d3d6d1 !important;
+  background: #e9e9e4 !important;
+  color: #939996 !important;
+  opacity: 1 !important;
+}
+
+.form-control,
+.form-select {
+  min-height: 34px !important;
+  border: 1px solid #b8bdb8 !important;
+  background: #fffefa !important;
+  color: var(--ui-copy) !important;
+}
+
+.input-group-text {
+  min-height: 34px !important;
+  border: 1px solid #b8bdb8 !important;
+  background: #ecebe5 !important;
+  color: #59636a !important;
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+}
+
+.input-group > .form-control:not(:last-child),
+.input-group > .form-select:not(:last-child) { border-radius: var(--ui-radius) 0 0 var(--ui-radius) !important; }
+.input-group > .input-group-text:not(:first-child) { border-left: 0 !important; border-radius: 0 var(--ui-radius) var(--ui-radius) 0 !important; }
+.form-control:focus,
+.form-select:focus {
+  border-color: #6d9284 !important;
+  outline: 2px solid rgb(82 139 114 / 18%) !important;
+  outline-offset: 0 !important;
+}
+
+.form-label,
+.compact-form label,
+.selection-subprompt,
+.sidebar-kicker {
+  color: #53606a !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+}
+
+/* Sidebar is a continuous task flow, not a stack of decorated cards. */
+.sidebar {
+  border: 0 !important;
+  border-left: 1px solid #afb4b0 !important;
+  background: var(--ui-surface) !important;
+}
+
+.sidebar-scroll {
+  padding: 12px !important;
+  background: var(--ui-surface) !important;
+}
+
+.sidebar-panel {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.sidebar-panel + .sidebar-panel {
+  margin-top: 18px !important;
+  padding-top: 16px !important;
+  border-top: 1px solid #c8c9c3 !important;
+}
+
+.sidebar-section-head {
+  margin-bottom: 12px !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+.sidebar-title {
+  color: var(--ui-copy) !important;
+  font-size: 1rem !important;
+  font-weight: 680 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.sidebar-kicker {
+  color: #78837b !important;
+  font-size: 0.66rem !important;
+  text-transform: uppercase !important;
+}
+
+.selection-badge {
+  min-width: 28px !important;
+  height: 28px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  border: 1px solid #9ba6a0 !important;
+  border-radius: 50% !important;
+  background: #fdfcf8 !important;
+  color: #334840 !important;
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+}
+
+#selectionEmpty {
+  padding: 24px 12px !important;
+  border: 1px dashed #b8beb8 !important;
+  border-radius: var(--ui-radius) !important;
+  background: #fdfcf8 !important;
+}
+
+.selection-empty-title { color: var(--ui-copy) !important; }
+.selection-empty-copy,
+.selection-mode-copy,
+.toolpath-hint { color: var(--ui-muted) !important; }
+
+#toolpathForm { margin-top: 4px !important; }
+.sidebar-flow-section {
+  margin: 0 0 16px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.operation-grid {
+  gap: 6px !important;
+}
+
+.operation-option {
+  min-height: 42px !important;
+  padding: 5px 8px !important;
+  border: 1px solid #c4c8c4 !important;
+  border-radius: var(--ui-radius) !important;
+  background: #fbfaf6 !important;
+  color: var(--ui-copy) !important;
+  box-shadow: none !important;
+}
+
+.operation-option:hover { border-color: #859a90 !important; background: #f4f7f4 !important; }
+.operation-option.is-active {
+  border-color: #5f8a79 !important;
+  background: var(--ui-primary-soft) !important;
+  color: #224b3d !important;
+  box-shadow: inset 3px 0 0 var(--ui-primary) !important;
+}
+
+.operation-preview-image { max-height: 31px !important; }
+.operation-option .form-check-input { accent-color: var(--ui-primary); }
+
+.my-endmill-summary,
+.toolpath-card {
+  border: 1px solid #c0c5c0 !important;
+  border-radius: var(--ui-radius) !important;
+  background: #fffefa !important;
+  color: var(--ui-copy) !important;
+  box-shadow: none !important;
+}
+
+.my-endmill-summary { padding: 10px !important; }
+.my-endmill-summary-title,
+.toolpath-card h3 { color: var(--ui-copy) !important; }
+.my-endmill-summary-meta,
+.toolpath-card .meta { color: var(--ui-muted) !important; }
+.my-endmill-summary-recommendation { color: var(--ui-primary) !important; }
+
+.toolpath-card { padding: 10px !important; }
+.toolpath-card.active { border-color: #6d9685 !important; background: #f7fbf8 !important; }
+.toolpath-card .action-btn {
+  width: 30px !important;
+  height: 30px !important;
+  border: 1px solid #b6bcb7 !important;
+  border-radius: var(--ui-radius) !important;
+  background: #f7f7f3 !important;
+  color: #41525b !important;
+}
+
+.sidebar-dock {
+  padding: 12px !important;
+  border-top: 1px solid #b9bdb8 !important;
+  background: #eeece5 !important;
+  box-shadow: none !important;
+}
+
+.dock-status { color: var(--ui-muted) !important; font-size: 0.78rem !important; }
+.dock-export-btn { width: 100%; min-height: 42px !important; }
+
+/* Dialogs, tool panels, objects, and toasts share calm readable light surfaces. */
+.modal-backdrop.show { background: #1b2530 !important; opacity: 0.4 !important; }
+.modal-dialog { border-radius: var(--ui-radius) !important; }
+.modal-content,
+.cad-text-panel,
+.cad-inspector,
+.object-tree-panel,
+.guide-distance-pill {
+  border: 1px solid #aeb5af !important;
+  border-radius: var(--ui-radius) !important;
+  background: #fdfcf8 !important;
+  color: var(--ui-copy) !important;
+  box-shadow: var(--ui-shadow) !important;
+}
+
+.modal-header,
+.modal-footer {
+  border-color: #d1d3cd !important;
+  background: #f5f3ed !important;
+}
+.modal-header { padding: 15px 18px !important; }
+.modal-footer { padding: 12px 18px !important; }
+.modal-title,
+.modal-content h1,
+.modal-content h2,
+.modal-content h3,
+.cad-inspector strong,
+.cad-text-panel strong,
+.object-tree-head strong { color: var(--ui-copy) !important; }
+.modal-content .text-muted,
+.modal-content .small,
+.modal-content label,
+.modal-content summary,
+.modal-content output,
+.modal-content .form-text,
+.cad-text-panel label,
+.cad-inspector label,
+.object-tree-content { color: var(--ui-muted) !important; opacity: 1 !important; }
+
+.btn-close,
+.cad-inspector-close,
+.object-tree-head button {
+  width: 30px !important;
+  height: 30px !important;
+  border: 1px solid #aeb7af !important;
+  border-radius: var(--ui-radius) !important;
+  background-color: #fffefa !important;
+  color: #4c5960 !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+}
+
+.btn-close { filter: none !important; }
+.btn-close:hover,
+.cad-inspector-close:hover,
+.object-tree-head button:hover { background-color: #eef1ec !important; }
+
+.modal-body,
+.cad-text-panel,
+.cad-inspector { background: #fdfcf8 !important; }
+
+.modal .form-control,
+.modal .form-select,
+.cad-text-panel input,
+.cad-text-panel select,
+.cad-inspector input,
+.cad-inspector select,
+.guide-distance-pill input {
+  border-color: #b9c0ba !important;
+  background: #fff !important;
+  color: var(--ui-copy) !important;
+}
+
+.modal .input-group-text,
+.cad-text-height-row > span,
+.cad-inspector-grid > label > span:not(.cad-inspector-label),
+.cad-inspector-input-row > span,
+.cad-inspector-text-size-row > span {
+  border-color: #b9c0ba !important;
+  background: #ecece5 !important;
+  color: #59636a !important;
+}
+
+.boolean-operation-option,
+.grid-settings-choice,
+.workspace-settings-check,
+.trace-preprocess,
+.workspace-settings-card {
+  border: 1px solid #c4c9c3 !important;
+  border-radius: var(--ui-radius) !important;
+  background: #fffefa !important;
+  color: var(--ui-copy) !important;
+  box-shadow: none !important;
+}
+
+.boolean-operation-option.is-active,
+.grid-settings-choice:has(input:checked) {
+  border-color: #749785 !important;
+  background: #edf5ef !important;
+}
+.boolean-operation-option small,
+.boolean-preview-note,
+.expand-preview-note,
+.trace-range-value { color: var(--ui-muted) !important; }
+
+.object-tree-head {
+  border-bottom: 1px solid #cfd2cc !important;
+  border-radius: var(--ui-radius) var(--ui-radius) 0 0 !important;
+  background: #f1f0ea !important;
+}
+.object-tree-row { color: #3f4b53 !important; }
+.object-tree-row:hover,
+.object-tree-row.is-selected { background: #e3eee8 !important; color: #234d3e !important; }
+
+.toast-stack { z-index: 2100 !important; }
+.toast-stack .toast,
+.toast-stack .toast.toast-funky {
+  border: 1px solid #c1c7c0 !important;
+  border-left: 4px solid #5f8c78 !important;
+  border-radius: var(--ui-radius) !important;
+  background: #fffefa !important;
+  color: var(--ui-copy) !important;
+  box-shadow: var(--ui-shadow) !important;
+}
+.toast-stack .toast.is-danger { border-left-color: var(--ui-danger) !important; }
+.toast-stack .toast.is-warning { border-left-color: var(--ui-accent) !important; }
+.toast-stack .toast-title { color: var(--ui-copy) !important; font-family: inherit !important; }
+.toast-stack .toast-message { color: var(--ui-muted) !important; }
+.toast-stack .toast-close { color: #5b666b !important; }
+
+/* CAD overlays and 3D controls use the same no-surprises treatment. */
+.cad-text-panel,
+.cad-inspector { padding: 12px !important; }
+.cad-inspector-head { border-bottom: 1px solid #d2d5cf !important; }
+.cad-inspector-apply { width: 100%; }
+.guide-distance-pill { border-color: #8e9e96 !important; background: #fffefa !important; }
+.guide-distance-pill :is(span, label) { color: #4e5d62 !important; }
+
+.cut-preview-3d-stage {
+  border-color: #9ea8a2 !important;
+  border-radius: var(--ui-radius) !important;
+  background: #f7f7f4 !important;
+}
+.cut-preview-3d-head,
+.cut-preview-3d-status {
+  border-color: #c3c8c2 !important;
+  background: #eff0eb !important;
+  color: var(--ui-copy) !important;
+}
+.cut-preview-3d-kicker { color: var(--ui-muted) !important; }
+.cut-preview-3d-actions .btn { background: #fffefa !important; color: #35454d !important; border-color: #acb5ae !important; }
+.cut-preview-3d-actions .btn.is-active { background: var(--ui-primary-soft) !important; border-color: #75a18c !important; color: #25503f !important; }
+
+/* Native scrollbars remain visible but quiet. */
+* { scrollbar-color: #98a29b transparent; scrollbar-width: thin; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 99px; background: #9ca69f; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: #7d8980; background-clip: padding-box; }
+
+@media (max-width: 760px) {
+  .workspace-shell { display: block !important; min-height: 100dvh !important; }
+  .workspace-main { min-height: 0 !important; }
+  .ribbon-tabs { padding: 0 8px !important; }
+  .ribbon-panels { min-height: 64px !important; }
+  .ribbon-panel { min-height: 64px !important; padding: 6px 8px 4px !important; }
+  .ribbon-group { padding: 0 8px 13px !important; }
+  .ribbon-command-grid { height: 38px !important; }
+  .ribbon-command, .ribbon-menu-trigger { min-width: 48px !important; height: 38px !important; padding: 4px 6px !important; font-size: 0.65rem !important; }
+  .canvas-panel { min-height: 56dvh !important; padding: 8px !important; }
+  .sidebar { border-left: 0 !important; border-top: 1px solid #b7bcb6 !important; }
+  .sidebar-scroll { max-height: none !important; }
+  .empty-state-card { padding: 24px 16px !important; }
+  .empty-state-actions .btn { width: 100%; }
+  .modal-dialog { margin: 12px !important; }
+}
+
+/* Accessibility pass: controls must never depend on inherited palette values. */
+.ribbon-command.is-active,
+.ribbon-command[aria-pressed="true"],
+.ribbon-menu-trigger.is-active,
+#selectModeBtn.is-active {
+  background: #8fcf9c !important;
+  border-color: #4f8061 !important;
+  color: #173326 !important;
+  box-shadow: inset 0 -2px 0 rgb(28 72 48 / 26%) !important;
+}
+
+.ribbon-command.is-active i,
+.ribbon-command[aria-pressed="true"] i,
+.ribbon-menu-trigger.is-active i,
+#selectModeBtn.is-active i {
+  color: #173326 !important;
+}
+
+.ribbon-command:focus-visible,
+.ribbon-menu-trigger:focus-visible,
+.operation-option:focus-visible,
+.btn:focus-visible,
+.form-control:focus,
+.form-select:focus {
+  outline: 2px solid #376f82 !important;
+  outline-offset: 2px !important;
+}
+
+.operation-option,
+.operation-option:hover,
+.operation-option:focus-visible {
+  color: #202b33 !important;
+}
+
+.operation-option .operation-label {
+  color: #202b33 !important;
+  font-weight: 700 !important;
+  opacity: 1 !important;
+}
+
+.operation-option.active,
+.operation-option.is-active,
+.operation-option.active .operation-label,
+.operation-option.is-active .operation-label {
+  color: #173c2f !important;
+}
+
+.operation-option .operation-indicator {
+  border-color: #7d8c94 !important;
+}
+
+.operation-option.active .operation-indicator,
+.operation-option.is-active .operation-indicator {
+  border-color: #2f6f5d !important;
+}
+
+/* Keep subtle labels readable on dark modal and utility surfaces as well. */
+.modal-content .text-muted,
+.modal-content .small.text-muted,
+.modal-content .form-text,
+.modal-content .trace-preprocess label,
+.modal-content .trace-preprocess summary,
+.modal-content .trace-preprocess-control label,
+.modal-content .boolean-preview-note,
+.modal-content .expand-preview-note,
+.modal-content #booleanModalSummary,
+.modal-content #expandModalSummary,
+.modal-content #nestModalSummary,
+.modal-content #nestPreviewNote {
+  color: #c8d3df !important;
+}
+
+/* Small screens retain a clear workflow: short-lived notices never cover the sidebar. */
+@media (max-width: 760px) {
+  .toast-stack {
+    top: max(74px, env(safe-area-inset-top)) !important;
+    right: 12px !important;
+    bottom: auto !important;
+    left: 12px !important;
+    width: auto !important;
+  }
+
+  .ribbon-panels {
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 8px;
+  }
+
+  .ribbon-group { scroll-snap-align: start; }
+}
+
+/* Final surface contract. These rules deliberately match the old dark-theme
+   selectors so a component cannot inherit dark-mode ink or fields by accident. */
+:is(.modal-content, .cad-text-panel, .cad-inspector, .object-tree-panel, .guide-distance-pill, .sidebar, .ribbon-panel) {
+  color: #26313b !important;
+}
+
+:is(.modal-content, .cad-text-panel, .cad-inspector, .object-tree-panel, .guide-distance-pill, .sidebar, .ribbon-panel) :is(.text-muted, .text-dark, .form-text, .small, .form-check-label, label, summary, output, .form-label) {
+  color: #68727c !important;
+  opacity: 1 !important;
+}
+
+:is(.modal-content, .cad-text-panel, .cad-inspector, .object-tree-panel, .guide-distance-pill, .sidebar, .ribbon-panel) :is(h1, h2, h3, h4, h5, h6, strong, .fw-semibold, .fw-bold) {
+  color: #26313b !important;
+}
+
+.sidebar .form-control,
+.sidebar .form-select,
+.sidebar .input-group-text,
+.modal .form-control,
+.modal .form-select,
+.modal .input-group-text,
+.cad-text-panel input,
+.cad-text-panel select,
+.cad-inspector input,
+.cad-inspector select,
+.font-picker-toggle,
+#myEndmillSelect,
+.guide-distance-pill input {
+  background: #fffefa !important;
+  border-color: #b8bdb8 !important;
+  color: #26313b !important;
+}
+
+.sidebar .input-group-text,
+.modal .input-group-text,
+.cad-text-height-row > span,
+.cad-inspector-grid > label > span:not(.cad-inspector-label),
+.cad-inspector-input-row > span,
+.cad-inspector-text-size-row > span {
+  background: #ecebe5 !important;
+  border-color: #b8bdb8 !important;
+  color: #59636a !important;
+}
+
+.sidebar .form-control::placeholder,
+.modal .form-control::placeholder {
+  color: #788188 !important;
+}
+
+.sidebar .form-control:focus,
+.sidebar .form-select:focus,
+.modal .form-control:focus,
+.modal .form-select:focus,
+.guide-distance-pill input:focus {
+  background: #fff !important;
+  border-color: #6d9284 !important;
+  box-shadow: 0 0 0 0.15rem rgb(82 139 114 / 18%) !important;
+}
+
+.operation-option,
+.operation-option:hover,
+.operation-option:focus-visible {
+  background: #fbfaf6 !important;
+  border-color: #c4c8c4 !important;
+  color: #202b33 !important;
+  box-shadow: none !important;
+}
+
+.operation-option.active,
+.operation-option.is-active {
+  background: #e7f1e9 !important;
+  border-color: #6f9a7f !important;
+  color: #173c2f !important;
+  box-shadow: inset 3px 0 0 #4f8061 !important;
+}
+
+.operation-option :is(.operation-label, .operation-name, small, span) {
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
+#myEndmillsModal .modal-content,
+#bitmapTraceModal .modal-content,
+#booleanModal .modal-content,
+#expandModal .modal-content,
+#nestModal .modal-content,
+#workspaceSettingsModal .modal-content,
+#gridSettingsModal .modal-content,
+#confirmationModal .modal-content {
+  background: #fdfcf8 !important;
+  border-color: #aeb5af !important;
+  color: #26313b !important;
+  box-shadow: 0 16px 38px rgb(20 28 42 / 20%) !important;
+}
+
+#myEndmillsModal :is(.modal-header, .modal-footer),
+#bitmapTraceModal :is(.modal-header, .modal-footer),
+#booleanModal :is(.modal-header, .modal-footer),
+#expandModal :is(.modal-header, .modal-footer),
+#nestModal :is(.modal-header, .modal-footer),
+#workspaceSettingsModal :is(.modal-header, .modal-footer),
+#gridSettingsModal :is(.modal-header, .modal-footer),
+#confirmationModal :is(.modal-header, .modal-footer) {
+  background: #f5f3ed !important;
+  border-color: #d1d3cd !important;
+  color: #26313b !important;
+}
+
+#myEndmillsModal :is(.modal-body, .text-muted, .small, label, summary, .form-text),
+#bitmapTraceModal :is(.modal-body, .text-muted, .small, label, summary, .form-text),
+#booleanModal :is(.modal-body, .text-muted, .small, label, summary, .form-text),
+#expandModal :is(.modal-body, .text-muted, .small, label, summary, .form-text),
+#nestModal :is(.modal-body, .text-muted, .small, label, summary, .form-text),
+#workspaceSettingsModal :is(.modal-body, .text-muted, .small, label, summary, .form-text),
+#gridSettingsModal :is(.modal-body, .text-muted, .small, label, summary, .form-text),
+#confirmationModal :is(.modal-body, .text-muted, .small, label, summary, .form-text, .confirmation-message) {
+  background-color: transparent !important;
+  color: #68727c !important;
+  opacity: 1 !important;
+}
+
+#confirmationModal :is(.modal-title, .confirmation-message) { color: #26313b !important; }
+#confirmationModal #confirmationModalMessage { color: #26313b !important; }
+#confirmationModal .modal-title { color: #26313b !important; }
+
+#myEndmillsModal .accordion-button,
+#myEndmillsModal .accordion-body {
+  background: #f7f6f1 !important;
+  border-color: #c4c9c3 !important;
+  color: #26313b !important;
+}
+
+#myEndmillsModal .accordion-button:not(.collapsed) {
+  background: #eaf2ec !important;
+  border-color: #83a58d !important;
+  color: #234536 !important;
+}
+
+#myEndmillsModal :is(.my-endmill-slot-title, .my-endmill-slot-summary, .my-endmill-summary-title, .my-endmill-summary-meta) {
+  color: #52606a !important;
+}
+
+.toast-stack .toast,
+.toast-stack .toast.toast-funky {
+  background: #fffefa !important;
+  color: #26313b !important;
+}
+
+.toast-stack .toast :is(i, svg, .toast-icon) { color: #486a5b !important; fill: currentColor; }
+.toast-stack .toast-icon {
+  background: #edf2eb !important;
+  border-color: #c1cec3 !important;
+  color: #486a5b !important;
+}
+.toast-stack .toast-close {
+  border: 0 !important;
+  background: transparent !important;
+  color: #52606a !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
+.toast-stack .toast-close:hover { background: #edf0eb !important; color: #26313b !important; }
+.toast-stack .toast-close::before,
+.toast-stack .toast-close::after {
+  background: #52606a !important;
+  border-radius: 0 !important;
+}
+.toast-stack .toast-close:hover::before,
+.toast-stack .toast-close:hover::after { background: #26313b !important; }
+
+/* Toolpath utility actions must not inherit the retired dark action treatment. */
+.sidebar .toolbar-mini #addTabsBtn,
+.sidebar .toolpath-card-footer .btn,
+.sidebar .toolpath-card .btn-clear-tabs {
+  background: #fffefa !important;
+  border: 1px solid #aab7af !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: #36515c !important;
+  opacity: 1 !important;
+}
+
+.sidebar .toolbar-mini #addTabsBtn:hover:not(:disabled),
+.sidebar .toolbar-mini #addTabsBtn:focus-visible:not(:disabled),
+.sidebar .toolpath-card-footer .btn:hover:not(:disabled),
+.sidebar .toolpath-card-footer .btn:focus-visible:not(:disabled),
+.sidebar .toolpath-card .btn-clear-tabs:hover:not(:disabled),
+.sidebar .toolpath-card .btn-clear-tabs:focus-visible:not(:disabled) {
+  background: #edf3f0 !important;
+  border-color: #638070 !important;
+  color: #234f40 !important;
+  box-shadow: 0 0 0 2px rgba(99, 128, 112, 0.16) !important;
+}
+
+.sidebar .toolbar-mini #addTabsBtn.is-active {
+  background: #e2eee9 !important;
+  border-color: #4e806a !important;
+  color: #234f40 !important;
+}
+
+.sidebar .toolbar-mini #addTabsBtn:disabled,
+.sidebar .toolpath-card-footer .btn:disabled,
+.sidebar .toolpath-card .btn-clear-tabs:disabled {
+  background: #f1f0eb !important;
+  border-color: #d2d6d0 !important;
+  color: #89928c !important;
+  opacity: 1 !important;
+}
+
+/* Final ribbon palette: neutral business UI, shared by desktop and touch layouts. */
+.workspace-header { background: #f3f4f1 !important; border-bottom-color: #cbd1cb !important; }
+.ribbon-tabs { background: #e9ece8 !important; border-bottom-color: #cbd1cb !important; }
+.ribbon-tab { color: #56615d !important; }
+.ribbon-tab:hover { background: #dfe6e1 !important; color: #203a33 !important; }
+.ribbon-tab.is-active { background: #f8faf7 !important; border-bottom-color: #397b68 !important; color: #183f35 !important; }
+.ribbon-panels { background: #f3f4f1 !important; scrollbar-color: #aab5ae #e4e7e3 !important; }
+.ribbon-panel,
+.ribbon-panel[data-ribbon-panel="file"],
+.ribbon-panel[data-ribbon-panel="design"],
+.ribbon-panel[data-ribbon-panel="view"] { background: #f3f4f1 !important; }
+.ribbon-group { border-right-color: #d0d6d1 !important; }
+.ribbon-group-label { color: #6d7973 !important; }
+.ribbon-command,
+.ribbon-menu-trigger { border-color: #c5cdc7 !important; border-radius: 0 !important; background: #ffffff !important; color: #2a3d38 !important; }
+.ribbon-command i,
+.ribbon-menu-trigger i { color: #58756b !important; }
+.ribbon-command:hover:not(:disabled),
+.ribbon-menu-trigger:hover,
+.ribbon-command:focus-visible,
+.ribbon-menu-trigger:focus-visible { border-color: #76a191 !important; background: #f3f8f5 !important; color: #1d4c40 !important; }
+.ribbon-command:hover i,
+.ribbon-menu-trigger:hover i { color: #286753 !important; }
+.ribbon-command.is-active,
+.ribbon-command[aria-pressed="true"],
+.ribbon-menu-trigger.is-active,
+#selectModeBtn.is-active { border-color: #4d8c77 !important; background: #dceee4 !important; color: #174d3d !important; box-shadow: inset 0 -2px 0 #4d8c77 !important; }
+.ribbon-command.is-active i,
+.ribbon-command[aria-pressed="true"] i,
+.ribbon-menu-trigger.is-active i,
+#selectModeBtn.is-active i { color: #1e6652 !important; }
+.ribbon-command:disabled { border-color: #d9dfda !important; background: #f7f8f6 !important; color: #9aa49f !important; opacity: 1 !important; }
+.ribbon-command:disabled i { color: #a9b3ad !important; }
+.ribbon-menu { border-color: #c5cdc7 !important; border-radius: 0 !important; background: #ffffff !important; box-shadow: 0 12px 24px rgb(29 43 37 / 14%) !important; }
+.ribbon-menu button { border-radius: 0 !important; color: #2d403b !important; }
+.ribbon-menu button:hover,
+.ribbon-menu button:focus-visible { background: #edf5f0 !important; color: #194e40 !important; }
+.ribbon-menu-divider { border-color: #d8ddd9 !important; }
+.ribbon-menu-trigger { position: relative !important; display: grid !important; grid-template-rows: 19px 13px !important; place-items: center !important; gap: 0 !important; }
+.ribbon-menu-trigger > i:not(.ribbon-menu-chevron) { grid-row: 1 !important; }
+.ribbon-menu-trigger > span { grid-row: 2 !important; }
+.ribbon-menu-trigger .ribbon-menu-chevron { position: absolute !important; right: 5px !important; bottom: 6px !important; color: #6a7771 !important; font-size: 0.55rem !important; }
+
+/* Only controls that maintain an interaction or workspace view state look active. */
+:where(
+  #selectModeBtn,
+  .ribbon-command.cad-tool-btn[data-cad-tool="trim"],
+  .ribbon-command.transform-tool-btn,
+  #drawMenuBtn,
+  #canvas2dViewBtn,
+  #cutPreview3dViewBtn,
+  #objectTreeToggleBtn
+).is-active,
+#objectTreeToggleBtn[aria-pressed="true"] {
+  background: #dceee4 !important;
+  border-color: #4d8c77 !important;
+  color: #174d3d !important;
+  box-shadow: inset 0 -2px 0 #4d8c77 !important;
+}
+
+:where(
+  #selectModeBtn,
+  .ribbon-command.cad-tool-btn[data-cad-tool="trim"],
+  .ribbon-command.transform-tool-btn,
+  #drawMenuBtn,
+  #canvas2dViewBtn,
+  #cutPreview3dViewBtn,
+  #objectTreeToggleBtn
+).is-active i,
+#objectTreeToggleBtn[aria-pressed="true"] i {
+  color: #1e6652 !important;
+}
+
+/* Measurement fields are one control: a single outline with a unit divider. */
+.input-group:has(> .form-control + .input-group-text),
+.input-group:has(> .form-select + .input-group-text) {
+  overflow: hidden;
+  border: 1px solid #b8bdb8 !important;
+  border-radius: var(--ui-radius) !important;
+  background: #fffefa !important;
+}
+
+.input-group:has(> .form-control + .input-group-text) > .form-control,
+.input-group:has(> .form-select + .input-group-text) > .form-select,
+.input-group:has(> .form-control + .input-group-text) > .input-group-text,
+.input-group:has(> .form-select + .input-group-text) > .input-group-text {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.input-group:has(> .form-control + .input-group-text) > .input-group-text,
+.input-group:has(> .form-select + .input-group-text) > .input-group-text {
+  border-left: 1px solid #b8bdb8 !important;
+}
+
+.input-group:has(> .form-control + .input-group-text):focus-within,
+.input-group:has(> .form-select + .input-group-text):focus-within {
+  border-color: #6d9284 !important;
+  box-shadow: 0 0 0 0.15rem rgb(82 139 114 / 18%) !important;
+}
+
+.input-group:has(> .form-control + .input-group-text):focus-within > .input-group-text,
+.input-group:has(> .form-select + .input-group-text):focus-within > .input-group-text {
+  border-left-color: #6d9284 !important;
+}
+
+/* Tool rack: a single neutral configuration surface, not a dark sub-application. */
+#myEndmillsModal .modal-content {
+  background: #ffffff !important;
+  border: 1px solid #b7c0bc !important;
+  color: #26313b !important;
+  box-shadow: 0 18px 42px rgb(32 48 43 / 22%) !important;
+}
+
+#myEndmillsModal .modal-header {
+  background: #ffffff !important;
+  border-bottom: 1px solid #dce1dd !important;
+  color: #26313b !important;
+}
+
+#myEndmillsModal .modal-footer {
+  background: #f6f8f6 !important;
+  border-top: 1px solid #dce1dd !important;
+  color: #26313b !important;
+}
+
+#myEndmillsModal .modal-title,
+#myEndmillsModal #myEndmillsModalLabel,
+#myEndmillsModal .modal-header .text-muted {
+  color: #26313b !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+#myEndmillsModal .modal-header .text-muted {
+  color: #66736d !important;
+}
+
+#myEndmillsModal .modal-body {
+  background: #fbfcfb !important;
+  color: #52605a !important;
+}
+
+#myEndmillsModal .my-endmills-accordion {
+  background: transparent !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-item {
+  margin-bottom: 8px !important;
+  border: 1px solid #d2d9d4 !important;
+  background: #ffffff !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-button {
+  background: #ffffff !important;
+  color: #26313b !important;
+  box-shadow: none !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-button:not(.collapsed) {
+  background: #eef6f0 !important;
+  color: #214937 !important;
+  box-shadow: inset 3px 0 0 #5c9670 !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-button::after {
+  filter: none !important;
+  opacity: 0.75 !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .accordion-body {
+  background: #fbfcfb !important;
+  border-top: 1px solid #dce3de !important;
+  color: #52605a !important;
+}
+
+#myEndmillsModal :is(.my-endmill-slot-title, .my-endmill-summary-title) {
+  color: #26313b !important;
+}
+
+#myEndmillsModal :is(.my-endmill-slot-summary, .my-endmill-summary-meta, .form-label, label, .form-text, .small, .text-muted) {
+  color: #5f6e67 !important;
+  opacity: 1 !important;
+}
+
+#myEndmillsModal :is(.form-control, .form-select) {
+  background: #ffffff !important;
+  border-color: #b8c1bc !important;
+  color: #26313b !important;
+}
+
+#myEndmillsModal .input-group-text {
+  background: #edf0ed !important;
+  border-color: #b8c1bc !important;
+  color: #52605a !important;
+}
+
+#myEndmillsModal .btn-close {
+  position: relative !important;
+  display: grid !important;
+  width: 2rem !important;
+  height: 2rem !important;
+  place-items: center !important;
+  padding: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  border: 1px solid transparent !important;
+  color: #52605a !important;
+  font-size: 0 !important;
+  opacity: 1 !important;
+}
+
+#myEndmillsModal .btn-close:hover,
+#myEndmillsModal .btn-close:focus-visible {
+  background: #edf1ee !important;
+  border-color: #aebbb3 !important;
+  color: #26313b !important;
+}
+
+#myEndmillsModal .btn-close::before,
+#myEndmillsModal .btn-close::after {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  transform: none !important;
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+#myEndmillsModal .btn-close::before {
+  content: "\00d7" !important;
+  display: block !important;
+  color: #40524a !important;
+  font-family: Arial, sans-serif !important;
+  font-size: 1.5rem !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+}
+
+#myEndmillsModal .btn-close::after {
+  content: none !important;
+  display: none !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .clear-slot-btn,
+#myEndmillsModal .accordion-body .btn-outline-secondary {
+  background: #ffffff !important;
+  border: 1px solid #aebbb3 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: #3c4b43 !important;
+  text-shadow: none !important;
+}
+
+#myEndmillsModal .my-endmills-accordion .clear-slot-btn:hover,
+#myEndmillsModal .my-endmills-accordion .clear-slot-btn:focus-visible,
+#myEndmillsModal .accordion-body .btn-outline-secondary:hover,
+#myEndmillsModal .accordion-body .btn-outline-secondary:focus-visible {
+  background: #edf3f0 !important;
+  border-color: #789486 !important;
+  box-shadow: none !important;
+  color: #27483a !important;
+  transform: none !important;
+}
+
+#myEndmillsModal .modal-footer .btn-outline-secondary {
+  background: #ffffff !important;
+  border-color: #aebbb3 !important;
+  color: #3c4b43 !important;
+}
+
+#myEndmillsModal .modal-footer .btn-primary {
+  background: #2f7d5b !important;
+  border-color: #2f7d5b !important;
+  color: #ffffff !important;
+}
+
+#myEndmillsModal .modal-footer .btn-primary:disabled {
+  background: #c8d0cb !important;
+  border-color: #c8d0cb !important;
+  color: #6a756e !important;
+}
+
+/* Modes keep their normal outline; the active state is conveyed by fill and inset only. */
+#selectModeBtn.is-active,
+.ribbon-command.cad-tool-btn[data-cad-tool="trim"].is-active,
+.ribbon-command.transform-tool-btn.is-active,
+#drawMenuBtn.is-active {
+  background: #dceee4 !important;
+  border-color: #c5cdc7 !important;
+  box-shadow: inset 0 -2px 0 #79aa92 !important;
+  color: #174d3d !important;
+}
+
+#selectModeBtn.is-active i,
+.ribbon-command.cad-tool-btn[data-cad-tool="trim"].is-active i,
+.ribbon-command.transform-tool-btn.is-active i,
+#drawMenuBtn.is-active i {
+  color: #1e6652 !important;
 }

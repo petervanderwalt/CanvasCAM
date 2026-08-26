@@ -429,6 +429,53 @@ export function tabTopDepth(toolpath) {
 }
 
 export function buildGcode({ toolpaths, fileName, forcePolylineArcs, onProgress = () => {} }) {
+  for (const toolpath of toolpaths) {
+    const values = [
+      ["Z Safe", toolpath.safeZ],
+      ["Feed Rate", toolpath.feedRate],
+      ["Plunge Rate", toolpath.plungeRate],
+      ["Spindle RPM", toolpath.spindle],
+      ["Tool diameter", toolpath.toolDiameter],
+    ];
+    const invalidValue = values.find(([, value]) => !Number.isFinite(Number(value)) || Number(value) <= 0);
+    if (invalidValue) {
+      throw new Error(`${invalidValue[0]} must be greater than zero for ${toolpath.label || "each toolpath"}.`);
+    }
+    if ((toolpath.operation === "vcarve" || toolpath.operation === "chamfer")
+      && (!Number.isFinite(Number(toolpath.cutterAngle)) || Number(toolpath.cutterAngle) <= 0 || Number(toolpath.cutterAngle) >= 180)) {
+      throw new Error(`V-bit angle must be between 1 and 179 degrees for ${toolpath.label || "each toolpath"}.`);
+    }
+    if (toolpath.operation !== "vcarve") {
+      const passDepth = Number(toolpath.passDepth);
+      const cutDepth = Number(toolpath.cutDepth);
+      if (!Number.isFinite(passDepth) || passDepth <= 0 || passDepth > cutDepth) {
+        throw new Error(`Pass depth must be greater than zero and no deeper than final depth for ${toolpath.label || "each toolpath"}.`);
+      }
+      if (operationUsesTabs(toolpath)) {
+        const tabHeight = Number(toolpath.tabHeight);
+        if (!Number.isFinite(tabHeight) || tabHeight < 0 || tabHeight >= cutDepth) {
+          throw new Error(`Tab height must be zero or greater and less than final depth for ${toolpath.label || "each toolpath"}.`);
+        }
+        if ((toolpath.tabs || []).length) {
+          const tabWidth = Number(toolpath.tabWidth);
+          if (!Number.isFinite(tabWidth) || tabWidth < 3 || tabWidth > 50) {
+            throw new Error(`Tab width must be between 3 and 50 mm for ${toolpath.label || "each toolpath"}.`);
+          }
+        }
+      }
+      if (toolpath.trochoidEnabled) {
+        if (toolpath.operation !== "profile-outside" && toolpath.operation !== "profile-inside") {
+          throw new Error(`Trochoidal cutting is only supported for inside and outside profiles (${toolpath.label || "each toolpath"}).`);
+        }
+        const engagement = Number(toolpath.trochoidEngagementPercent);
+        const radius = Number(toolpath.trochoidRadius);
+        if ((!Number.isFinite(engagement) || engagement < 2 || engagement > 40)
+          && (!Number.isFinite(radius) || radius <= 0 || radius > Number(toolpath.toolDiameter) * 0.4)) {
+          throw new Error(`Trochoidal engagement must be between 2% and 40% for ${toolpath.label || "each toolpath"}.`);
+        }
+      }
+    }
+  }
   const lines = [
     "(CAM Canvas GRBL output)",
     `(${fileName || "untitled.dxf"})`,

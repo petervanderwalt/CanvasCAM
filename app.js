@@ -8,10 +8,11 @@ import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpat
 import * as Paths from "./src/paths.js?v=20260811-spline-corners1";
 import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
 import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260813-trochoid-preview1";
+import * as CanvasView from "./src/canvas-view.js?v=20260823-vector-contrast1";
 import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
+import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1";
 
 (function () {
 
@@ -36,6 +37,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   let confirmationModalInstance = null;
   let confirmationResolver = null;
   let workspaceSettingsOriginal = null;
+  let workspaceView = "2d";
+  let cutPreviewBuildTimer = null;
 
   const ui = {
     loadSampleBtn: document.getElementById("loadSampleBtn"),
@@ -69,6 +72,18 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     statusText: document.getElementById("statusText"),
     toastContainer: document.getElementById("toastContainer"),
     canvasWrap: document.getElementById("canvasWrap"),
+    canvas2dStage: document.getElementById("canvas2dStage"),
+    cutPreview3dStage: document.getElementById("cutPreview3dStage"),
+    canvas2dViewBtn: document.getElementById("canvas2dViewBtn"),
+    cutPreview3dViewBtn: document.getElementById("cutPreview3dViewBtn"),
+    cutPreview3dCanvas: document.getElementById("cutPreview3dCanvas"),
+    cutPreview3dStatus: document.getElementById("cutPreview3dStatus"),
+    cutPreview3dPlayBtn: document.getElementById("cutPreview3dPlayBtn"),
+    cutPreview3dResetBtn: document.getElementById("cutPreview3dResetBtn"),
+    cutPreview3dSpeedBtns: Array.from(document.querySelectorAll("[data-cut-preview-speed]")),
+    cutPreview3dIsoBtn: document.getElementById("cutPreview3dIsoBtn"),
+    cutPreview3dTopBtn: document.getElementById("cutPreview3dTopBtn"),
+    cutPreview3dRefreshBtn: document.getElementById("cutPreview3dRefreshBtn"),
     vectorActionGroup: document.getElementById("vectorActionGroup"),
     cadActionGroup: document.getElementById("cadActionGroup"),
     drawMenuBtn: document.getElementById("drawMenuBtn"),
@@ -261,6 +276,25 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     tabModeHint: document.getElementById("tabModeHint"),
   };
 
+  const cutPreview3d = ui.cutPreview3dCanvas
+    ? new CutPreview3D(ui.cutPreview3dCanvas, ui.cutPreview3dStatus)
+    : null;
+
+  function syncCutPreviewPlaybackControls(playback = {}) {
+    ui.cutPreview3dPlayBtn?.classList.toggle("is-active", Boolean(playback.running));
+    if (ui.cutPreview3dPlayBtn) {
+      ui.cutPreview3dPlayBtn.innerHTML = playback.running
+        ? '<i class="fa-solid fa-pause"></i> Pause'
+        : '<i class="fa-solid fa-play"></i> Play';
+    }
+    for (const button of ui.cutPreview3dSpeedBtns) {
+      const active = Number(button.dataset.cutPreviewSpeed) === Number(playback.speed || 1);
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    }
+  }
+  if (cutPreview3d) cutPreview3d.onPlaybackChange = syncCutPreviewPlaybackControls;
+
   const state = {
     fileName: "",
     emptyCanvasStarted: false,
@@ -382,12 +416,19 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       return;
     }
     const toast = document.createElement("div");
-    const title = options.title || (variant === "warning" ? "Warning" : variant === "success" ? "Done" : "Error");
+    const title = options.title || (
+      variant === "warning" ? "Warning"
+        : variant === "success" ? "Done"
+          : variant === "info" ? "Info"
+            : "Error"
+    );
     const icon = variant === "warning"
       ? "fa-solid fa-triangle-exclamation"
       : variant === "success"
         ? "fa-solid fa-check"
-        : "fa-solid fa-xmark";
+        : variant === "info"
+          ? "fa-solid fa-circle-info"
+          : "fa-solid fa-xmark";
     toast.className = `toast toast-funky is-${variant} show`;
     toast.setAttribute("role", "alert");
     toast.setAttribute("aria-live", "assertive");
@@ -579,6 +620,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       cutDepth: toolpath.cutDepth,
       passDepth: toolpath.passDepth,
       passDepths: [...toolpath.passDepths],
+      trochoidEnabled: Boolean(toolpath.trochoidEnabled),
+      trochoidRadius: toolpath.trochoidRadius,
+      trochoidEngagementPercent: toolpath.trochoidEngagementPercent,
       tabWidth: toolpath.tabWidth,
       tabHeight: toolpath.tabHeight,
       safeZ: toolpath.safeZ,
@@ -1069,6 +1113,35 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     for (const panel of ui.ribbonPanels) {
       panel.classList.toggle("is-active", panel.dataset.ribbonPanel === tabName);
     }
+  }
+
+  function scheduleCutPreviewBuild({ immediate = false } = {}) {
+    if (workspaceView !== "3d" || !cutPreview3d) {
+      return;
+    }
+    window.clearTimeout(cutPreviewBuildTimer);
+    cutPreviewBuildTimer = window.setTimeout(() => {
+      cutPreview3d.build(getRenderableToolpaths());
+    }, immediate ? 0 : 140);
+  }
+
+  function setWorkspaceView(view) {
+    workspaceView = view === "3d" ? "3d" : "2d";
+    const is3d = workspaceView === "3d";
+    ui.canvas2dStage?.classList.toggle("d-none", is3d);
+    ui.cutPreview3dStage?.classList.toggle("d-none", !is3d);
+    ui.canvas2dViewBtn?.classList.toggle("is-active", !is3d);
+    ui.cutPreview3dViewBtn?.classList.toggle("is-active", is3d);
+    ui.canvas2dViewBtn?.setAttribute("aria-pressed", String(!is3d));
+    ui.cutPreview3dViewBtn?.setAttribute("aria-pressed", String(is3d));
+    if (is3d) {
+      window.requestAnimationFrame(() => {
+        cutPreview3d?.resize();
+        scheduleCutPreviewBuild({ immediate: true });
+      });
+      return;
+    }
+    window.requestAnimationFrame(resizeCanvas);
   }
 
   function refreshTransformInspector() {
@@ -2196,6 +2269,9 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   }
 
   function validateToolSlotForOperation(slot, operation, options = {}) {
+    if (!operation) {
+      return false;
+    }
     if (!slot || !isConfiguredMyEndmillSlot(slot)) {
       return false;
     }
@@ -5817,6 +5893,23 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     refreshSidebarMode();
     updateCanvasCursor();
     requestDraw();
+    if (state.cadTool) {
+      const instructions = {
+      line: "Click a start point, then an end point.",
+      polyline: "Click to add points, then press Enter or double-click to finish.",
+      rectangle: "Click one corner, then the opposite corner.",
+        circle: "Click the centre, then the circle edge.",
+        polygon: "Click the centre, then set the radius.",
+        arc: "Click the start and end points, then set the arc bulge.",
+        bezier: "Click four control points to draw a Bezier curve.",
+        text: "Click the canvas to place vector text.",
+        guide: "Click a line or guide to cast a parallel guide.",
+        trim: "Click a segment to trim it. Hold Ctrl and drag for the trim brush.",
+      };
+      if (instructions[state.cadTool]) {
+        showToast(instructions[state.cadTool], "info", { duration: 2600 });
+      }
+    }
   }
 
   function setSelectMode() {
@@ -6232,6 +6325,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       },
     });
     refreshWorkspaceUi();
+    scheduleCutPreviewBuild();
   }
 
   function getActiveToolpath() {
@@ -6404,12 +6498,14 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       return null;
     }
     applyMyEndmillSlotToInputs(slot);
-    const toolDiameter = Number.parseFloat(ui.toolDiameterInput.value) || 6;
-    const tabWidth = Math.min(50, Math.max(3, Number.parseFloat(ui.tabWidthInput.value) || 9));
-    const trochoidEngagementPercent = Math.min(40, Math.max(2, Number.parseFloat(ui.trochoidEngagementInput.value) || 10));
+    if (!validateToolpathParameters(operation)) {
+      return null;
+    }
+    const cutDepth = Number.parseFloat(ui.cutDepthInput.value);
+    const toolDiameter = Number.parseFloat(ui.toolDiameterInput.value);
+    const tabWidth = Number.parseFloat(ui.tabWidthInput.value);
+    const trochoidEngagementPercent = Number.parseFloat(ui.trochoidEngagementInput.value);
     const selectedTool = getSelectedLibraryTool();
-    ui.tabWidthInput.value = formatNumber(tabWidth);
-    ui.trochoidEngagementInput.value = formatNumber(trochoidEngagementPercent);
     return {
       operation,
       toolNumber: slot.slot,
@@ -6417,8 +6513,8 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       toolRadius: toolDiameter / 2,
       cutterAngle: Number.parseFloat(ui.cutterAngleInput.value) || 90,
       overlapPercent: Number.parseFloat(ui.overlapInput.value) || 40,
-      cutDepth: Number.parseFloat(ui.cutDepthInput.value) || 18,
-      passDepth: Number.parseFloat(ui.passDepthInput.value) || 3,
+      cutDepth: operation === "vcarve" ? 0 : cutDepth,
+      passDepth: Number.parseFloat(ui.passDepthInput.value),
       trochoidEnabled: operation === "profile-outside" || operation === "profile-inside"
         ? ui.trochoidEnabledInput.checked
         : false,
@@ -6426,11 +6522,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       // The orbit radius tracks radial engagement, keeping loop size proportional to the cutter.
       trochoidRadius: toolDiameter * (trochoidEngagementPercent / 100),
       tabWidth,
-      tabHeight: Number.parseFloat(ui.tabHeightInput.value) || 1.5,
-      safeZ: Number.parseFloat(ui.safeZInput.value) || 6,
-      feedRate: Number.parseFloat(ui.feedRateInput.value) || 1800,
-      plungeRate: Number.parseFloat(ui.plungeRateInput.value) || 600,
-      spindle: Number.parseFloat(ui.spindleInput.value) || 18000,
+      tabHeight: Number.parseFloat(ui.tabHeightInput.value),
+      safeZ: Number.parseFloat(ui.safeZInput.value),
+      feedRate: Number.parseFloat(ui.feedRateInput.value),
+      plungeRate: Number.parseFloat(ui.plungeRateInput.value),
+      spindle: Number.parseFloat(ui.spindleInput.value),
       libraryToolId: selectedTool?.id || null,
       libraryToolName: selectedTool?.name || "",
       libraryToolVendor: selectedTool?.vendorDisplayName || selectedTool?.vendor || "",
@@ -6438,6 +6534,52 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       libraryToolUrl: selectedTool?.storeUrl || selectedTool?.purchaseUrl || selectedTool?.productUrl || "",
       libraryToolDescription: selectedTool ? buildToolLibraryDescription(selectedTool) : "",
     };
+  }
+
+  function validateToolpathParameters(operation, { notify = false } = {}) {
+    const fail = (message, input) => {
+      if (notify) {
+        showToast(message, "warning");
+        input?.focus();
+      }
+      return false;
+    };
+    const positive = (input) => Number.parseFloat(input?.value);
+    const cutDepth = positive(ui.cutDepthInput);
+    const passDepth = positive(ui.passDepthInput);
+    const tabHeight = positive(ui.tabHeightInput);
+    const safeZ = positive(ui.safeZInput);
+    const feed = positive(ui.feedRateInput);
+    const plunge = positive(ui.plungeRateInput);
+    const spindle = positive(ui.spindleInput);
+    const toolDiameter = positive(ui.toolDiameterInput);
+    const cutterAngle = positive(ui.cutterAngleInput);
+    const tabWidth = positive(ui.tabWidthInput);
+    const trochoidEngagement = positive(ui.trochoidEngagementInput);
+    if (!Number.isFinite(toolDiameter) || toolDiameter <= 0) return fail("Tool diameter must be greater than zero.", ui.toolDiameterInput);
+    if (!Number.isFinite(safeZ) || safeZ <= 0) return fail("Z Safe must be greater than zero.", ui.safeZInput);
+    if (!Number.isFinite(feed) || feed <= 0) return fail("Feed Rate must be greater than zero.", ui.feedRateInput);
+    if (!Number.isFinite(plunge) || plunge <= 0) return fail("Plunge Rate must be greater than zero.", ui.plungeRateInput);
+    if (!Number.isFinite(spindle) || spindle <= 0) return fail("Spindle RPM must be greater than zero.", ui.spindleInput);
+    if ((operation === "vcarve" || operation === "chamfer") && (!Number.isFinite(cutterAngle) || cutterAngle <= 0 || cutterAngle >= 180)) {
+      return fail("V-bit angle must be between 1 and 179 degrees.", ui.cutterAngleInput);
+    }
+    if (operation === "vcarve") return true;
+    if (!Number.isFinite(cutDepth) || cutDepth <= 0) return fail("Final depth must be greater than zero.", ui.cutDepthInput);
+    if (!Number.isFinite(passDepth) || passDepth <= 0 || passDepth > cutDepth) {
+      return fail("Pass depth must be greater than zero and no deeper than final depth.", ui.passDepthInput);
+    }
+    if (operationUsesTabs({ operation }) && (!Number.isFinite(tabHeight) || tabHeight < 0 || tabHeight >= cutDepth)) {
+      return fail("Tab height must be zero or greater and less than final depth.", ui.tabHeightInput);
+    }
+    if (operationUsesTabs({ operation }) && (!Number.isFinite(tabWidth) || tabWidth < 3 || tabWidth > 50)) {
+      return fail("Tab width must be between 3 and 50 mm.", ui.tabWidthInput);
+    }
+    if (ui.trochoidEnabledInput.checked && (operation === "profile-outside" || operation === "profile-inside")
+      && (!Number.isFinite(trochoidEngagement) || trochoidEngagement < 2 || trochoidEngagement > 40)) {
+      return fail("Cutter engagement must be between 2% and 40%.", ui.trochoidEngagementInput);
+    }
+    return true;
   }
 
   function setFormFromToolpath(toolpath) {
@@ -6503,7 +6645,16 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     UiState.refreshToolpathFieldVisibility(ui);
   }
 
-  function deleteToolpathById(toolpathId) {
+  async function deleteToolpathById(toolpathId) {
+    const toolpath = state.toolpaths.find((candidate) => candidate.id === toolpathId);
+    if (!toolpath || !await requestConfirmation({
+      title: "Delete toolpath?",
+      message: `Delete ${toolpath?.label || "this toolpath"}? You can undo this with Ctrl+Z.`,
+      confirmLabel: "Delete toolpath",
+      destructive: true,
+    })) {
+      return;
+    }
     const historyBefore = captureHistorySnapshot();
     state.toolpaths = state.toolpaths.filter((toolpath) => toolpath.id !== toolpathId);
     if (state.editingToolpathId === toolpathId) {
@@ -6519,6 +6670,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     refreshWorkspaceUi();
     draw();
     pushHistorySnapshot(historyBefore);
+    showToast("Toolpath deleted. Press Ctrl+Z to restore it.", "info", { duration: 4200 });
   }
 
   async function clearTabsForToolpath(toolpath) {
@@ -6692,6 +6844,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       state.toolpaths.push(state.draftToolpath);
       state.activeToolpathId = state.draftToolpath.id;
       state.selectedLoopIds.clear();
+      ui.toolpathTypeInput.value = "";
     }
     state.addTabsMode = false;
     clearDraftToolpath();
@@ -7067,15 +7220,17 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   }
 
   async function loadBundledSample() {
+    // Always load from the active host so LAN clients never resolve the sample through localhost.
+    const sampleUrl = new URL("/Hockey%20Sticks%20Cut%201.dxf", window.location.origin);
     try {
-      const response = await fetch("./Hockey%20Sticks%20Cut%201.dxf");
+      const response = await fetch(sampleUrl, { cache: "no-store" });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
       const text = await response.text();
       loadDxfText(text, "Hockey Sticks Cut 1.dxf");
     } catch (error) {
-      showToast("Bundled sample could not be fetched directly. Use Browse Vector Files if you opened the app from the filesystem.", "warning");
+      showToast("Could not download the sample vector. Check that the app server is reachable.", "warning");
     }
   }
 
@@ -7327,11 +7482,11 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       point: clonePoint(state.hoveredTabCandidate.point),
     });
     state.activeToolpathId = toolpath.id;
-    state.addTabsMode = false;
     state.hoveredTabCandidate = null;
     refreshToolpathUi();
     draw();
     pushHistorySnapshot(historyBefore);
+    showToast("Tab added. Click another position to add more tabs, or select Add a Tab to finish.", "info", { duration: 2200 });
   }
 
   function canMoveTabs() {
@@ -7519,6 +7674,12 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     getWorkspaceSettingsModalInstance()?.show();
   });
   ui.applyWorkspaceSettingsBtn.addEventListener("click", () => {
+    const safeZ = Number.parseFloat(ui.safeZInput.value);
+    if (!Number.isFinite(safeZ) || safeZ <= 0) {
+      showToast("Z Safe must be greater than zero.", "warning");
+      ui.safeZInput.focus();
+      return;
+    }
     workspaceSettingsOriginal = null;
     getWorkspaceSettingsModalInstance()?.hide();
     showToast("Workspace settings applied.", "success", { duration: 1800 });
@@ -7533,6 +7694,16 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   ui.zoomOutBtn.addEventListener("click", () => {
     adjustZoom(1 / 1.2);
   });
+  ui.canvas2dViewBtn?.addEventListener("click", () => setWorkspaceView("2d"));
+  ui.cutPreview3dViewBtn?.addEventListener("click", () => setWorkspaceView("3d"));
+  ui.cutPreview3dPlayBtn?.addEventListener("click", () => cutPreview3d?.togglePlayback());
+  ui.cutPreview3dResetBtn?.addEventListener("click", () => cutPreview3d?.resetPlayback());
+  for (const button of ui.cutPreview3dSpeedBtns) {
+    button.addEventListener("click", () => cutPreview3d?.setPlaybackSpeed(button.dataset.cutPreviewSpeed));
+  }
+  ui.cutPreview3dIsoBtn?.addEventListener("click", () => cutPreview3d?.resetCamera());
+  ui.cutPreview3dTopBtn?.addEventListener("click", () => cutPreview3d?.resetCamera(true));
+  ui.cutPreview3dRefreshBtn?.addEventListener("click", () => scheduleCutPreviewBuild({ immediate: true }));
   ui.undoBtn.addEventListener("click", undoHistory);
   ui.redoBtn.addEventListener("click", redoHistory);
   ui.selectModeBtn.addEventListener("click", setSelectMode);
@@ -7996,7 +8167,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       if (state.cadDraft?.guide?.hasMoved) {
         commitCadDraft();
       } else if (state.cadDraft?.tool === "polyline") {
-        commitPolylineDraftSegment();
+        commitCadDraft();
       } else {
         commitCadDimensionDraft();
       }
@@ -8016,7 +8187,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       event.preventDefault();
       event.stopPropagation();
       if (state.cadDraft?.tool === "polyline") {
-        commitPolylineDraftSegment();
+        commitCadDraft();
       } else {
         commitCadDimensionDraft();
       }
@@ -8195,16 +8366,28 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
   });
   ui.toolpathForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!ui.toolpathTypeInput.value) {
+      showToast("Choose how to cut the selected vectors before adding a toolpath.", "warning");
+      return;
+    }
     if (!getMyEndmillSlot(state.myEndmills.selectedSlot) || !isConfiguredMyEndmillSlot(getMyEndmillSlot(state.myEndmills.selectedSlot))) {
       showToast("Set up and select an endmill slot before creating a toolpath.", "warning");
       return;
     }
+    if (!validateToolpathParameters(ui.toolpathTypeInput.value, { notify: true })) {
+      return;
+    }
     await rebuildDraftToolpath();
+    if (!state.draftToolpath) {
+      showToast("The toolpath could not be created. Check the selected operation and tool.", "warning");
+      return;
+    }
     commitDraftToolpath();
     refreshSelectionUi();
     refreshToolpathUi();
     refreshWorkspaceUi();
     draw();
+    showToast("Toolpath added. Use Ctrl+Z to undo.", "success", { duration: 2200 });
   });
   ui.cancelEditBtn.addEventListener("click", () => {
     clearToolpathEditing();
@@ -8216,14 +8399,30 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     draw();
   });
   ui.addTabsBtn.addEventListener("click", () => {
-    if (state.editingToolpathId || state.draftToolpath || !getTabEligibleToolpaths().length) {
+    if (state.editingToolpathId || state.draftToolpath) {
       state.addTabsMode = false;
+      showToast("Finish or cancel the current toolpath edit before placing tabs.", "info", { duration: 2600 });
+      refreshToolpathUi();
+      refreshWorkspaceUi();
+      draw();
+      return;
+    }
+    if (!getTabEligibleToolpaths().length) {
+      state.addTabsMode = false;
+      showToast("Create an Inside or Outside profile toolpath before placing tabs.", "info", { duration: 3000 });
       refreshToolpathUi();
       refreshWorkspaceUi();
       draw();
       return;
     }
     state.addTabsMode = !state.addTabsMode;
+    showToast(
+      state.addTabsMode
+        ? "Tab placement active. Hover a profile toolpath and click to place a tab."
+        : "Tab placement finished.",
+      "info",
+      { duration: 2600 },
+    );
     refreshToolpathUi();
     refreshWorkspaceUi();
     draw();
@@ -8253,6 +8452,7 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
       });
       const fileName = (state.fileName || "job").replace(/\.dxf$/i, "");
       downloadTextFile(`${fileName}.nc`, gcode);
+      showToast(`Generated ${fileName}.nc.`, "success", { duration: 2400 });
     } catch (error) {
       if (error instanceof Error) {
         showToast(error.message, "danger");
@@ -8326,7 +8526,15 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     await loadVectorFile(file);
   });
 
-  canvas.addEventListener("mousedown", (event) => {
+  canvas.addEventListener("pointerdown", (event) => {
+    // Pointer Events give touch the same two-tap drawing lifecycle as a mouse.
+    if (event.isPrimary === false) {
+      return;
+    }
+    if (event.pointerType === "touch") {
+      event.preventDefault();
+      canvas.setPointerCapture?.(event.pointerId);
+    }
     const point = { x: event.offsetX, y: event.offsetY };
     if (event.button === 0 && state.geometryTransform?.placement) {
       updateGeometryTransform(point);
@@ -8390,7 +8598,13 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
     if (state.addTabsMode) {
       updateHoveredTabCandidate(point);
+      if (!state.hoveredTabCandidate) {
+        showToast("Move over an Inside or Outside profile edge to place a tab.", "info", { duration: 2200 });
+        updateCanvasCursor(point);
+        return;
+      }
       addTabAtHoveredCandidate();
+      updateCanvasCursor(point);
       return;
     }
     if (event.button === 0 && !state.transformTool) {
@@ -8465,7 +8679,10 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     }
   });
 
-  canvas.addEventListener("mousemove", (event) => {
+  canvas.addEventListener("pointermove", (event) => {
+    if (event.isPrimary === false) {
+      return;
+    }
     const point = { x: event.offsetX, y: event.offsetY };
     if (state.trimStroke) {
       addTrimStrokeCandidate(point);
@@ -8599,7 +8816,13 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     requestDraw();
   });
 
-  canvas.addEventListener("mouseup", async (event) => {
+  canvas.addEventListener("pointerup", async (event) => {
+    if (event.isPrimary === false) {
+      return;
+    }
+    if (event.pointerType === "touch") {
+      canvas.releasePointerCapture?.(event.pointerId);
+    }
     const point = { x: event.offsetX, y: event.offsetY };
     if (state.trimStroke) {
       addTrimStrokeCandidate(point);
@@ -8816,14 +9039,27 @@ import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
     showToast(error instanceof Error ? error.message : "Failed to load tool library.", "danger");
     renderMyEndmillSelect();
   });
-  window.addEventListener("resize", resizeCanvas);
+  window.addEventListener("resize", () => {
+    if (workspaceView === "3d") {
+      cutPreview3d?.resize();
+    } else {
+      resizeCanvas();
+    }
+  });
   if ("ResizeObserver" in window) {
     canvasResizeObserver = new ResizeObserver(() => {
-      resizeCanvas();
+      if (workspaceView === "3d") {
+        cutPreview3d?.resize();
+      } else {
+        resizeCanvas();
+      }
     });
     canvasResizeObserver.observe(canvas);
     if (ui.canvasWrap) {
       canvasResizeObserver.observe(ui.canvasWrap);
+    }
+    if (ui.cutPreview3dStage) {
+      canvasResizeObserver.observe(ui.cutPreview3dStage);
     }
   }
   resizeCanvas();
