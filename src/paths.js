@@ -97,6 +97,16 @@ export function sampleEllipsePoints(cx, cy, rx, ry, matrix, steps = 72) {
 }
 
 export function translateEntity(entity, dx, dy) {
+  if (entity.type === "BITMAP") {
+    const b = entity.bounds;
+    const nb = b ? { minX: b.minX + dx, minY: b.minY + dy, maxX: b.maxX + dx, maxY: b.maxY + dy } : null;
+    return {
+      ...entity,
+      x: (entity.x || 0) + dx,
+      y: (entity.y || 0) + dy,
+      bounds: nb,
+    };
+  }
   if (entity.type === "CAD_TEXT") {
     return {
       ...entity,
@@ -147,6 +157,20 @@ export function translateEntity(entity, dx, dy) {
 }
 
 export function transformEntity(entity, matrix) {
+  if (entity.type === "BITMAP") {
+    const b = entity.bounds;
+    const p1 = applyMatrixToPoint({ x: b ? b.minX : entity.x || 0, y: b ? b.minY : entity.y || 0 }, matrix);
+    const p2 = applyMatrixToPoint({ x: b ? b.maxX : (entity.x||0)+(entity.w||10), y: b ? b.maxY : (entity.y||0)+(entity.h||10) }, matrix);
+    const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x), minY = Math.min(p1.y, p2.y), maxY = Math.max(p1.y, p2.y);
+    return {
+      ...entity,
+      x: minX,
+      y: minY,
+      w: maxX - minX,
+      h: maxY - minY,
+      bounds: { minX, minY, maxX, maxY },
+    };
+  }
   if (entity.type === "CAD_TEXT") {
     return {
       ...entity,
@@ -227,6 +251,16 @@ export function transformEntity(entity, matrix) {
 }
 
 export function mirrorEntityY(entity, maxY) {
+  if (entity.type === "BITMAP") {
+    const b = entity.bounds;
+    if (!b) return entity;
+    const newMinY = maxY - b.maxY, newMaxY = maxY - b.minY;
+    return {
+      ...entity,
+      y: newMinY,
+      bounds: { minX: b.minX, minY: newMinY, maxX: b.maxX, maxY: newMaxY },
+    };
+  }
   if (entity.type === "CAD_TEXT") {
     return {
       ...entity,
@@ -684,6 +718,30 @@ export function buildLoops(entities) {
   const circles = [];
   for (let entityIndex = 0; entityIndex < entities.length; entityIndex += 1) {
     const entity = entities[entityIndex];
+    if (entity.type === "BITMAP") {
+      const b = entity.bounds || { minX: entity.x || 0, minY: entity.y || 0, maxX: (entity.x || 0) + (entity.w || 10), maxY: (entity.y || 0) + (entity.h || 10) };
+      const points = [
+        { x: b.minX, y: b.minY },
+        { x: b.maxX, y: b.minY },
+        { x: b.maxX, y: b.maxY },
+        { x: b.minX, y: b.maxY },
+      ];
+      const closed = closePoints(points);
+      loops.push({
+        id: entity.__loopId || crypto.randomUUID(),
+        closed: true,
+        sourceType: "bitmap",
+        sourceEntityIndexes: [entityIndex],
+        segments: [],
+        points: closed,
+        bounds: { minX: b.minX, minY: b.minY, maxX: b.maxX, maxY: b.maxY },
+        area: (b.maxX - b.minX) * (b.maxY - b.minY),
+        path2d: null,
+        exportGeometry: { type: "bitmap", entityIndex },
+        isBitmap: true,
+      });
+      continue;
+    }
     if (entity.type === "CAD_TEXT") {
       for (const stroke of entity.strokes || []) {
         if (stroke.length >= 2) {
@@ -1074,7 +1132,11 @@ export function mergeBounds(list) {
 export function boundsOfEntities(entities) {
   const candidateBounds = [];
   for (const entity of entities) {
-    if (entity.type === "CAD_TEXT") {
+    if (entity.type === "BITMAP") {
+      const b = entity.bounds;
+      if (b && Number.isFinite(b.minX)) candidateBounds.push({ minX: b.minX, minY: b.minY, maxX: b.maxX, maxY: b.maxY });
+      else candidateBounds.push(boundsOfPoints([{ x: entity.x||0, y: entity.y||0 }, { x: (entity.x||0)+(entity.w||10), y: (entity.y||0)+(entity.h||10) }]));
+    } else if (entity.type === "CAD_TEXT") {
       candidateBounds.push(boundsOfPoints(entity.strokes.flat()));
     } else if (entity.type === "LINE") {
       candidateBounds.push(boundsOfPoints([

@@ -437,7 +437,7 @@ export class CutPreview3D {
     const rect = this.canvas.getBoundingClientRect();
     const ctx = this.ctx;
     ctx.clearRect(0, 0, rect.width, rect.height);
-    ctx.fillStyle = "#111722";
+    ctx.fillStyle = "#e8e8e8";
     ctx.fillRect(0, 0, rect.width, rect.height);
     if (!this.data) return;
     const { bounds, columns, rows, cellX, cellY, maxDepth, stockThickness } = this.data;
@@ -456,7 +456,7 @@ export class CutPreview3D {
       // Negative Z is down into the stock, so it must project lower on screen.
       return { x: rect.width / 2 + rx * baseScale, y: rect.height / 2 + (ry * cp - z * sp) * baseScale };
     };
-    const fillFace = (points, fill, stroke = "rgba(173, 194, 219, 0.28)") => {
+    const fillFace = (points, fill, stroke = "rgba(150, 150, 150, 0.3)") => {
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
       for (let point = 1; point < points.length; point += 1) ctx.lineTo(points[point].x, points[point].y);
@@ -484,10 +484,10 @@ export class CutPreview3D {
       project(bounds.maxX, bounds.maxY, -stockThickness),
       project(bounds.minX, bounds.maxY, -stockThickness),
     ];
-    fillFace([stockTop[0], stockTop[1], stockBottom[1], stockBottom[0]], "#26384b");
-    fillFace([stockTop[1], stockTop[2], stockBottom[2], stockBottom[1]], "#1d2b3a");
-    fillFace([stockTop[2], stockTop[3], stockBottom[3], stockBottom[2]], "#172330");
-    fillFace([stockTop[3], stockTop[0], stockBottom[0], stockBottom[3]], "#213144");
+    fillFace([stockTop[0], stockTop[1], stockBottom[1], stockBottom[0]], "#d0d0d0");
+    fillFace([stockTop[1], stockTop[2], stockBottom[2], stockBottom[1]], "#c0c0c0");
+    fillFace([stockTop[2], stockTop[3], stockBottom[3], stockBottom[2]], "#b0b0b0");
+    fillFace([stockTop[3], stockTop[0], stockBottom[0], stockBottom[3]], "#b8b8b8");
 
     // Render the top as a single, antialiased height-map texture. The height
     // field remains the source of truth for the cutter simulation, but this
@@ -514,15 +514,15 @@ export class CutPreview3D {
       const radius = Math.max(3, Math.min(9, this.playback.activeSample.cutter * baseScale * 0.28));
       ctx.beginPath();
       ctx.arc(cutter.x, cutter.y, radius, 0, Math.PI * 2);
-      ctx.fillStyle = "#ff9b4a";
+      ctx.fillStyle = "#0078d4";
       ctx.fill();
-      ctx.strokeStyle = "#fff0d8";
+      ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 1.2;
       ctx.stroke();
     }
     const corner = project(bounds.minX, bounds.minY, 0);
-    ctx.fillStyle = "rgba(220, 231, 246, 0.75)";
-    ctx.font = "12px sans-serif";
+    ctx.fillStyle = "rgba(30, 30, 30, 0.7)";
+    ctx.font = "11px Segoe UI";
     ctx.fillText("Drag to orbit  |  Scroll to zoom  |  Right-drag to pan", corner.x + 10, rect.height - 16);
   }
 
@@ -573,10 +573,12 @@ export class CutPreview3D {
         const edgeShade = clamp(Math.hypot(slopeX, slopeY) * 0.42, 0, 0.2);
         const shade = clamp(1 - depth * 0.33 - slope * 0.12 - edgeShade, 0.43, 1);
         const pixel = (row * textureColumns + column) * 4;
-        // Retain a solid stock colour, then darken and cool only removed areas.
-        pixels[pixel] = Math.round((51 - depth * 22) * shade);
-        pixels[pixel + 1] = Math.round((77 - depth * 26) * shade);
-        pixels[pixel + 2] = Math.round((98 - depth * 22) * shade);
+        // Retain a solid stock colour, then darken only removed areas.
+        const base = 220;
+        const depthFactor = Math.round(depth * 45);
+        pixels[pixel] = Math.round((base - depthFactor) * shade);
+        pixels[pixel + 1] = Math.round((base - depthFactor) * shade);
+        pixels[pixel + 2] = Math.round((base - depthFactor) * shade);
         pixels[pixel + 3] = 255;
       }
     }

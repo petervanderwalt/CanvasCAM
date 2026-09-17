@@ -239,14 +239,59 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
     ? Math.max(0, Number(config.trochoidRadius) || config.toolDiameter * (trochoidEngagementPercent / 100))
     : 0;
   reportProgress(10, "Preparing geometry");
-  const compositeSelection = compositePocketSeedPaths(selectedLoops);
+  const isRasterOp = config.operation === "laser-raster" || config.operation === "wavy-raster";
+  const compositeSelection = isRasterOp ? [] : compositePocketSeedPaths(selectedLoops);
   reportProgress(32, "Unioning vectors");
 
   for (const loop of selectedLoops) {
-    if (config.operation === "engrave" || config.operation === "chamfer") {
-      previewContours.push(loop.points.map(clonePoint));
+    if (config.operation === "engrave" || config.operation === "chamfer" || config.operation === "laser-cut") {
+      if (loop.points) previewContours.push(loop.points.map(clonePoint));
+    }
+    if (config.operation === "laser-raster" || config.operation === "wavy-raster" || config.operation === "halftone") {
+      // for bitmap, loop is the bitmap bounds rect
+      if (!loop.isBitmap) {
+        if (config.operation !== "halftone") console.warn(`[${config.operation}] skipping non-bitmap loop ${loop.id} isBitmap=${loop.isBitmap}`);
+        continue;
+      }
+      const b = loop.bounds || (loop.points ? boundsOfPoints(loop.points) : null) || { minX: 0, minY: 0, maxX: 10, maxY: 10 };
+      if (!b || !Number.isFinite(b.minX) || !Number.isFinite(b.maxY) || !Number.isFinite(b.maxX) || !Number.isFinite(b.minY)) continue;
+      if (config.operation === "halftone") {
+        // halftone preview as circles per pixel — size based on luma will be done in GCode, preview shows all possible dot locations as circles
+        const res = Math.max(2, Math.min(100, Number(config.halftoneResolution) || 25));
+        const w = b.maxX - b.minX, h = b.maxY - b.minY;
+        const cols = Math.round(res * (w / Math.max(w, h)));
+        const rows = Math.round(res * (h / Math.max(w, h)));
+        const sx = w / cols, sy = h / rows;
+        const rPreview = Math.min(sx, sy) * 0.4;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const x = b.minX + (c + 0.5) * sx;
+            const y = b.minY + (r + 0.5) * sy;
+            // generate circle preview (16 segments)
+            const pts=[];
+            for(let i=0;i<=16;i++){ const a=i/16*Math.PI*2; pts.push({x: x + Math.cos(a)*rPreview, y: y + Math.sin(a)*rPreview}); }
+            previewContours.push(pts);
+          }
+        }
+      } else {
+        const spot = config.operation === "wavy-raster" ? (config.wavySpot || 2) : (config.laserSpot || 0.2);
+        const h = Math.max(0.1, b.maxY - b.minY);
+        if (!Number.isFinite(h) || h <= 0) continue;
+        const rows = Math.max(1, Math.ceil(h / spot));
+        for (let r = 0; r < rows; r++) {
+          const y = b.minY + (r + 0.5) * spot;
+          if (y < b.minY || y > b.maxY) continue;
+          previewContours.push([{ x: b.minX, y }, { x: b.maxX, y }]);
+        }
+      }
     }
     sourceLoops.push(loop);
+  }
+  // for raster ops, ensure we have at least one preview contour even if above skipped
+  if ((config.operation === "laser-raster" || config.operation === "wavy-raster" || config.operation === "halftone") && !previewContours.length) {
+    // fallback: use first loop's bounds
+    const fb = selectedLoops[0]?.bounds || { minX: 0, minY: 0, maxX: 10, maxY: 10 };
+    previewContours.push([{ x: fb.minX, y: fb.minY }, { x: fb.maxX, y: fb.minY }]);
   }
 
   if (config.operation === "profile-outside") {
@@ -294,7 +339,10 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
     chamfer: "Chamfer",
     pocket: "Pocket",
     vcarve: "V-Carve",
-  }[config.operation];
+    "laser-cut": "Laser Cut",
+    "laser-raster": "Laser Raster",
+    "wavy-raster": "Wavy",
+  }[config.operation] || config.operation;
 
   const label = options.label || `${operationLabel} (${selectedLoops.length} vector${selectedLoops.length === 1 ? "" : "s"})`;
   const chamferWidth = config.operation === "chamfer" && Number.isFinite(config.cutterAngle)
@@ -311,12 +359,31 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
 
   reportProgress(96, "Finalizing toolpath");
 
+  // carry laser/wavy params forward for GCode
+  const extra = {};
+  if (config.operation === "laser-raster" || config.operation === "laser-cut" || config.operation === "wavy-raster") {
+    extra.laserFeed = config.laserFeed || config.feedRate;
+    extra.laserPower = config.laserPower || 1000;
+    extra.laserSMin = config.laserSMin || 0;
+    extra.laserSMax = config.laserSMax || 1000;
+    extra.laserSpot = config.laserSpot || 0.2;
+    extra.laserGamma = config.laserGamma || 1;
+    extra.wavyFeed = config.wavyFeed || config.feedRate;
+    extra.wavySpot = config.wavySpot || 2;
+    extra.wavyMinDepth = config.wavyMinDepth || 0;
+    extra.wavyMaxDepth = config.wavyMaxDepth || 3;
+    // keep source entities for bitmap raster access
+    extra._sourceEntities = options.sourceEntities || null;
+  }
   return {
     id: options.id || crypto.randomUUID(),
     label,
     operation: config.operation,
     operationLabel,
-    cardMeta,
+    cardMeta: config.operation === "laser-raster" ? `Laser Raster - ${selectedLoops.length} bitmaps - spot ${extra.laserSpot}mm`
+      : config.operation === "wavy-raster" ? `Wavy - ${selectedLoops.length} bitmaps - ${extra.wavyMinDepth}→${extra.wavyMaxDepth}mm`
+      : config.operation === "laser-cut" ? `Laser Cut - ${selectedLoops.length} vectors`
+      : cardMeta,
     toolDiameter: config.toolDiameter,
     toolRadius: config.toolRadius,
     cutterAngle: config.cutterAngle,
@@ -344,6 +411,7 @@ function createToolpathSkeleton(selectedLoops, config, options = {}) {
     motionPaths: [],
     sourceLoops,
     tabs: [],
+    ...extra,
   };
 }
 
@@ -405,7 +473,7 @@ export function getTabCenterlineSpan(tabWidth, toolDiameter) {
 }
 
 export function operationUsesTabs(toolpath) {
-  return toolpath.operation === "profile-outside" || toolpath.operation === "profile-inside";
+  return toolpath.operation === "profile-outside" || toolpath.operation === "profile-inside" || toolpath.operation === "laser-cut";
 }
 
 export function usesVCarve(operation) {
@@ -445,7 +513,7 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs, onProgress 
       && (!Number.isFinite(Number(toolpath.cutterAngle)) || Number(toolpath.cutterAngle) <= 0 || Number(toolpath.cutterAngle) >= 180)) {
       throw new Error(`V-bit angle must be between 1 and 179 degrees for ${toolpath.label || "each toolpath"}.`);
     }
-    if (toolpath.operation !== "vcarve") {
+    if (toolpath.operation !== "vcarve" && toolpath.operation !== "laser-raster" && toolpath.operation !== "laser-cut" && toolpath.operation !== "wavy-raster") {
       const passDepth = Number(toolpath.passDepth);
       const cutDepth = Number(toolpath.cutDepth);
       if (!Number.isFinite(passDepth) || passDepth <= 0 || passDepth > cutDepth) {
@@ -531,6 +599,170 @@ export function buildGcode({ toolpaths, fileName, forcePolylineArcs, onProgress 
       currentSpindle = spindle;
       reportProgress(`Writing ${toolpath.operationLabel}`);
       lines.push(`G0 Z${formatNumber(safeZ)}`);
+      continue;
+    }
+
+    if (toolpath.operation === "laser-cut") {
+      // Laser cut: M4 once, G0 travel, G1 F S cut (no Z)
+      if (!spindleRunning || currentSpindle !== toolpath.laserPower) {
+        if (spindleRunning) lines.push("M5");
+        lines.push(`M4 S0`);
+        spindleRunning = true;
+        currentSpindle = toolpath.laserPower;
+      }
+      for (const contour of toolpath.previewContours) {
+        if (!contour.length) continue;
+        const start = contour[0];
+        lines.push(`G0 X${formatNumber(start.x)} Y${formatNumber(start.y)}`);
+        lines.push(`G1 F${formatNumber(toolpath.laserFeed || feed)} S${Math.round(toolpath.laserPower || 1000)}`);
+        for (let i = 1; i < contour.length; i++) {
+          const p = contour[i];
+          lines.push(`G1 X${formatNumber(p.x)} Y${formatNumber(p.y)}`);
+        }
+      }
+      reportProgress(`Writing ${toolpath.operationLabel}`);
+      continue;
+    }
+    if (toolpath.operation === "laser-raster" || toolpath.operation === "wavy-raster" || toolpath.operation === "halftone") {
+      const isWavy = toolpath.operation === "wavy-raster";
+      const isHalftone = toolpath.operation === "halftone";
+      const isWavyHalftone = isWavy || isHalftone;
+      console.log(`[${toolpath.operation} GCode] toolpath ${toolpath.id} sourceLoops`, toolpath.sourceLoops.map(l=>({id:l.id, isBitmap:l.isBitmap, bounds:l.bounds})), `_sourceEntities`, toolpath._sourceEntities?.length);
+      // bitmap raster: need image data from source entity — try multiple sources (worker vs main)
+      let bitmapEnt = null;
+      // try _sourceEntities first (if passed from main)
+      const tryFind = (entities) => {
+        if (!entities) return null;
+        for (const e of entities) if (e?.type === "BITMAP" && e._imageData) return e;
+        return null;
+      };
+      bitmapEnt = tryFind(toolpath._sourceEntities);
+      if (!bitmapEnt) {
+        const srcIdx = toolpath.sourceLoops?.[0]?.sourceEntityIndexes?.[0];
+        const ent = srcIdx != null ? toolpath._sourceEntities?.[srcIdx] || null : null;
+        if (ent?.type === "BITMAP" && ent._imageData) bitmapEnt = ent;
+      }
+      if (!bitmapEnt) {
+        // fallback: find BITMAP in global state if available (main thread)
+        try {
+          const globalEnts = (typeof window !== "undefined" && window.CAMCANVAS_STATE?.entities) || (typeof self !== "undefined" && self.CAMCANVAS_STATE?.entities) || null;
+          if (globalEnts) bitmapEnt = tryFind(globalEnts);
+        } catch {}
+      }
+      if (!bitmapEnt) {
+        // last fallback: try to find any BITMAP in toolpath sourceLoops via global state
+        for (const l of (toolpath.sourceLoops || [])) {
+          const ei = l.sourceEntityIndexes?.[0];
+          // try global state
+          try {
+            const ge = (typeof window !== "undefined" ? window.CAMCANVAS_STATE?.entities?.[ei] : null) || null;
+            if (ge?.type === "BITMAP" && ge._imageData) { bitmapEnt = ge; break; }
+          } catch {}
+          const e2 = ei != null ? toolpath._sourceEntities?.[ei] : null;
+          if (e2?.type === "BITMAP" && e2._imageData) { bitmapEnt = e2; break; }
+        }
+      }
+      if (!bitmapEnt || !bitmapEnt._imageData) {
+        // still no data — try to use previewContours as fallback (draw scan lines without image sampling, use uniform power)
+        if (toolpath.previewContours && toolpath.previewContours.length) {
+          // fallback: just emit preview contours as G1 moves
+          for (const contour of toolpath.previewContours) {
+            if (!contour.length) continue;
+            const s = contour[0];
+            lines.push(`G0 X${formatNumber(s.x)} Y${formatNumber(s.y)}`);
+            for (let i=1;i<contour.length;i++) {
+              const p=contour[i];
+              if (isWavy) lines.push(`G1 X${formatNumber(p.x)} Y${formatNumber(p.y)} Z${formatNumber(-toolpath.wavyMaxDepth||-3)} F${formatNumber(toolpath.wavyFeed||1000)}`);
+              else lines.push(`G1 X${formatNumber(p.x)} Y${formatNumber(p.y)} S${Math.round(toolpath.laserSMax||1000)} F${formatNumber(toolpath.laserFeed||3000)}`);
+            }
+          }
+          reportProgress(`Writing ${toolpath.operationLabel}`);
+          continue;
+        }
+        lines.push(`(No bitmap data for ${toolpath.operationLabel} - image not loaded)`);
+        reportProgress(`Writing ${toolpath.operationLabel}`);
+        continue;
+      }
+      // header for laser/wavy raster
+      if (!spindleRunning || (isWavy ? currentSpindle !== 0 : currentSpindle !== toolpath.laserPower)) {
+        if (spindleRunning) lines.push("M5");
+        if (isWavy) { lines.push(`M3 S${Math.round(spindle)}`); spindleRunning=true; currentSpindle=0; }
+        else { lines.push(`M4 S0`); spindleRunning=true; currentSpindle=toolpath.laserPower; }
+      }
+      // generate rasters: reuse simplelaser logic simplified — for wavy/halftone map luma to Z/hole size
+      const b = bitmapEnt?.bounds || toolpath.sourceLoops?.[0]?.bounds || toolpath.sourceLoops?.[0]?.points && { minX: 0, minY: 0, maxX: 10, maxY: 10 } || { minX: 0, minY: 0, maxX: 10, maxY: 10 };
+      if (!b || !Number.isFinite(b.minX) || !Number.isFinite(b.maxX) || b.maxX<=b.minX) {
+        console.warn("[laser-raster] missing bounds", b, toolpath);
+        lines.push(`(Skipped ${toolpath.operationLabel} - missing bounds)`);
+        reportProgress(`Writing ${toolpath.operationLabel}`);
+        continue;
+      }
+      // Halftone special: grid of holes sized by luma, depth via v-bit
+      if (isHalftone) {
+        const res = Math.max(2, Math.min(100, Number(toolpath.halftoneResolution) || 25));
+        const invert = !!toolpath.halftoneInvert;
+        const w = b.maxX - b.minX, h = b.maxY - b.minY;
+        const cols = Math.round(res * (w / Math.max(w, h)));
+        const rows = Math.round(res * (h / Math.max(w, h)));
+        const sx = w / cols, sy = h / rows;
+        const maxHole = Math.min(sx, sy) * 0.8;
+        const angleRad = (toolpath.cutterAngle || 90) * Math.PI / 180;
+        const depthForWidth = (width) => (width/2) / Math.tan(angleRad/2);
+        const img2 = bitmapEnt._imageData;
+        const iw2 = img2.width, ih2 = img2.height, data2 = img2.data;
+        const luma2 = (r,g,b)=> 0.299*r+0.587*g+0.114*b;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const x = b.minX + (c + 0.5) * sx;
+            const y = b.minY + (r + 0.5) * sy;
+            const u = Math.floor(((x - b.minX)/(b.maxX-b.minX))*iw2);
+            const v = Math.floor(((b.maxY - y)/(b.maxY-b.minY))*ih2);
+            const idx = (Math.min(ih2-1,Math.max(0,v))*iw2 + Math.min(iw2-1,Math.max(0,u)))*4;
+            const lum = luma2(data2[idx], data2[idx+1], data2[idx+2]) / 255;
+            const hole = invert ? maxHole * lum : maxHole * (1 - lum);
+            if (hole < 0.1) continue;
+            const depth = depthForWidth(hole);
+            lines.push(`G0 X${formatNumber(x)} Y${formatNumber(y)}`);
+            lines.push(`G1 Z${formatNumber(-depth)} F${formatNumber(toolpath.plungeRate || feed)}`);
+            lines.push(`G0 Z${formatNumber(safeZ)}`);
+          }
+        }
+        reportProgress(`Writing ${toolpath.operationLabel}`);
+        continue;
+      }
+      const spot = isWavy ? (toolpath.wavySpot || 2) : (toolpath.laserSpot || 0.2);
+      const feed = isWavy ? (toolpath.wavyFeed || feed) : (toolpath.laserFeed || 3000);
+      const img = bitmapEnt._imageData;
+      const iw = img.width, ih = img.height, data = img.data;
+      const luma = (r,g,b)=> 0.299*r+0.587*g+0.114*b;
+      const cols = Math.max(1, Math.ceil((b.maxX - b.minX)/spot));
+      const rows = Math.max(1, Math.ceil((b.maxY - b.minY)/spot));
+      for (let r = 0; r < rows; r++) {
+        const y = b.minY + (r+0.5)*spot;
+        if (y < b.minY || y > b.maxY) continue;
+        lines.push(`G0 X${formatNumber(b.minX)} Y${formatNumber(y)}`);
+        for (let c = 0; c < cols; c++) {
+          const x = b.minX + (c+0.5)*spot;
+          const u = Math.floor(((x - b.minX)/(b.maxX-b.minX))*iw);
+          const v = Math.floor(((b.maxY - y)/(b.maxY-b.minY))*ih);
+          const idx = (Math.min(ih-1,Math.max(0,v))*iw + Math.min(iw-1,Math.max(0,u)))*4;
+          const lum = luma(data[idx], data[idx+1], data[idx+2]);
+          if (isWavy) {
+            const minD = toolpath.wavyMinDepth || 0, maxD = toolpath.wavyMaxDepth || 3;
+            const z = -(minD + (1 - lum/255)*(maxD-minD));
+            // wavy: vary Z along X, G1 Z depth (laser off, CNC)
+            if (c===0) lines.push(`G1 Z${formatNumber(z)} F${formatNumber(feed)}`);
+            lines.push(`G1 X${formatNumber(x)} Z${formatNumber(z)} F${formatNumber(feed)}`);
+          } else {
+            const sMin = toolpath.laserSMin || 0, sMax = toolpath.laserSMax || 1000;
+            const gamma = toolpath.laserGamma || 1;
+            let v2 = lum; if (gamma!==1) v2=255*Math.pow(v2/255, gamma);
+            const s = Math.round(sMin + (1 - v2/255)*(sMax-sMin));
+            lines.push(`G1 X${formatNumber(x)} S${s} F${formatNumber(feed)}`);
+          }
+        }
+      }
+      reportProgress(`Writing ${toolpath.operationLabel}`);
       continue;
     }
 

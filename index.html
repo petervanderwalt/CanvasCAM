@@ -23,98 +23,127 @@
   <div class="workspace-shell">
     <div class="workspace-main">
       <header class="workspace-header">
-        <nav class="ribbon-tabs" aria-label="Workspace commands">
-          <button type="button" class="ribbon-tab is-active" data-ribbon-tab="design">Design</button>
-          <button type="button" class="ribbon-tab" data-ribbon-tab="view">View</button>
+        <!-- Menu bar -->
+        <nav class="menu-bar" aria-label="Application menu">
+          <div class="menu-group">
+            <button type="button" class="menu-trigger" data-menu="file" aria-haspopup="true" aria-expanded="false">File</button>
+            <div class="menu-dropdown d-none" data-menu-panel="file" role="menu">
+              <button type="button" id="newCanvasBtn" role="menuitem"><i class="fa-regular fa-file"></i>New Canvas</button>
+              <button type="button" id="openFileBtn" role="menuitem"><i class="fa-solid fa-folder-open"></i>Import File…</button>
+              <span class="menu-divider" role="separator"></span>
+              <button type="button" id="importProjectBtn" role="menuitem"><i class="fa-solid fa-file-arrow-down"></i>Import Project…</button>
+              <button type="button" id="exportProjectBtn" role="menuitem"><i class="fa-solid fa-file-arrow-up"></i>Export Project…</button>
+              <span class="menu-divider" role="separator"></span>
+              <button type="button" id="menuGenerateGcodeBtn" role="menuitem"><i class="fa-solid fa-file-code"></i>Generate G-Code…</button>
+            </div>
+          </div>
+          <div class="menu-group">
+            <button type="button" class="menu-trigger" data-menu="edit" aria-haspopup="true" aria-expanded="false">Edit</button>
+            <div class="menu-dropdown d-none" data-menu-panel="edit" role="menu">
+              <button type="button" data-menu-delegate="undo" role="menuitem"><i class="fa-solid fa-rotate-left"></i>Undo<span class="menu-shortcut">Ctrl+Z</span></button>
+              <button type="button" data-menu-delegate="redo" role="menuitem"><i class="fa-solid fa-rotate-right"></i>Redo<span class="menu-shortcut">Ctrl+Y</span></button>
+              <span class="menu-divider" role="separator"></span>
+              <button type="button" data-menu-delegate="duplicate" role="menuitem"><i class="fa-regular fa-clone"></i>Duplicate<span class="menu-shortcut">Ctrl+D</span></button>
+              <button type="button" data-menu-delegate="delete" role="menuitem"><i class="fa-solid fa-trash"></i>Delete<span class="menu-shortcut">Del</span></button>
+              <span class="menu-divider" role="separator"></span>
+              <button type="button" id="createGroupBtn" role="menuitem" disabled><i class="fa-solid fa-object-group"></i>Group</button>
+              <button type="button" id="explodeGroupBtn" role="menuitem" disabled><i class="fa-solid fa-object-ungroup"></i>Ungroup</button>
+              <span class="menu-divider" role="separator"></span>
+              <button type="button" id="clearGuidesBtn" class="d-none" role="menuitem"><i class="fa-solid fa-eraser"></i>Clear Guides</button>
+            </div>
+          </div>
+          <div class="menu-group">
+            <button type="button" class="menu-trigger" data-menu="view" aria-haspopup="true" aria-expanded="false">View</button>
+            <div class="menu-dropdown d-none" data-menu-panel="view" role="menu">
+              <button type="button" id="zoomFitBtn" role="menuitem"><i class="fa-solid fa-arrows-to-dot"></i>Fit View</button>
+              <button type="button" id="zoomInBtn" role="menuitem"><i class="fa-solid fa-magnifying-glass-plus"></i>Zoom In</button>
+              <button type="button" id="zoomOutBtn" role="menuitem"><i class="fa-solid fa-magnifying-glass-minus"></i>Zoom Out</button>
+              <span class="menu-divider" role="separator"></span>
+              <button type="button" data-menu-delegate="gridSnap" role="menuitem"><i class="fa-solid fa-border-all"></i>Grid &amp; Snap…</button>
+              <button type="button" data-menu-delegate="objects" role="menuitem"><i class="fa-solid fa-sitemap"></i>Object Browser</button>
+              <span class="menu-divider" role="separator"></span>
+              <button type="button" id="canvas2dViewBtn" class="is-active" role="menuitem" aria-pressed="true"><i class="fa-regular fa-map"></i>2D Canvas</button>
+              <button type="button" id="cutPreview3dViewBtn" role="menuitem" aria-pressed="false"><i class="fa-solid fa-cube"></i>3D Cut Preview</button>
+            </div>
+          </div>
+          <div class="menu-group">
+            <button type="button" class="menu-trigger" data-menu="draw" aria-haspopup="true" aria-expanded="false">Draw</button>
+            <div class="menu-dropdown d-none" data-menu-panel="draw" role="menu">
+              <button type="button" class="cad-tool-btn" data-cad-tool="line" role="menuitem"><i class="fa-solid fa-slash"></i>Line</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="polyline" role="menuitem"><i class="fa-solid fa-draw-polygon"></i>Polyline</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="rectangle" role="menuitem"><i class="fa-regular fa-square"></i>Rectangle</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="polygon" role="menuitem"><i class="fa-solid fa-hexagon"></i>Polygon</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="circle" role="menuitem"><i class="fa-regular fa-circle"></i>Circle</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="arc" role="menuitem"><i class="fa-solid fa-circle-notch"></i>Arc</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="bezier" role="menuitem"><i class="fa-solid fa-bezier-curve"></i>Bezier</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="text" role="menuitem"><i class="fa-solid fa-font"></i>Text</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="guide" role="menuitem"><i class="fa-solid fa-ruler"></i>Guide</button>
+              <span class="menu-divider" role="separator"></span>
+              <button type="button" class="cad-tool-btn" data-cad-tool="fillet" role="menuitem" title="Click a rectangle, DXF, or SVG vector corner"><i class="fa-solid fa-circle-notch"></i>Fillet Corner</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="chamfer" role="menuitem" title="Click a rectangle, DXF, or SVG vector corner"><i class="fa-solid fa-triangle-exclamation"></i>Chamfer Corner</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="dogbone" role="menuitem"><i class="fa-solid fa-bone"></i>Dogbone</button>
+              <span class="menu-divider" role="separator"></span>
+              <button type="button" id="cadEditModeBtn" role="menuitem" aria-pressed="false"><i class="fa-solid fa-pen-to-square"></i>Edit Shape</button>
+            </div>
+          </div>
+          <div class="menu-group">
+            <button type="button" class="menu-trigger" data-menu="settings" aria-haspopup="true" aria-expanded="false">Settings</button>
+            <div class="menu-dropdown d-none" data-menu-panel="settings" role="menu">
+              <button type="button" id="settingsToolLibraryBtn" role="menuitem"><i class="fa-solid fa-screwdriver-wrench"></i>Tool Library…</button>
+              <button type="button" data-menu-delegate="gridSnap" role="menuitem"><i class="fa-solid fa-border-all"></i>Grid and Snap…</button>
+              <span class="menu-divider" role="separator"></span>
+              <button type="button" id="toggleSettingsBtn" role="menuitem"><i class="fa-solid fa-gear"></i>Workspace Settings…</button>
+            </div>
+          </div>
+          <div class="menu-group">
+            <button type="button" class="menu-trigger" data-menu="modify" aria-haspopup="true" aria-expanded="false">Modify</button>
+            <div class="menu-dropdown d-none" data-menu-panel="modify" role="menu">
+              <button type="button" id="booleanVectorsBtn" role="menuitem" disabled><i class="fa-solid fa-circle-nodes"></i>Boolean…</button>
+              <button type="button" id="expandVectorsBtn" role="menuitem" disabled><i class="fa-solid fa-expand"></i>Offset…</button>
+              <button type="button" id="nestGroupsBtn" role="menuitem" disabled><i class="fa-solid fa-table-cells-large"></i>Nest…</button>
+            </div>
+          </div>
         </nav>
-        <div class="ribbon-panels">
-          <section class="ribbon-panel is-active" data-ribbon-panel="design" aria-label="Design commands">
-            <div class="ribbon-group">
-              <div class="ribbon-command-grid">
-                <button id="newCanvasBtn" type="button" class="btn ribbon-command" title="Start a new empty canvas"><i class="fa-regular fa-file"></i><span>New Canvas</span></button>
-                <button id="openFileBtn" type="button" class="btn ribbon-command" title="Import DXF, SVG, or bitmap"><i class="fa-solid fa-folder-open"></i><span>Import File</span></button>
-              </div>
-              <span class="ribbon-group-label">Project</span>
+        <!-- Toolbar — single row, icon-only -->
+        <div class="tool-bar" aria-label="Tools">
+          <button type="button" id="toolbarOpenFileBtn" class="tool-btn" title="Import DXF / SVG / Bitmap"><i class="fa-solid fa-folder-open"></i></button>
+          <span class="tool-sep" aria-hidden="true"></span>
+          <button type="button" id="selectModeBtn" class="tool-btn is-active" title="Select (V)" aria-label="Select vectors" aria-pressed="true"><i class="fa-solid fa-arrow-pointer"></i></button>
+          <button type="button" class="tool-btn cad-tool-btn" data-cad-tool="trim" title="Trim" aria-label="Trim vector segments" aria-pressed="false"><i class="fa-solid fa-scissors"></i></button>
+          <span class="tool-sep" aria-hidden="true"></span>
+          <button type="button" class="tool-btn transform-tool-btn" data-transform-tool="move" title="Move"><i class="fa-solid fa-up-down-left-right"></i></button>
+          <button type="button" class="tool-btn transform-tool-btn" data-transform-tool="scale" title="Resize"><i class="fa-solid fa-expand"></i></button>
+          <button type="button" class="tool-btn transform-tool-btn" data-transform-tool="rotate" title="Rotate"><i class="fa-solid fa-rotate"></i></button>
+          <span class="tool-sep" aria-hidden="true"></span>
+          <div class="toolbar-draw-wrap" id="cadActionGroup">
+            <button type="button" id="drawMenuBtn" class="tool-btn" aria-haspopup="true" aria-expanded="false" title="Draw tools"><i class="fa-solid fa-pen-ruler"></i><i class="fa-solid fa-caret-down tool-caret"></i></button>
+            <div id="drawMenu" class="tool-menu d-none" role="menu" aria-label="Draw tools">
+              <button type="button" class="cad-tool-btn" data-cad-tool="line" role="menuitem"><i class="fa-solid fa-slash"></i>Line</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="polyline" role="menuitem"><i class="fa-solid fa-draw-polygon"></i>Polyline</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="rectangle" role="menuitem"><i class="fa-regular fa-square"></i>Rectangle</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="polygon" role="menuitem"><i class="fa-solid fa-hexagon"></i>Polygon</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="circle" role="menuitem"><i class="fa-regular fa-circle"></i>Circle</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="arc" role="menuitem"><i class="fa-solid fa-circle-notch"></i>Arc</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="bezier" role="menuitem"><i class="fa-solid fa-bezier-curve"></i>Bezier</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="text" role="menuitem"><i class="fa-solid fa-font"></i>Text</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="guide" role="menuitem"><i class="fa-solid fa-ruler"></i>Guide</button>
+              <span class="tool-menu-divider" role="separator"></span>
+              <button type="button" class="cad-tool-btn" data-cad-tool="fillet" role="menuitem" title="Click a rectangle, DXF, or SVG vector corner"><i class="fa-solid fa-circle-notch"></i>Fillet Corner</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="chamfer" role="menuitem" title="Click a rectangle, DXF, or SVG vector corner"><i class="fa-solid fa-triangle-exclamation"></i>Chamfer Corner</button>
+              <button type="button" class="cad-tool-btn" data-cad-tool="dogbone" role="menuitem"><i class="fa-solid fa-bone"></i>Dogbone</button>
             </div>
-            <div class="ribbon-group">
-              <div class="ribbon-command-grid">
-                <button type="button" id="selectModeBtn" class="btn ribbon-command is-active" title="Select vectors" aria-label="Select vectors" aria-pressed="true"><i class="fa-solid fa-arrow-pointer"></i><span>Select</span></button>
-                <button type="button" class="btn ribbon-command cad-tool-btn" data-cad-tool="trim" title="Click to trim one segment. Hold Ctrl for the square trim brush." aria-label="Trim vector segments" aria-pressed="false"><i class="fa-solid fa-scissors"></i><span>Trim</span></button>
-                <button type="button" class="btn ribbon-command transform-tool-btn" data-transform-tool="move" title="Move selected vectors"><i class="fa-solid fa-up-down-left-right"></i><span>Move</span></button>
-                <button type="button" class="btn ribbon-command transform-tool-btn" data-transform-tool="scale" title="Resize selected vectors"><i class="fa-solid fa-expand"></i><span>Resize</span></button>
-                <button type="button" class="btn ribbon-command transform-tool-btn" data-transform-tool="rotate" title="Rotate selected vectors"><i class="fa-solid fa-rotate"></i><span>Rotate</span></button>
-              </div>
-              <span class="ribbon-group-label">Modes</span>
-            </div>
-            <div id="cadActionGroup" class="ribbon-group" aria-label="Draw vectors">
-              <div class="ribbon-draw-menu">
-                <button type="button" id="drawMenuBtn" class="btn ribbon-command ribbon-menu-trigger" aria-haspopup="true" aria-expanded="false" title="Draw tools"><i class="fa-solid fa-pen-ruler"></i><span>Draw</span><i class="fa-solid fa-chevron-down ribbon-menu-chevron"></i></button>
-                <div id="drawMenu" class="ribbon-menu d-none" role="menu" aria-label="Draw tools">
-                  <button type="button" class="cad-tool-btn" data-cad-tool="line" role="menuitem"><i class="fa-solid fa-slash"></i>Line</button>
-                  <button type="button" class="cad-tool-btn" data-cad-tool="polyline" role="menuitem"><i class="fa-solid fa-draw-polygon"></i>Polyline</button>
-                  <button type="button" class="cad-tool-btn" data-cad-tool="rectangle" role="menuitem"><i class="fa-regular fa-square"></i>Rectangle</button>
-                  <button type="button" class="cad-tool-btn" data-cad-tool="polygon" role="menuitem"><i class="fa-solid fa-hexagon"></i>Polygon</button>
-                  <button type="button" class="cad-tool-btn" data-cad-tool="circle" role="menuitem"><i class="fa-regular fa-circle"></i>Circle</button>
-                  <button type="button" class="cad-tool-btn" data-cad-tool="arc" role="menuitem"><i class="fa-solid fa-circle-notch"></i>Arc</button>
-                  <button type="button" class="cad-tool-btn" data-cad-tool="bezier" role="menuitem"><i class="fa-solid fa-bezier-curve"></i>Bezier</button>
-                  <button type="button" class="cad-tool-btn" data-cad-tool="text" role="menuitem"><i class="fa-solid fa-font"></i>Text</button>
-                  <button type="button" class="cad-tool-btn" data-cad-tool="guide" role="menuitem"><i class="fa-solid fa-ruler"></i>Guide</button>
-                  <span class="ribbon-menu-divider" role="separator"></span>
-                  <button type="button" class="cad-tool-btn" data-cad-tool="fillet" role="menuitem" title="Click a rectangle, DXF, or SVG vector corner"><i class="fa-solid fa-circle-notch"></i>Fillet Corner</button>
-                  <button type="button" class="cad-tool-btn" data-cad-tool="chamfer" role="menuitem" title="Click a rectangle, DXF, or SVG vector corner"><i class="fa-solid fa-triangle-exclamation"></i>Chamfer Corner</button>
-                  <button type="button" class="cad-tool-btn" data-cad-tool="dogbone" role="menuitem"><i class="fa-solid fa-bone"></i>Dogbone</button>
-                  <span class="ribbon-menu-divider" role="separator"></span>
-                  <button type="button" id="cadEditModeBtn" role="menuitem" title="Edit CAD shapes" aria-pressed="false"><i class="fa-solid fa-pen-to-square"></i>Edit Shape</button>
-                  <button type="button" id="clearGuidesBtn" class="d-none" role="menuitem" title="Remove all construction guides"><i class="fa-solid fa-eraser"></i>Clear Guides</button>
-                </div>
-              </div>
-              <span class="ribbon-group-label">Draw</span>
-            </div>
-            <div id="vectorActionGroup" class="ribbon-group" aria-label="Selected vector actions">
-              <div class="ribbon-command-grid">
-                <button type="button" id="duplicateVectorsBtn" class="btn ribbon-command" title="Duplicate selected vectors (Ctrl+D)"><i class="fa-regular fa-clone"></i><span>Duplicate</span></button>
-                <button type="button" id="createGroupBtn" class="btn ribbon-command" title="Lock selected vectors together" disabled><i class="fa-solid fa-object-group"></i><span>Group</span></button>
-                <button type="button" id="explodeGroupBtn" class="btn ribbon-command" title="Unlock selected group vectors" disabled><i class="fa-solid fa-object-ungroup"></i><span>Explode</span></button>
-                <button type="button" id="booleanVectorsBtn" class="btn ribbon-command" title="Combine selected closed vectors" disabled><i class="fa-solid fa-circle-nodes"></i><span>Boolean</span></button>
-                <button type="button" id="expandVectorsBtn" class="btn ribbon-command" title="Union and offset selected closed vectors" disabled><i class="fa-solid fa-expand"></i><span>Offset</span></button>
-                <button type="button" id="nestGroupsBtn" class="btn ribbon-command" title="Nest selected groups and vectors onto a stock sheet" disabled><i class="fa-solid fa-table-cells-large"></i><span>Nest</span></button>
-                <button type="button" id="deleteVectorsBtn" class="btn ribbon-command" title="Delete selected vectors"><i class="fa-solid fa-trash"></i><span>Delete</span></button>
-              </div>
-              <span class="ribbon-group-label">Selected Vectors</span>
-            </div>
-            <div class="ribbon-group">
-              <div class="ribbon-command-grid">
-                <button type="button" id="undoBtn" class="btn ribbon-command" title="Undo (Ctrl+Z)" disabled><i class="fa-solid fa-rotate-left"></i><span>Undo</span></button>
-                <button type="button" id="redoBtn" class="btn ribbon-command" title="Redo (Ctrl+Y)" disabled><i class="fa-solid fa-rotate-right"></i><span>Redo</span></button>
-              </div>
-              <span class="ribbon-group-label">History</span>
-            </div>
-            <div class="ribbon-group">
-              <div class="ribbon-command-grid">
-                <button id="toggleSettingsBtn" type="button" class="btn ribbon-command" title="Workspace settings"><i class="fa-solid fa-gear"></i><span>Settings</span></button>
-              </div>
-              <span class="ribbon-group-label">Workspace</span>
-            </div>
-          </section>
-          <section class="ribbon-panel" data-ribbon-panel="view" aria-label="View commands">
-            <div class="ribbon-group">
-              <div class="ribbon-command-grid">
-                <button type="button" id="zoomFitBtn" class="btn ribbon-command" title="Reset view"><i class="fa-solid fa-arrows-to-dot"></i><span>Reset View</span></button>
-                <button type="button" id="zoomInBtn" class="btn ribbon-command" title="Zoom in"><i class="fa-solid fa-plus"></i><span>Zoom In</span></button>
-                <button type="button" id="zoomOutBtn" class="btn ribbon-command" title="Zoom out"><i class="fa-solid fa-minus"></i><span>Zoom Out</span></button>
-                <button type="button" id="cadSnapBtn" class="btn ribbon-command" title="Configure grid and snapping"><i class="fa-solid fa-border-all"></i><span>Grid</span></button>
-                <button type="button" id="objectTreeToggleBtn" class="btn ribbon-command" title="Show object browser" aria-pressed="false"><i class="fa-solid fa-sitemap"></i><span>Objects</span></button>
-              </div>
-              <span class="ribbon-group-label">Canvas</span>
-            </div>
-            <div class="ribbon-group">
-              <div class="ribbon-command-grid">
-                <button type="button" id="canvas2dViewBtn" class="btn ribbon-command is-active" title="Show the 2D drawing canvas" aria-pressed="true"><i class="fa-regular fa-map"></i><span>2D Canvas</span></button>
-                <button type="button" id="cutPreview3dViewBtn" class="btn ribbon-command" title="Simulate material removal in 3D" aria-pressed="false"><i class="fa-solid fa-cube"></i><span>3D Cut Preview</span></button>
-              </div>
-              <span class="ribbon-group-label">Preview</span>
-            </div>
-          </section>
+          </div>
+          <span class="tool-sep" aria-hidden="true"></span>
+          <div class="tool-group" id="vectorActionGroup" aria-label="Selected vector actions">
+            <button type="button" id="duplicateVectorsBtn" class="tool-btn" title="Duplicate (Ctrl+D)"><i class="fa-regular fa-clone"></i></button>
+            <button type="button" id="deleteVectorsBtn" class="tool-btn" title="Delete (Del)"><i class="fa-solid fa-trash"></i></button>
+          </div>
+          <span class="tool-sep" aria-hidden="true"></span>
+          <button type="button" id="undoBtn" class="tool-btn" title="Undo (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
+          <button type="button" id="redoBtn" class="tool-btn" title="Redo (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
+          <span class="tool-sep" aria-hidden="true"></span>
+          <button type="button" id="cadSnapBtn" class="tool-btn" title="Grid &amp; Snap"><i class="fa-solid fa-border-all"></i></button>
+          <button type="button" id="objectTreeToggleBtn" class="tool-btn" title="Object Browser" aria-pressed="false"><i class="fa-solid fa-sitemap"></i></button>
         </div>
       </header>
 
@@ -341,7 +370,7 @@
               <button id="applyTransformSizeBtn" class="btn btn-primary btn-sm w-100 mt-2" type="button">Apply Size</button>
             </div>
           </div>
-          <form id="toolpathForm" class="d-none compact-form">
+          <form id="toolpathForm" class="d-none compact-form" novalidate>
             <div id="toolpathFormMode" class="selection-mode-copy"></div>
 
             <div class="sidebar-flow-section sidebar-flow-operation mb-3">
@@ -377,6 +406,26 @@
                   <img class="operation-preview-image" src="assets/operations/vcarve.png" alt="V-Carve toolpath preview">
                   <span class="operation-label">V-Carve</span>
                 </button>
+                <button type="button" class="operation-option" data-operation="laser-cut">
+                  <span class="operation-indicator" aria-hidden="true"></span>
+                  <img class="operation-preview-image" src="assets/operations/engrave.png" alt="Laser Cut toolpath preview">
+                  <span class="operation-label">Laser Cut</span>
+                </button>
+                <button type="button" class="operation-option" data-operation="laser-raster">
+                  <span class="operation-indicator" aria-hidden="true"></span>
+                  <img class="operation-preview-image" src="assets/operations/pocket.png" alt="Laser Raster toolpath preview">
+                  <span class="operation-label">Laser Raster</span>
+                </button>
+                <button type="button" class="operation-option" data-operation="wavy-raster">
+                  <span class="operation-indicator" aria-hidden="true"></span>
+                  <img class="operation-preview-image" src="assets/operations/engrave.png" alt="Wavy Raster toolpath preview">
+                  <span class="operation-label">Wavy</span>
+                </button>
+                <button type="button" class="operation-option" data-operation="halftone">
+                  <span class="operation-indicator" aria-hidden="true"></span>
+                  <img class="operation-preview-image" src="assets/operations/pocket.png" alt="Halftone toolpath preview">
+                  <span class="operation-label">Halftone</span>
+                </button>
               </div>
             </div>
 
@@ -384,13 +433,13 @@
               <div class="selection-subprompt">With which tool?</div>
               <div class="row g-2 align-items-end mb-2">
                 <div class="col-9">
-                    <label class="visually-hidden" for="myEndmillSelect">My Endmills</label>
+                    <label class="visually-hidden" for="myEndmillSelect">Tool Library</label>
                     <select id="myEndmillSelect" class="form-select form-select-sm">
                       <option value="">Choose a tool slot</option>
                     </select>
                 </div>
                 <div class="col-3">
-                  <button id="editMyEndmillsBtn" type="button" class="btn btn-outline-secondary btn-sm w-100" title="Edit My Endmills">
+                  <button id="editMyEndmillsBtn" type="button" class="btn btn-outline-secondary btn-sm w-100" title="Tool Library">
                     <i class="fa-solid fa-gear"></i>
                   </button>
                 </div>
@@ -399,6 +448,7 @@
                 <div class="my-endmill-summary-title">No tool slot selected</div>
                 <div class="my-endmill-summary-meta">Pick a tool from your saved T1 to T12 slots.</div>
               </div>
+              <div id="vBitHint" class="v-bit-hint d-none" role="alert"><i class="fa-solid fa-triangle-exclamation"></i><span></span></div>
               <div class="d-none">
                 <button id="toolLibraryToggle" class="tool-library-toggle" type="button" aria-expanded="false"></button>
                 <button id="toolLibraryClearBtn" class="btn btn-link btn-sm p-0 text-decoration-none d-none" type="button">Clear</button>
@@ -484,6 +534,40 @@
                 </div>
             </div>
 
+            <div id="laserRasterFields" class="d-none">
+              <div class="selection-subprompt">Laser raster settings</div>
+              <div class="row g-2">
+                <div class="col-6"><label class="form-label small mb-1" for="laserSpotSizeInput">Spot Size</label><div class="input-group input-group-sm"><input id="laserSpotSizeInput" class="form-control form-control-sm" type="number" step="0.01" min="0.05" max="2" value="0.2"><span class="input-group-text">mm</span></div></div>
+                <div class="col-6"><label class="form-label small mb-1" for="laserFeedInput">Feed</label><div class="input-group input-group-sm"><input id="laserFeedInput" class="form-control form-control-sm" type="number" step="10" min="100" value="3000"><span class="input-group-text">mm/min</span></div></div>
+              </div>
+              <div class="row g-2 mt-2">
+                <div class="col-6"><label class="form-label small mb-1" for="laserSMinInput">Min Power S</label><input id="laserSMinInput" class="form-control form-control-sm" type="number" min="0" max="1000" value="0"></div>
+                <div class="col-6"><label class="form-label small mb-1" for="laserSMaxInput">Max Power S</label><input id="laserSMaxInput" class="form-control form-control-sm" type="number" min="0" max="1000" value="1000"></div>
+              </div>
+              <div class="row g-2 mt-2">
+                <div class="col-6"><label class="form-label small mb-1" for="laserGammaInput">Gamma</label><input id="laserGammaInput" class="form-control form-control-sm" type="number" step="0.1" min="0.1" max="4" value="1"></div>
+                <div class="col-6"><label class="form-label small mb-1" for="laserOverscanInput">Overscan</label><div class="input-group input-group-sm"><input id="laserOverscanInput" class="form-control form-control-sm" type="number" step="0.5" min="0" value="2"><span class="input-group-text">mm</span></div></div>
+              </div>
+            </div>
+            <div id="wavyFields" class="d-none">
+              <div class="selection-subprompt">Wavy raster settings</div>
+              <div class="row g-2">
+                <div class="col-6"><label class="form-label small mb-1" for="wavySpotSizeInput">Line Spacing</label><div class="input-group input-group-sm"><input id="wavySpotSizeInput" class="form-control form-control-sm" type="number" step="0.1" min="0.2" max="5" value="2"><span class="input-group-text">mm</span></div></div>
+                <div class="col-6"><label class="form-label small mb-1" for="wavyFeedInput">Feed</label><div class="input-group input-group-sm"><input id="wavyFeedInput" class="form-control form-control-sm" type="number" step="10" min="100" value="1800"><span class="input-group-text">mm/min</span></div></div>
+              </div>
+              <div class="row g-2 mt-2">
+                <div class="col-6"><label class="form-label small mb-1" for="wavyMinDepthInput">Shallow Depth</label><div class="input-group input-group-sm"><input id="wavyMinDepthInput" class="form-control form-control-sm" type="number" step="0.1" min="0" value="0"><span class="input-group-text">mm</span></div></div>
+                <div class="col-6"><label class="form-label small mb-1" for="wavyMaxDepthInput">Deep Depth</label><div class="input-group input-group-sm"><input id="wavyMaxDepthInput" class="form-control form-control-sm" type="number" step="0.1" min="0.1" value="3"><span class="input-group-text">mm</span></div></div>
+              </div>
+            </div>
+            <div id="halftoneFields" class="d-none">
+              <div class="selection-subprompt">Halftone settings — grid of holes sized by brightness (darker = larger)</div>
+              <div class="row g-2">
+                <div class="col-6"><label class="form-label small mb-1" for="halftoneResolutionInput">Resolution</label><div class="input-group input-group-sm"><input id="halftoneResolutionInput" class="form-control form-control-sm" type="number" step="1" min="2" max="100" value="50"><span class="input-group-text">holes</span></div></div>
+                <div class="col-6"><label class="form-label small mb-1" for="halftoneInvertInput">Invert</label><div class="form-check mt-1"><input id="halftoneInvertInput" class="form-check-input" type="checkbox"><label class="form-check-label" for="halftoneInvertInput">Light = large</label></div></div>
+              </div>
+              <div class="hint small text-muted mt-1">Resolution = holes across widest side. Uses v-bit angle for depth.</div>
+            </div>
             <div class="d-grid gap-2 form-actions-sticky">
               <button id="toolpathSubmitBtn" type="submit" class="btn btn-success btn-sm">Add Toolpath</button>
               <button id="cancelEditBtn" type="button" class="btn btn-outline-secondary btn-sm d-none">Cancel Edit</button>
@@ -518,7 +602,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <div>
-            <h2 class="modal-title fs-5" id="myEndmillsModalLabel">My Endmills</h2>
+            <h2 class="modal-title fs-5" id="myEndmillsModalLabel">Tool Library</h2>
             <div class="small text-muted">Configure your tool rack.</div>
           </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -529,7 +613,7 @@
         <div class="modal-footer">
           <div id="myEndmillsValidationHint" class="me-auto small text-danger d-none"></div>
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button id="saveMyEndmillsBtn" type="button" class="btn btn-primary">Save My Endmills</button>
+          <button id="saveMyEndmillsBtn" type="button" class="btn btn-primary">Save Tool Library</button>
         </div>
       </div>
     </div>
@@ -814,6 +898,7 @@
     </span>
   </div>
   <input id="fileInput" type="file" accept=".dxf,.svg,image/svg+xml,image/png,image/jpeg,image/webp,image/bmp" hidden>
+  <input id="projectFileInput" type="file" accept=".json,.camcanvas.json,application/json" hidden>
 
   <script src="clipperjs/clipper_unminified.js"></script>
   <script

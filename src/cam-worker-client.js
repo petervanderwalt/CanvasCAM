@@ -32,7 +32,10 @@ function handleWorkerMessage(event) {
   pendingRequests.delete(id);
 
   if (error) {
-    pending.reject(new Error(error));
+    const err = new Error(error);
+    if (event.data?.stack) err.stack = event.data.stack;
+    console.error(`[cam-worker-client] worker error: ${error}`, event.data?.stack || "");
+    pending.reject(err);
     return;
   }
 
@@ -63,6 +66,10 @@ function serializeLoop(loop) {
   return {
     id: loop.id,
     points: loop.points.map((point) => ({ x: point.x, y: point.y })),
+    isBitmap: !!loop.isBitmap,
+    sourceType: loop.sourceType || null,
+    sourceEntityIndexes: loop.sourceEntityIndexes ? [...loop.sourceEntityIndexes] : [],
+    bounds: loop.bounds ? { minX: loop.bounds.minX, minY: loop.bounds.minY, maxX: loop.bounds.maxX, maxY: loop.bounds.maxY } : null,
   };
 }
 

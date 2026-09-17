@@ -6,10 +6,10 @@ import {
 import { parseDxf as parseDxfFile } from "./src/dxf.js?v=20260730-vcarve12";
 import { parseSvg as parseSvgFile } from "./src/svg.js?v=20260810-potrace-subpaths1";
 import * as Paths from "./src/paths.js?v=20260811-spline-corners1";
-import * as CamOps from "./src/cam-ops.js?v=20260810-boolean1";
-import * as UiState from "./src/ui-state.js?v=20260730-vcarve12";
-import * as CanvasView from "./src/canvas-view.js?v=20260823-vector-contrast1";
-import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260731-worker1";
+import * as CamOps from "./src/cam-ops.js?v=20260824-laser-fix1";
+import * as UiState from "./src/ui-state.js?v=20260824-laser-fix1";
+import * as CanvasView from "./src/canvas-view.js?v=20260824-laser-fix1";
+import * as CamWorkerClient from "./src/cam-worker-client.js?v=20260824-laser-fix1";
 import * as CadFont from "./src/cad-font.js?v=20260810-font-library-e-z1";
 import * as Potrace from "./vendor/potrace-js/index.js?v=20260810-potrace-js1";
 import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1";
@@ -48,6 +48,8 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
     openFileBtn: document.getElementById("openFileBtn"),
     ribbonTabs: Array.from(document.querySelectorAll(".ribbon-tab")),
     ribbonPanels: Array.from(document.querySelectorAll(".ribbon-panel")),
+    menuTriggers: Array.from(document.querySelectorAll(".menu-trigger")),
+    menuPanels: Array.from(document.querySelectorAll(".menu-dropdown")),
     fileInput: document.getElementById("fileInput"),
     zoomFitBtn: document.getElementById("zoomFitBtn"),
     zoomInBtn: document.getElementById("zoomInBtn"),
@@ -195,6 +197,7 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
     toolpathTypeInput: document.getElementById("toolpathTypeInput"),
     myEndmillSelect: document.getElementById("myEndmillSelect"),
     myEndmillSummary: document.getElementById("myEndmillSummary"),
+    vBitHint: document.getElementById("vBitHint"),
     editMyEndmillsBtn: document.getElementById("editMyEndmillsBtn"),
     myEndmillsModal: document.getElementById("myEndmillsModal"),
     myEndmillsSlots: document.getElementById("myEndmillsSlots"),
@@ -391,9 +394,54 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
 
   const MY_ENDMILLS_STORAGE_KEY = "camcanvas.myEndmills.v1";
 
+  function cloneBitmapForHistory(entity) {
+    const { _cachedImage, _imageData, ...rest } = entity;
+    let imageDataCopy = null;
+    if (_imageData && _imageData.data) {
+      try {
+        // ImageData data is Uint8ClampedArray — copy via slice
+        imageDataCopy = {
+          width: _imageData.width,
+          height: _imageData.height,
+          data: _imageData.data.slice ? _imageData.data.slice(0) : new Uint8ClampedArray(_imageData.data),
+        };
+      } catch (_) { imageDataCopy = null; }
+    }
+    return { ...rest, _imageData: imageDataCopy };
+  }
   function deepClone(value) {
+    // BITMAP entities contain HTMLImageElement which structuredClone can't handle
+    const tryClone = (v) => {
+      if (Array.isArray(v)) return v.map(tryClone);
+      if (v && typeof v === "object") {
+        if (v.type === "BITMAP") return cloneBitmapForHistory(v);
+        // handle loops/entities that may contain bitmap refs? recurse
+        const out = Array.isArray(v) ? [] : {};
+        for (const k in v) {
+          if (Object.prototype.hasOwnProperty.call(v, k)) {
+            const val = v[k];
+            if (k === "_cachedImage") continue;
+            if (k === "_imageData" && val?.data) {
+              out[k] = { width: val.width, height: val.height, data: val.data.slice ? val.data.slice(0) : val.data };
+            } else {
+              out[k] = tryClone(val);
+            }
+          }
+        }
+        return out;
+      }
+      return v;
+    };
     if (typeof structuredClone === "function") {
-      return structuredClone(value);
+      try {
+        // quick check for bitmap — avoid throwing
+        const hasBitmap = (() => {
+          try { return JSON.stringify(value).includes('"type":"BITMAP"'); } catch { return false; }
+        })();
+        if (!hasBitmap) return structuredClone(value);
+      } catch (_) {}
+      // fallback to manual for bitmap case
+      return tryClone(value);
     }
     return JSON.parse(JSON.stringify(value));
   }
@@ -2272,12 +2320,17 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
     if (!operation) {
       return false;
     }
+    if (operation === "laser-raster" || operation === "laser-cut") {
+      // laser doesn't use endmill
+      return true;
+    }
     if (!slot || !isConfiguredMyEndmillSlot(slot)) {
       return false;
     }
-    if ((operation === "vcarve" || operation === "chamfer") && slot.toolType !== "v-bit") {
+    if ((operation === "vcarve" || operation === "chamfer" || operation === "wavy-raster" || operation === "halftone") && slot.toolType !== "v-bit") {
       if (options.notify !== false) {
-        const operationLabel = operation === "chamfer" ? "Chamfer" : "V-Carve";
+        const labelMap = { chamfer: "Chamfer", vcarve: "V-Carve", "wavy-raster": "Wavy", halftone: "Halftone" };
+        const operationLabel = labelMap[operation] || operation;
         warnOnce(`operation:${operation}:slot:${slot.slot}:type:${slot.toolType || "unknown"}`, `${operationLabel} requires a V-bit. Select a V-bit from your tool rack.`);
       }
       return false;
@@ -2407,7 +2460,7 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
       return { title: "No tool slot selected", meta: "Pick a tool from your saved T1 to T12 slots." };
     }
     if (!isConfiguredMyEndmillSlot(slot)) {
-      return { title: `T${slot.slot} empty`, meta: "Configure this slot in Edit My Endmills." };
+      return { title: `T${slot.slot} empty`, meta: "Configure this slot in the Tool Library." };
     }
     const title = `T${slot.slot} - ${slot.name}`;
     const meta = [
@@ -4619,122 +4672,31 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
     syncFontPicker(ui.cadTextFontSelect);
   }
 
-  function closeFontPickers(except = null) {
-    for (const picker of document.querySelectorAll(".font-picker")) {
-      if (picker !== except) {
-        picker.classList.remove("is-open");
-        picker.querySelector(".font-picker-toggle")?.setAttribute("aria-expanded", "false");
-      }
-    }
-  }
-
+  // Native <select> is used for fonts — kept small and scrollable; no custom picker.
+  function closeFontPickers() {}
   function syncFontPicker(select) {
-    const picker = select?.closest(".font-picker");
     const option = CadFont.FONT_OPTIONS.find((candidate) => candidate.id === select?.value);
-    const toggle = picker?.querySelector(".font-picker-toggle");
-    if (!picker || !option || !toggle) {
-      return;
-    }
-    toggle.textContent = option.name;
-    toggle.style.fontFamily = option.family;
-    for (const item of picker.querySelectorAll("[data-font-id]")) {
-      item.classList.toggle("is-selected", item.dataset.fontId === option.id);
-    }
+    if (option) select.style.fontFamily = option.family;
   }
-
   function enableFontPickers() {
-    const selects = [ui.cadTextFontSelect, ui.cadInspectorTextFontSelect].filter(Boolean);
-    const fontOptions = [
-      ...CadFont.FONT_OPTIONS.filter((font) => font.kind === "stroke"),
-      ...CadFont.FONT_OPTIONS
-        .filter((font) => font.kind !== "stroke")
-        .sort((left, right) => left.name.localeCompare(right.name)),
-    ];
-    for (const select of selects) {
+    for (const select of [ui.cadTextFontSelect, ui.cadInspectorTextFontSelect].filter(Boolean)) {
       const knownIds = new Set([...select.options].map((option) => option.value));
       for (const font of CadFont.FONT_OPTIONS) {
-        if (knownIds.has(font.id)) {
-          continue;
-        }
+        if (knownIds.has(font.id)) continue;
         const option = document.createElement("option");
         option.value = font.id;
         option.textContent = font.name;
         option.style.fontFamily = font.family;
         select.append(option);
       }
-      if (select.closest(".font-picker")) {
-        continue;
+      // Render each option label in its own font where the browser allows it
+      for (const option of [...select.options]) {
+        const f = CadFont.FONT_OPTIONS.find((c) => c.id === option.value);
+        if (f) option.style.fontFamily = f.family;
       }
-      const picker = document.createElement("div");
-      picker.className = "font-picker";
-      select.parentNode.insertBefore(picker, select);
-      picker.append(select);
-      select.classList.add("font-picker-native");
-
-      const toggle = document.createElement("button");
-      toggle.type = "button";
-      toggle.className = "font-picker-toggle";
-      toggle.setAttribute("aria-haspopup", "listbox");
-      toggle.setAttribute("aria-expanded", "false");
-      const menu = document.createElement("div");
-      menu.className = "font-picker-menu";
-      menu.setAttribute("role", "listbox");
-      const search = document.createElement("input");
-      search.type = "search";
-      search.className = "font-picker-search";
-      search.placeholder = `Search ${fontOptions.length} fonts`;
-      search.setAttribute("aria-label", "Search fonts");
-      const count = document.createElement("div");
-      count.className = "font-picker-count";
-      count.textContent = `${fontOptions.length} fonts`;
-      const options = document.createElement("div");
-      options.className = "font-picker-options";
-      for (const font of fontOptions) {
-        const item = document.createElement("button");
-        item.type = "button";
-        item.className = "font-picker-option";
-        item.dataset.fontId = font.id;
-        item.style.fontFamily = font.family;
-        item.textContent = font.name;
-        item.addEventListener("click", () => {
-          select.value = font.id;
-          select.dispatchEvent(new Event("change", { bubbles: true }));
-          closeFontPickers();
-        });
-        options.append(item);
-      }
-      search.addEventListener("input", () => {
-        const query = search.value.trim().toLocaleLowerCase();
-        let visible = 0;
-        for (const item of options.querySelectorAll(".font-picker-option")) {
-          const matches = !query || item.textContent.toLocaleLowerCase().includes(query);
-          item.hidden = !matches;
-          visible += matches ? 1 : 0;
-        }
-        count.textContent = query ? `${visible} matching font${visible === 1 ? "" : "s"}` : `${fontOptions.length} fonts`;
-      });
-      menu.append(search, count, options);
-      toggle.addEventListener("click", () => {
-        const willOpen = !picker.classList.contains("is-open");
-        closeFontPickers(picker);
-        picker.classList.toggle("is-open", willOpen);
-        toggle.setAttribute("aria-expanded", String(willOpen));
-        if (willOpen) {
-          search.focus();
-        } else {
-          search.value = "";
-          search.dispatchEvent(new Event("input"));
-        }
-      });
       select.addEventListener("change", () => syncFontPicker(select));
-      picker.append(toggle, menu);
       syncFontPicker(select);
     }
-    document.addEventListener("pointerdown", (event) => {
-      if (!event.target.closest(".font-picker")) {
-        closeFontPickers();
-      }
-    });
   }
 
   async function commitCadText() {
@@ -5425,6 +5387,20 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
   }
 
   function beginTrimStroke(screenPoint, brush = false) {
+    // disable trim on bitmap - it has no vector segments to trim
+    const hasBitmapSelected = (() => {
+      for (const id of state.selectedLoopIds) {
+        const loop = state.loops.find((l) => l.id === id);
+        if (loop?.isBitmap) return true;
+        const idx = loop?.sourceEntityIndexes?.[0];
+        if (idx != null && state.entities[idx]?.type === "BITMAP") return true;
+      }
+      return false;
+    })();
+    if (hasBitmapSelected) {
+      showToast("Trim not available for bitmaps", "warning");
+      return;
+    }
     state.trimPointer = screenPoint;
     state.trimBrushMode = brush;
     state.trimStroke = {
@@ -6272,6 +6248,18 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
   function rebuildLoopPaths() {
     const hitSampleStep = Math.max(0.05, 4 / Math.max(state.camera.zoom, 0.01));
     for (const loop of state.loops) {
+      if (loop.isBitmap) {
+        // rectangular hit path for bitmap
+        const b = loop.bounds;
+        if (!b || !Number.isFinite(b.minX)) continue;
+        const p1 = worldToScreen({ x: b.minX, y: b.minY });
+        const p2 = worldToScreen({ x: b.maxX, y: b.maxY });
+        const path = new Path2D();
+        path.rect(Math.min(p1.x, p2.x), Math.min(p1.y, p2.y), Math.abs(p2.x - p1.x), Math.abs(p1.y - p2.y));
+        loop.path2d = path;
+        loop.hitContours = [[{ x: b.minX, y: b.minY }, { x: b.maxX, y: b.minY }, { x: b.maxX, y: b.maxY }, { x: b.minX, y: b.maxY }]];
+        continue;
+      }
       loop.path2d = Paths.createLoopPath2D(loop.segments, worldToScreen, state.camera.zoom, loop.closed !== false);
       loop.hitContours = loop.segments
         .map((segment) => segment.flatten?.(hitSampleStep) || [])
@@ -6418,8 +6406,13 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
       const draftOptions = editing
         ? { id: editing.id, label: editing.label }
         : {};
+      // for raster ops, pass source entities so GCode can access bitmap imageData
+      const sourceEntities = (config.operation === "laser-raster" || config.operation === "wavy-raster")
+        ? state.entities
+        : null;
       const draft = await createToolpathFromLoopsAsync(sourceLoops, config, {
         ...draftOptions,
+        sourceEntities,
         onProgress(progress) {
           if (buildToken !== state.draftBuildToken) {
             return;
@@ -6444,12 +6437,14 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
       refreshWorkspaceUi();
       requestDraw();
     } catch (error) {
+      console.error("[draft toolpath] ", error, error?.stack);
       if (buildToken !== state.draftBuildToken) {
         return;
       }
       state.draftToolpath = null;
       if (error instanceof Error) {
-        showToast(error.message, "danger");
+        showToast(error.message + " — see console for stack", "danger");
+        console.error(error.stack);
       }
       refreshToolpathUi();
       refreshWorkspaceUi();
@@ -6491,7 +6486,26 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
     return 10;
   }
 
+  function refreshVBitHint() {
+    const op = ui.toolpathTypeInput?.value;
+    const needsVBit = op === "vcarve" || op === "chamfer";
+    const hint = ui.vBitHint;
+    if (!hint) return;
+    if (needsVBit) {
+      const slot = getMyEndmillSlot(state.myEndmills.selectedSlot);
+      const mismatch = !slot || slot.toolType !== "v-bit";
+      if (mismatch) {
+        hint.querySelector("span").textContent =
+          `${op === "chamfer" ? "Chamfer" : "V-Carve"} requires a V-Bit — pick one from your tool rack.`;
+        hint.classList.remove("d-none");
+        return;
+      }
+    }
+    hint.classList.add("d-none");
+  }
+
   function readToolpathConfigFromForm() {
+    refreshVBitHint();
     const slot = getMyEndmillSlot(state.myEndmills.selectedSlot);
     const operation = ui.toolpathTypeInput.value;
     if (!validateToolSlotForOperation(slot, operation)) {
@@ -6506,6 +6520,17 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
     const tabWidth = Number.parseFloat(ui.tabWidthInput.value);
     const trochoidEngagementPercent = Number.parseFloat(ui.trochoidEngagementInput.value);
     const selectedTool = getSelectedLibraryTool();
+    // laser / wavy params (reuse simplelaser raster logic)
+    const laserFeed = Number.parseFloat(document.getElementById("laserFeedInput")?.value) || 3000;
+    const laserSMin = Number.parseFloat(document.getElementById("laserSMinInput")?.value) || 0;
+    const laserSMax = Number.parseFloat(document.getElementById("laserSMaxInput")?.value) || 1000;
+    const laserSpot = Number.parseFloat(document.getElementById("laserSpotSizeInput")?.value) || 0.2;
+    const laserGamma = Number.parseFloat(document.getElementById("laserGammaInput")?.value) || 1;
+    const laserOverscan = Number.parseFloat(document.getElementById("laserOverscanInput")?.value) || 2;
+    const wavyFeed = Number.parseFloat(document.getElementById("wavyFeedInput")?.value) || 1800;
+    const wavySpot = Number.parseFloat(document.getElementById("wavySpotSizeInput")?.value) || 2;
+    const wavyMinDepth = Number.parseFloat(document.getElementById("wavyMinDepthInput")?.value) || 0;
+    const wavyMaxDepth = Number.parseFloat(document.getElementById("wavyMaxDepthInput")?.value) || 3;
     return {
       operation,
       toolNumber: slot.slot,
@@ -6527,6 +6552,9 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
       feedRate: Number.parseFloat(ui.feedRateInput.value),
       plungeRate: Number.parseFloat(ui.plungeRateInput.value),
       spindle: Number.parseFloat(ui.spindleInput.value),
+      // laser/wavy
+      laserFeed, laserSMin, laserSMax, laserSpot, laserGamma, laserOverscan,
+      wavyFeed, wavySpot, wavyMinDepth, wavyMaxDepth,
       libraryToolId: selectedTool?.id || null,
       libraryToolName: selectedTool?.name || "",
       libraryToolVendor: selectedTool?.vendorDisplayName || selectedTool?.vendor || "",
@@ -6545,6 +6573,30 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
       return false;
     };
     const positive = (input) => Number.parseFloat(input?.value);
+    // laser/wavy use own fields, skip CNC checks
+    if (operation === "laser-raster" || operation === "laser-cut" || operation === "wavy-raster") {
+      const isLaserRaster = operation === "laser-raster";
+      const isWavy = operation === "wavy-raster";
+      const safeZ = positive(ui.safeZInput);
+      if (!Number.isFinite(safeZ) || safeZ <= 0) return fail("Z Safe must be greater than zero.", ui.safeZInput);
+      if (isLaserRaster) {
+        const spot = Number.parseFloat(document.getElementById("laserSpotSizeInput")?.value);
+        if (!Number.isFinite(spot) || spot <= 0) return fail("Spot Size must be >0.", document.getElementById("laserSpotSizeInput"));
+        const feed = Number.parseFloat(document.getElementById("laserFeedInput")?.value);
+        if (!Number.isFinite(feed) || feed <= 0) return fail("Laser Feed must be >0.", document.getElementById("laserFeedInput"));
+      }
+      if (isWavy) {
+        const wSpot = Number.parseFloat(document.getElementById("wavySpotSizeInput")?.value);
+        if (!Number.isFinite(wSpot) || wSpot <= 0) return fail("Line Spacing must be >0.", document.getElementById("wavySpotSizeInput"));
+        const wFeed = Number.parseFloat(document.getElementById("wavyFeedInput")?.value);
+        if (!Number.isFinite(wFeed) || wFeed <= 0) return fail("Wavy Feed must be >0.", document.getElementById("wavyFeedInput"));
+      }
+      if (operation === "laser-cut") {
+        const feed = Number.parseFloat(document.getElementById("laserFeedInput")?.value) || Number.parseFloat(ui.feedRateInput.value);
+        if (!Number.isFinite(feed) || feed <= 0) return fail("Feed Rate must be greater than zero.", ui.feedRateInput);
+      }
+      return true;
+    }
     const cutDepth = positive(ui.cutDepthInput);
     const passDepth = positive(ui.passDepthInput);
     const tabHeight = positive(ui.tabHeightInput);
@@ -6859,9 +6911,8 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
     }
     const hasExistingGeometry = state.entities.length > 0;
     const historyBefore = hasExistingGeometry || state.toolpaths.length ? captureHistorySnapshot() : null;
-    if (!hasExistingGeometry) {
-      state.fileName = name;
-    }
+    // always update fileName to latest import so export reflects current job (was only first file before — caused Hockey DXF name on bitmap raster)
+    state.fileName = name;
     const documentInfo = { id: crypto.randomUUID(), name, source: sourceLabel };
     const rawBounds = boundsOfEntities(entities);
     const shiftX = rawBounds ? -rawBounds.minX : 0;
@@ -6947,12 +6998,80 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
     loadImportedEntities(parseSvg(text), name, "SVG");
   }
 
+  async function createBitmapRasterEntity(file, imageDataUrl, w, h) {
+    // place bitmap centered, size ~80mm or image aspect, like simplelaser
+    const maxW = Math.min(80, 200 * 0.6);
+    let wMm = maxW, hMm = wMm * h / w;
+    if (hMm > 200 * 0.6) { hMm = 200 * 0.6; wMm = hMm * w / h; }
+    const x = (state.bounds ? state.bounds.minX : 0) + 10;
+    const y = (state.bounds ? state.bounds.minY : 0) + 10;
+    // center in view if empty
+    const cx = state.bounds ? (state.bounds.minX + state.bounds.maxX)/2 : 50;
+    const cy = state.bounds ? (state.bounds.minY + state.bounds.maxY)/2 : 50;
+    const bx = cx - wMm/2, by = cy - hMm/2;
+    const entity = {
+      type: "BITMAP",
+      x: bx, y: by, w: wMm, h: hMm,
+      imageDataUrl,
+      imageWidth: w, imageHeight: h,
+      gamma: 1, brightness: 0, contrast: 0, invert: false,
+      renderMode: "grayscale", threshold: 128,
+      bounds: { minX: bx, minY: by, maxX: bx+wMm, maxY: by+hMm },
+      __loopId: crypto.randomUUID(),
+    };
+    // store raw image for raster sampling
+    try {
+      const img = new Image();
+      img.src = imageDataUrl;
+      entity._cachedImage = img;
+      // also keep ImageData for fast sampling
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      const cctx = c.getContext("2d");
+      cctx.drawImage(img, 0, 0);
+      // delay until loaded? if not yet, will be filled on load
+      if (img.complete) {
+        try { entity._imageData = cctx.getImageData(0,0,w,h); } catch(_){}
+      } else {
+        img.onload = () => {
+          try { entity._imageData = cctx.getImageData(0,0,w,h); draw(); } catch(_){}
+        };
+      }
+    } catch(_){}
+    return entity;
+  }
+
+  async function loadBitmapRasterFile(file) {
+    try {
+      const imageDataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+      const img = new Image();
+      img.src = imageDataUrl;
+      await new Promise((res, rej) => { img.onload=res; img.onerror=rej; });
+      const entity = await createBitmapRasterEntity(file, imageDataUrl, img.naturalWidth, img.naturalHeight);
+      loadImportedEntities([entity], file.name, "Bitmap");
+      showToast(`Bitmap ${file.name} ready for Laser Raster / Wavy`, "success");
+    } catch (e) {
+      showToast(e.message || "Bitmap load failed", "danger");
+    }
+  }
+
   async function loadVectorFile(file) {
     if (!file) {
       return;
     }
-    if (file.type.startsWith("image/") || /\.(png|jpe?g|webp|bmp)$/i.test(file.name)) {
-      openBitmapTraceDialog(file);
+    if (file.type.startsWith("image/") || /\.(png|jpe?g|webp|bmp|gif|tif|tiff)$/i.test(file.name)) {
+      // For raster operations, keep bitmap as raster entity; still offer trace via dialog on demand
+      // If user holds Shift, open trace dialog, else import as raster
+      if (file._forceTrace) {
+        openBitmapTraceDialog(file);
+        return;
+      }
+      await loadBitmapRasterFile(file);
       return;
     }
     const text = await file.text();
@@ -7659,9 +7778,88 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
   }
 
   ui.loadSampleBtn.addEventListener("click", loadBundledSample);
-  ui.ribbonTabs.forEach((tab) => {
-    tab.addEventListener("click", () => setRibbonTab(tab.dataset.ribbonTab || "design"));
-  });
+  // Menu bar — open/close and delegates
+  (function setupMenuBar() {
+    let openMenu = null;
+    function closeAllMenus() {
+      for (const panel of ui.menuPanels) panel.classList.add("d-none");
+      for (const trigger of ui.menuTriggers) {
+        trigger.classList.remove("is-open");
+        trigger.setAttribute("aria-expanded", "false");
+      }
+      openMenu = null;
+    }
+    function openMenuPanel(name) {
+      closeAllMenus();
+      const trigger = document.querySelector(`.menu-trigger[data-menu="${name}"]`);
+      const panel = document.querySelector(`.menu-dropdown[data-menu-panel="${name}"]`);
+      if (!trigger || !panel) return;
+      trigger.classList.add("is-open");
+      trigger.setAttribute("aria-expanded", "true");
+      panel.classList.remove("d-none");
+      openMenu = name;
+    }
+    ui.menuTriggers.forEach((trigger) => {
+      trigger.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const name = trigger.dataset.menu || "";
+        if (openMenu === name) {
+          closeAllMenus();
+        } else {
+          openMenuPanel(name);
+        }
+      });
+      trigger.addEventListener("mouseenter", () => {
+        if (openMenu && openMenu !== trigger.dataset.menu) {
+          openMenuPanel(trigger.dataset.menu || "");
+        }
+      });
+    });
+    // Menu bar delegates — items that mirror toolbar buttons
+    const menuDelegates = {
+      undo: () => ui.undoBtn?.click(),
+      redo: () => ui.redoBtn?.click(),
+      duplicate: () => ui.duplicateVectorsBtn?.click(),
+      delete: () => ui.deleteVectorsBtn?.click(),
+      gridSnap: () => ui.cadSnapBtn?.click(),
+      objects: () => ui.objectTreeToggleBtn?.click(),
+    };
+    document.addEventListener("click", (event) => {
+      const target = event.target instanceof HTMLElement ? event.target.closest("[data-menu-delegate]") : null;
+      if (target) {
+        const action = target.dataset.menuDelegate || "";
+        const handler = menuDelegates[action];
+        if (handler) handler();
+        closeAllMenus();
+        return;
+      }
+      // Close menu bar on any menu item click (real buttons handle their own action)
+      if (event.target instanceof HTMLElement && event.target.closest(".menu-dropdown")) {
+        // Don't close immediately — let the button's own handler fire, then close
+        setTimeout(closeAllMenus, 50);
+        return;
+      }
+      // Close if clicking outside menu bar
+      if (openMenu) {
+        const insideMenuBar = event.target instanceof HTMLElement && event.target.closest(".menu-bar");
+        if (!insideMenuBar) closeAllMenus();
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && openMenu) {
+        closeAllMenus();
+      }
+    });
+    // Close draw menu when menu bar opens
+    for (const t of ui.menuTriggers) {
+      t.addEventListener("click", () => {
+        if (ui.drawMenu && !ui.drawMenu.classList.contains("d-none")) {
+          closeDrawMenu();
+        }
+      });
+    }
+  })();
+  document.getElementById("toolbarOpenFileBtn")?.addEventListener("click", openFilePicker);
   ui.browseVectorBtn.addEventListener("click", openFilePicker);
   ui.newEmptyCanvasBtn.addEventListener("click", startNewEmptyCanvas);
   ui.newCanvasBtn.addEventListener("click", startNewEmptyCanvas);
@@ -7809,7 +8007,22 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
   });
   for (const option of ui.operationOptions) {
     option.addEventListener("click", () => {
-      ui.toolpathTypeInput.value = option.dataset.operation;
+      const nextOp = option.dataset.operation;
+      ui.toolpathTypeInput.value = nextOp;
+      if (nextOp === "vcarve" || nextOp === "chamfer") {
+        const slot = getMyEndmillSlot(state.myEndmills.selectedSlot);
+        if (slot && slot.toolType !== "v-bit") {
+          state.draftToolpath = null;
+          refreshVBitHint();
+          refreshOperationUi();
+          refreshToolpathFieldVisibility();
+          refreshToolpathUi();
+          refreshWorkspaceUi();
+          requestDraw();
+          return;
+        }
+      }
+      refreshVBitHint();
       syncSelectedMyEndmillForOperation({ preserve: true });
       refreshOperationUi();
       refreshToolpathFieldVisibility();
@@ -7820,16 +8033,34 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
   }
   ui.myEndmillSelect.addEventListener("change", async () => {
     state.myEndmills.selectedSlot = ui.myEndmillSelect.value ? Number.parseInt(ui.myEndmillSelect.value, 10) : null;
-    applyMyEndmillSlotToInputs(getMyEndmillSlot(state.myEndmills.selectedSlot));
+    refreshVBitHint();
+    const slot = getMyEndmillSlot(state.myEndmills.selectedSlot);
+    if (slot && !isConfiguredMyEndmillSlot(slot)) {
+      showToast("Selected tool slot is missing feed rate, plunge rate, spindle, or pass depth", "warning");
+    }
+    if (slot && ui.toolpathTypeInput.value && (ui.toolpathTypeInput.value === "vcarve" || ui.toolpathTypeInput.value === "chamfer") && slot.toolType !== "v-bit") {
+      state.draftToolpath = null;
+      refreshVBitHint();
+      applyMyEndmillSlotToInputs(slot);
+      renderMyEndmillSummary();
+      refreshToolpathUi();
+      refreshWorkspaceUi();
+      requestDraw();
+      return;
+    }
+    applyMyEndmillSlotToInputs(slot);
     renderMyEndmillSummary();
     await rebuildDraftToolpath();
     refreshToolpathUi();
+    refreshVBitHint();
     draw();
   });
-  ui.editMyEndmillsBtn.addEventListener("click", () => {
+  function openToolLibraryModal() {
     renderMyEndmillsModal();
     getMyEndmillsModalInstance()?.show();
-  });
+  }
+  ui.editMyEndmillsBtn.addEventListener("click", openToolLibraryModal);
+  document.getElementById("settingsToolLibraryBtn")?.addEventListener("click", openToolLibraryModal);
   ui.myEndmillsSlots.addEventListener("change", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
@@ -8431,35 +8662,104 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
     const active = getActiveToolpath();
     clearTabsForToolpath(active);
   });
-  ui.generateGcodeBtn.addEventListener("click", async () => {
+  async function handleGenerateGcode() {
+    if (!state.toolpaths.length) {
+      showToast("Add at least one toolpath before generating G-code.", "warning");
+      return;
+    }
     startWorkerJob("gcode", {
       label: "Preparing G-code",
       percent: 2,
       priority: 2,
     });
     try {
-      const gcode = await CamWorkerClient.buildGcodeInWorker({
-        toolpaths: getRenderableToolpaths(),
-        fileName: state.fileName,
-        forcePolylineArcs: ui.forcePolylineArcsInput.checked,
-        onProgress(progress) {
-          updateWorkerJob("gcode", {
-            label: progress.label || "Preparing G-code",
-            percent: progress.percent ?? 0,
-            priority: 2,
-          });
-        },
-      });
+      const renderable = getRenderableToolpaths();
+      const hasRaster = renderable.some((tp) => tp.operation === "laser-raster" || tp.operation === "wavy-raster");
+      let gcode;
+      if (hasRaster) {
+        // raster needs bitmap imageData which is not transferable to worker — build on main thread
+        // ensure _sourceEntities is set for GCode
+        for (const tp of renderable) {
+          if ((tp.operation === "laser-raster" || tp.operation === "wavy-raster") && !tp._sourceEntities) {
+            tp._sourceEntities = state.entities;
+          }
+        }
+        gcode = CamOps.buildGcode({ toolpaths: renderable, fileName: state.fileName, forcePolylineArcs: ui.forcePolylineArcsInput.checked });
+      } else {
+        gcode = await CamWorkerClient.buildGcodeInWorker({
+          toolpaths: renderable,
+          fileName: state.fileName,
+          forcePolylineArcs: ui.forcePolylineArcsInput.checked,
+          onProgress(progress) {
+            updateWorkerJob("gcode", {
+              label: progress.label || "Preparing G-code",
+              percent: progress.percent ?? 0,
+              priority: 2,
+            });
+          },
+        });
+      }
       const fileName = (state.fileName || "job").replace(/\.dxf$/i, "");
       downloadTextFile(`${fileName}.nc`, gcode);
       showToast(`Generated ${fileName}.nc.`, "success", { duration: 2400 });
     } catch (error) {
+      console.error("[generate GCode] ", error, error?.stack);
       if (error instanceof Error) {
-        showToast(error.message, "danger");
+        showToast(error.message + " — see console for stack", "danger");
       }
     } finally {
       finishWorkerJob("gcode");
     }
+  }
+  ui.generateGcodeBtn.addEventListener("click", handleGenerateGcode);
+  document.getElementById("menuGenerateGcodeBtn")?.addEventListener("click", handleGenerateGcode);
+
+  // Project import / export — full workspace snapshot (geometry + toolpaths + form state)
+  const projectFileInput = document.getElementById("projectFileInput");
+  function exportProject() {
+    if (!state.entities.length && !state.toolpaths.length) {
+      showToast("Nothing to export — import or draw something first.", "warning");
+      return;
+    }
+    const snap = captureHistorySnapshot();
+    const envelope = {
+      kind: "camcanvas.project",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      fileName: state.fileName || "",
+      snapshot: snap,
+    };
+    const rawName = state.fileName || "project";
+    const base = rawName.replace(/\.[^.]+$/, "");
+    downloadTextFile(`${base}.camcanvas.json`, JSON.stringify(envelope, null, 2));
+    showToast(`Exported ${base}.camcanvas.json.`, "success", { duration: 2200 });
+  }
+  async function importProjectFile(file) {
+    if (!file) return;
+    try {
+      const raw = await file.text();
+      const doc = JSON.parse(raw);
+      const snap = doc?.snapshot;
+      if (doc?.kind !== "camcanvas.project" || doc?.version !== 1 || !snap || !Array.isArray(snap.entities)) {
+        showToast("This is not a valid CAMCanvas project file.", "danger");
+        return;
+      }
+      const before = captureHistorySnapshot();
+      state.fileName = doc.fileName || snap.fileName || file.name.replace(/\.camcanvas\.json$/i, "").replace(/\.json$/i, "") || state.fileName;
+      restoreHistorySnapshot(snap);
+      pushHistorySnapshot(before);
+      showToast(`Loaded ${file.name}.`, "success", { duration: 2200 });
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not load project file.", "danger");
+    } finally {
+      if (projectFileInput) projectFileInput.value = "";
+    }
+  }
+  document.getElementById("exportProjectBtn")?.addEventListener("click", exportProject);
+  document.getElementById("importProjectBtn")?.addEventListener("click", () => projectFileInput?.click());
+  projectFileInput?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    await importProjectFile(file);
   });
 
   canvas.addEventListener("wheel", (event) => {

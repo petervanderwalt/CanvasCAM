@@ -27,6 +27,36 @@ export function drawScene({
     if (loop.sourceEntityIndexes?.length && loop.sourceEntityIndexes.every((index) => state.entities[index]?.__treeHidden)) {
       continue;
     }
+    // draw bitmap preview inside its loop bounds
+    if (loop.isBitmap) {
+      const idx = loop.sourceEntityIndexes[0];
+      const ent = state.entities[idx];
+      if (ent?.imageDataUrl) {
+        const img = ent._cachedImage;
+        if (img && img.complete && img.naturalWidth) {
+          const b = loop.bounds;
+          const p1 = worldToScreen({ x: b.minX, y: b.minY });
+          const p2 = worldToScreen({ x: b.maxX, y: b.maxY });
+          const w = p2.x - p1.x;
+          const h = p1.y - p2.y;
+          ctx.save();
+          ctx.globalAlpha = 0.92;
+          // subtle checker for transparency
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(p1.x, p2.y, w, h);
+          ctx.drawImage(img, p1.x, p2.y, w, h);
+          ctx.restore();
+        } else if (ent?.imageDataUrl && !ent._cachedImage) {
+          const img = new Image();
+          img.src = ent.imageDataUrl;
+          ent._cachedImage = img;
+          img.onload = () => {
+            // trigger redraw when loaded
+            if (typeof window !== "undefined" && window.requestAnimationFrame) window.requestAnimationFrame(()=>{});
+          };
+        }
+      }
+    }
     const isSelected = state.selectedLoopIds.has(loop.id);
     const isPreviewed = state.marqueePreviewLoopIds.has(loop.id) && !isSelected;
     const isHovered = state.hoveredLoopId === loop.id && !isSelected && !isPreviewed;
@@ -39,14 +69,14 @@ export function drawScene({
         ? "rgba(13, 110, 253, 0.14)"
         : isPreviewed
           ? "rgba(13, 110, 253, 0.10)"
-        : "rgba(174, 190, 211, 0.025)";
+          : loop.isBitmap ? "rgba(0,0,0,0)" : "rgba(174, 190, 211, 0.025)";
     ctx.strokeStyle = isSelected
       ? "#0d6efd"
       : isHovered
         ? "#3b82f6"
         : isPreviewed
-        ? "#60a5fa"
-        : "#465a70";
+          ? "#60a5fa"
+          : loop.isBitmap ? "rgba(13,110,253,0.55)" : "#465a70";
     ctx.lineWidth = isSelected ? 2.2 : isHovered ? 1.9 : isPreviewed ? 1.8 : 1.35;
     if (isClosed) {
       ctx.fill(loop.path2d);

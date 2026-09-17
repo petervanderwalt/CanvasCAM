@@ -1,4 +1,4 @@
-import * as CamOps from "./cam-ops.js?v=20260730-vcarve8";
+import * as CamOps from "./cam-ops.js?v=20260824-laser-fix1";
 
 let clipperReadyPromise = null;
 
@@ -79,9 +79,11 @@ self.onmessage = async (event) => {
 
     throw new Error(`Unknown CAM worker request: ${type}`);
   } catch (error) {
+    console.error(`[cam-worker] ${error?.message}`, error?.stack);
     self.postMessage({
       id,
       error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : null,
     });
   }
 };
