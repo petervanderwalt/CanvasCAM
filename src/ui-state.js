@@ -191,7 +191,8 @@ export function refreshToolpathUi({
 
   const hasToolpaths = state.toolpaths.length > 0;
   const hasTabEligibleToolpaths = tabEligibleToolpathCount > 0;
-  const canEnterAddTabsMode = hasTabEligibleToolpaths && !state.editingToolpathId && !state.draftToolpath;
+  // A draft for a different operation must not prevent tabbing an already-saved profile.
+  const canEnterAddTabsMode = hasTabEligibleToolpaths && !state.editingToolpathId;
   ui.generateGcodeBtn.disabled = !hasToolpaths;
   ui.generateGcodeBtn.title = hasToolpaths ? "Generate GRBL-compatible G-code" : "Add at least 1 toolpath to export";
   ui.addTabsBtn.disabled = !canEnterAddTabsMode;

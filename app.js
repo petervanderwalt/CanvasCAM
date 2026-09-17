@@ -7339,10 +7339,10 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
   }
 
   async function loadBundledSample() {
-    // Always load from the active host so LAN clients never resolve the sample through localhost.
-    const sampleUrl = new URL("/Hockey%20Sticks%20Cut%201.dxf", window.location.origin);
+    // Resolve from the loaded page so LAN hosts and hosted subpaths stay together.
+    const sampleUrl = new URL("Hockey%20Sticks%20Cut%201.dxf", window.location.href);
     try {
-      const response = await fetch(sampleUrl, { cache: "no-store" });
+      const response = await fetch(sampleUrl, { cache: "reload" });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -8630,7 +8630,7 @@ import { CutPreview3D } from "./src/cut-preview-3d.js?v=20260823-orbitcontrols1"
     draw();
   });
   ui.addTabsBtn.addEventListener("click", () => {
-    if (state.editingToolpathId || state.draftToolpath) {
+    if (state.editingToolpathId) {
       state.addTabsMode = false;
       showToast("Finish or cancel the current toolpath edit before placing tabs.", "info", { duration: 2600 });
       refreshToolpathUi();
